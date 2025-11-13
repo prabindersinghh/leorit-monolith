@@ -37,7 +37,7 @@ const Sidebar = ({ userRole }: SidebarProps) => {
             <span className="text-sidebar-primary-foreground font-bold text-lg">L</span>
           </div>
           <div>
-            <h1 className="text-sidebar-foreground font-bold text-xl">Leorit Bulk</h1>
+            <h1 className="text-sidebar-foreground font-bold text-xl">Leorit.ai</h1>
             <p className="text-sidebar-foreground/60 text-xs capitalize">{userRole}</p>
           </div>
         </div>

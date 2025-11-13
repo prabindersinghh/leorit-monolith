@@ -26,7 +26,7 @@ const Login = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-foreground rounded-2xl mb-6">
             <span className="text-background font-bold text-2xl">L</span>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Leorit Bulk</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Leorit.ai</h1>
           <p className="text-muted-foreground">AI-Powered Custom Apparel Platform</p>
         </div>
 
