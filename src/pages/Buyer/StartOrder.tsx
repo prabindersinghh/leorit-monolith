@@ -6,11 +6,75 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const StartOrder = () => {
   const [step, setStep] = useState(1);
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [productType, setProductType] = useState("");
+  const [designSize, setDesignSize] = useState("A4");
+  const [mockupDescription, setMockupDescription] = useState("");
+  const [csvAnalysis, setCsvAnalysis] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerateMockup = async () => {
+    if (!designFile || !productType) {
+      toast.error("Please select a product type and upload a design");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-mockup', {
+        body: {
+          designPrompt: `Design file: ${designFile.name}`,
+          productType,
+          designSize
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.mockupDescription) {
+        setMockupDescription(data.mockupDescription);
+        toast.success("AI Mockup generated successfully!");
+      }
+    } catch (error) {
+      console.error('Error generating mockup:', error);
+      toast.error("Failed to generate mockup");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleParseCSV = async () => {
+    if (!csvFile) {
+      toast.error("Please upload a CSV file");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const text = await csvFile.text();
+      const { data, error } = await supabase.functions.invoke('parse-csv', {
+        body: { csvContent: text }
+      });
+
+      if (error) throw error;
+
+      if (data?.aiAnalysis) {
+        setCsvAnalysis(data.aiAnalysis);
+        toast.success("CSV parsed and validated successfully!");
+      }
+    } catch (error) {
+      console.error('Error parsing CSV:', error);
+      toast.error("Failed to parse CSV");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -57,7 +121,12 @@ const StartOrder = () => {
                   {["T-Shirts", "Hoodies", "Caps", "Bags", "Jackets", "Custom"].map((product) => (
                     <button
                       key={product}
-                      className="p-6 border border-border rounded-xl hover:border-foreground hover:bg-gray-50 transition-all text-left"
+                      onClick={() => setProductType(product)}
+                      className={`p-6 border rounded-xl transition-all text-left ${
+                        productType === product
+                          ? "border-foreground bg-gray-50"
+                          : "border-border hover:border-foreground hover:bg-gray-50"
+                      }`}
                     >
                       <h3 className="font-semibold text-foreground mb-1">{product}</h3>
                       <p className="text-xs text-muted-foreground">Custom bulk production</p>
@@ -76,6 +145,20 @@ const StartOrder = () => {
                     <span className="text-sm font-medium text-foreground">AI Mockup Ready</span>
                   </div>
                 </div>
+
+                <div>
+                  <Label>Design Size</Label>
+                  <Select value={designSize} onValueChange={setDesignSize}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A2">A2 Size</SelectItem>
+                      <SelectItem value="A3">A3 Size</SelectItem>
+                      <SelectItem value="A4">A4 Size</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 
                 <UploadBox
                   label="Design File"
@@ -85,12 +168,28 @@ const StartOrder = () => {
                 />
 
                 {designFile && (
-                  <div className="p-6 bg-gray-50 rounded-xl border border-border">
-                    <p className="text-sm text-muted-foreground mb-2">AI-Generated Mockup Preview</p>
-                    <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
-                      <span className="text-gray-500">Mockup will appear here</span>
-                    </div>
-                  </div>
+                  <>
+                    <Button 
+                      onClick={handleGenerateMockup} 
+                      disabled={isGenerating}
+                      className="w-full"
+                    >
+                      {isGenerating ? "Generating..." : "Generate AI Mockup"}
+                    </Button>
+
+                    {mockupDescription && (
+                      <div className="p-6 bg-gray-50 rounded-xl border border-border">
+                        <p className="text-sm text-muted-foreground mb-2">AI-Generated Mockup Preview</p>
+                        <div className="prose prose-sm">
+                          <p className="text-foreground whitespace-pre-wrap">{mockupDescription}</p>
+                        </div>
+                        <div className="mt-4 p-4 bg-white rounded border border-border">
+                          <p className="text-xs text-muted-foreground">Product: {productType}</p>
+                          <p className="text-xs text-muted-foreground">Design Size: {designSize}</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -106,15 +205,24 @@ const StartOrder = () => {
                 />
 
                 {csvFile && (
-                  <div className="p-6 bg-gray-50 rounded-xl border border-border">
-                    <h3 className="font-semibold text-foreground mb-3">Validation Results</h3>
-                    <div className="space-y-2 text-sm">
-                      <p className="text-green-600">✓ 500 valid entries</p>
-                      <p className="text-green-600">✓ All sizes valid (S, M, L, XL)</p>
-                      <p className="text-green-600">✓ No duplicate names</p>
-                      <p className="text-muted-foreground">Total Quantity: 500 units</p>
-                    </div>
-                  </div>
+                  <>
+                    <Button 
+                      onClick={handleParseCSV} 
+                      disabled={isGenerating}
+                      className="w-full"
+                    >
+                      {isGenerating ? "Parsing..." : "Parse & Validate CSV"}
+                    </Button>
+
+                    {csvAnalysis && (
+                      <div className="p-6 bg-gray-50 rounded-xl border border-border">
+                        <h3 className="font-semibold text-foreground mb-3">AI Validation Results</h3>
+                        <div className="prose prose-sm max-w-none">
+                          <p className="text-foreground whitespace-pre-wrap">{csvAnalysis}</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

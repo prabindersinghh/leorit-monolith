@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import logo from "@/assets/leorit-logo.png";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -21,9 +22,7 @@ const Signup = () => {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-foreground rounded-2xl mb-6">
-            <span className="text-background font-bold text-2xl">L</span>
-          </div>
+          <img src={logo} alt="Leorit.ai" className="w-20 h-20 object-contain mx-auto mb-6" />
           <h1 className="text-3xl font-bold text-foreground mb-2">Leorit.ai</h1>
           <p className="text-muted-foreground">Create your account</p>
         </div>
