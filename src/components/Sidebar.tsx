@@ -34,7 +34,9 @@ const Sidebar = ({ userRole }: SidebarProps) => {
     <aside className="w-64 bg-sidebar border-r border-sidebar-border h-screen fixed left-0 top-0 flex flex-col">
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <img src={logo} alt="Leorit.ai" className="w-10 h-10 object-contain" />
+          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1.5">
+            <img src={logo} alt="Leorit.ai" className="w-full h-full object-contain" />
+          </div>
           <div>
             <h1 className="text-sidebar-foreground font-bold text-xl">Leorit.ai</h1>
             <p className="text-sidebar-foreground/60 text-xs capitalize">{userRole}</p>
