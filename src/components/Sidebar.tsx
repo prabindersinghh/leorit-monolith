@@ -1,6 +1,7 @@
 import { Home, Package, ClipboardList, Settings, Shield, Users, FileCheck } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { cn } from "@/lib/utils";
+import logo from "@/assets/leorit-logo.png";
 
 interface SidebarProps {
   userRole: "buyer" | "manufacturer" | "admin";
@@ -33,9 +34,7 @@ const Sidebar = ({ userRole }: SidebarProps) => {
     <aside className="w-64 bg-sidebar border-r border-sidebar-border h-screen fixed left-0 top-0 flex flex-col">
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-            <span className="text-sidebar-primary-foreground font-bold text-lg">L</span>
-          </div>
+          <img src={logo} alt="Leorit.ai" className="w-10 h-10 object-contain" />
           <div>
             <h1 className="text-sidebar-foreground font-bold text-xl">Leorit.ai</h1>
             <p className="text-sidebar-foreground/60 text-xs capitalize">{userRole}</p>
