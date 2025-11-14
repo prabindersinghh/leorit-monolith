@@ -13,10 +13,10 @@ serve(async (req) => {
 
   try {
     const { designPrompt, productType, designSize } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY not configured');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
     console.log('Generating mockup for:', { productType, designSize });
@@ -28,34 +28,52 @@ serve(async (req) => {
     Make it look like a professional e-commerce product photo in pure black and white tones only.`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      'https://ai.gateway.lovable.dev/v1/chat/completions',
       {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: fullPrompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
-          }
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an AI assistant that generates detailed descriptions of product mockups for apparel printing.'
+            },
+            {
+              role: 'user',
+              content: fullPrompt
+            }
+          ],
         }),
       }
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error:', errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
+      console.error('Lovable AI error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'AI credits exhausted. Please add credits to your workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      throw new Error(`Lovable AI error: ${response.status}`);
     }
 
     const data = await response.json();
-    const mockupDescription = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+    const mockupDescription = data.choices?.[0]?.message?.content || 
       'Mockup generated successfully. The design will be printed on the selected apparel.';
 
     return new Response(
