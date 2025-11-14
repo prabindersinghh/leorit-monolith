@@ -21,11 +21,13 @@ serve(async (req) => {
 
     console.log('Generating mockup for:', { productType, designSize });
 
-    // Create detailed prompt for apparel mockup
-    const fullPrompt = `Create a professional product mockup of a ${productType} with this design: ${designPrompt}. 
-    The mockup should be in ${designSize} paper size proportion. 
-    Style: Clean, professional product photography, white background, high quality, realistic fabric texture, centered product view.
-    Make it look like a professional e-commerce product photo in pure black and white tones only.`;
+    // Create detailed prompt for apparel mockup image generation
+    const fullPrompt = `Professional product photography mockup of a ${productType} with a custom design print. 
+    The ${productType} should be displayed on a clean white background, centered, high quality studio lighting.
+    The design should be clearly visible on the front of the ${productType}.
+    Design placement follows ${designSize} proportions.
+    Style: Professional e-commerce product photo, minimalist, modern, pure black and white color scheme.
+    The ${productType} should be photorealistic with visible fabric texture.`;
 
     const response = await fetch(
       'https://ai.gateway.lovable.dev/v1/chat/completions',
@@ -36,17 +38,14 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-2.5-flash-image',
           messages: [
-            {
-              role: 'system',
-              content: 'You are an AI assistant that generates detailed descriptions of product mockups for apparel printing.'
-            },
             {
               role: 'user',
               content: fullPrompt
             }
           ],
+          modalities: ['image', 'text']
         }),
       }
     );
@@ -73,12 +72,26 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const mockupDescription = data.choices?.[0]?.message?.content || 
-      'Mockup generated successfully. The design will be printed on the selected apparel.';
+    
+    // Extract the generated image
+    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const textDescription = data.choices?.[0]?.message?.content || 'Mockup generated successfully';
+
+    if (!imageUrl) {
+      console.error('No image generated:', data);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to generate mockup image. Please try again.',
+          mockupDescription: textDescription
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ 
-        mockupDescription,
+        mockupImage: imageUrl,
+        mockupDescription: textDescription,
         success: true,
         productType,
         designSize

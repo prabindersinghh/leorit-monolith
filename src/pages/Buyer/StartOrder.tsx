@@ -16,8 +16,10 @@ const StartOrder = () => {
   const [productType, setProductType] = useState("");
   const [designSize, setDesignSize] = useState("A4");
   const [mockupDescription, setMockupDescription] = useState("");
+  const [mockupImage, setMockupImage] = useState("");
   const [csvAnalysis, setCsvAnalysis] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [rotation, setRotation] = useState(0);
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
@@ -37,9 +39,15 @@ const StartOrder = () => {
 
       if (error) throw error;
 
-      if (data?.mockupDescription) {
+      if (data?.mockupImage) {
+        setMockupImage(data.mockupImage);
+        setMockupDescription(data.mockupDescription || '');
+        toast.success("AI Mockup image generated successfully!");
+      } else if (data?.mockupDescription) {
         setMockupDescription(data.mockupDescription);
         toast.success("AI Mockup generated successfully!");
+      } else {
+        toast.error(data?.error || "Failed to generate mockup");
       }
     } catch (error) {
       console.error('Error generating mockup:', error);
@@ -177,7 +185,57 @@ const StartOrder = () => {
                       {isGenerating ? "Generating..." : "Generate AI Mockup"}
                     </Button>
 
-                    {mockupDescription && (
+                    {mockupImage && (
+                      <div className="p-6 bg-gray-50 rounded-xl border border-border">
+                        <p className="text-sm font-semibold text-foreground mb-4">AI-Generated Mockup Preview</p>
+                        
+                        <div className="relative bg-white rounded-lg p-8 border border-border mb-4">
+                          <img 
+                            src={mockupImage} 
+                            alt="AI Generated Mockup" 
+                            className="w-full h-auto rounded-lg shadow-lg transition-transform duration-300"
+                            style={{ transform: `rotate(${rotation}deg)` }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-center gap-4 mb-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRotation(r => r - 15)}
+                            className="flex items-center gap-2"
+                          >
+                            ← Rotate Left
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRotation(0)}
+                            className="flex items-center gap-2"
+                          >
+                            Reset
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRotation(r => r + 15)}
+                            className="flex items-center gap-2"
+                          >
+                            Rotate Right →
+                          </Button>
+                        </div>
+
+                        <div className="p-4 bg-white rounded border border-border">
+                          <p className="text-xs text-muted-foreground mb-1">Product: {productType}</p>
+                          <p className="text-xs text-muted-foreground mb-1">Design Size: {designSize}</p>
+                          {mockupDescription && (
+                            <p className="text-xs text-foreground mt-2">{mockupDescription}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {!mockupImage && mockupDescription && (
                       <div className="p-6 bg-gray-50 rounded-xl border border-border">
                         <p className="text-sm text-muted-foreground mb-2">AI-Generated Mockup Preview</p>
                         <div className="prose prose-sm">
