@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import UploadBox from "@/components/UploadBox";
+import MockupViewer3D from "@/components/MockupViewer3D";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,26 +13,37 @@ import { toast } from "sonner";
 const StartOrder = () => {
   const [step, setStep] = useState(1);
   const [designFile, setDesignFile] = useState<File | null>(null);
+  const [backDesignFile, setBackDesignFile] = useState<File | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [productType, setProductType] = useState("");
   const [designSize, setDesignSize] = useState("A4");
   const [mockupDescription, setMockupDescription] = useState("");
   const [mockupImage, setMockupImage] = useState("");
+  const [backMockupImage, setBackMockupImage] = useState("");
   const [csvAnalysis, setCsvAnalysis] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [rotation, setRotation] = useState(0);
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
-      toast.error("Please select a product type and upload a design");
+      toast.error("Please select a product type and upload a front design");
       return;
     }
 
     setIsGenerating(true);
     try {
+      // Convert front design to base64
+      const frontDesignBase64 = await fileToBase64(designFile);
+      
+      // Convert back design to base64 if exists
+      let backDesignBase64 = undefined;
+      if (backDesignFile) {
+        backDesignBase64 = await fileToBase64(backDesignFile);
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-mockup', {
         body: {
-          designPrompt: `Design file: ${designFile.name}`,
+          frontDesignImage: frontDesignBase64,
+          backDesignImage: backDesignBase64,
           productType,
           designSize
         }
@@ -42,9 +54,9 @@ const StartOrder = () => {
       if (data?.mockupImage) {
         setMockupImage(data.mockupImage);
         setMockupDescription(data.mockupDescription || '');
-        toast.success("AI Mockup image generated successfully!");
-      } else if (data?.mockupDescription) {
-        setMockupDescription(data.mockupDescription);
+        if (data.backMockupImage) {
+          setBackMockupImage(data.backMockupImage);
+        }
         toast.success("AI Mockup generated successfully!");
       } else {
         toast.error(data?.error || "Failed to generate mockup");
@@ -55,6 +67,15 @@ const StartOrder = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
   };
 
   const handleParseCSV = async () => {
@@ -169,10 +190,17 @@ const StartOrder = () => {
                 </div>
                 
                 <UploadBox
-                  label="Design File"
+                  label="Front Design (Required)"
                   description="PNG, JPG, SVG up to 10MB"
                   accept="image/*"
                   onFileSelect={setDesignFile}
+                />
+
+                <UploadBox
+                  label="Back Design (Optional)"
+                  description="Add a design for the back of the apparel - PNG, JPG, SVG up to 10MB"
+                  accept="image/*"
+                  onFileSelect={setBackDesignFile}
                 />
 
                 {designFile && (
@@ -182,52 +210,25 @@ const StartOrder = () => {
                       disabled={isGenerating}
                       className="w-full"
                     >
-                      {isGenerating ? "Generating..." : "Generate AI Mockup"}
+                      {isGenerating ? "Generating 3D Mockup..." : "Generate 3D Mockup Preview"}
                     </Button>
 
                     {mockupImage && (
-                      <div className="p-6 bg-gray-50 rounded-xl border border-border">
-                        <p className="text-sm font-semibold text-foreground mb-4">AI-Generated Mockup Preview</p>
+                      <div className="p-6 bg-gray-50 rounded-xl border border-border space-y-4">
+                        <p className="text-sm font-semibold text-foreground">AI-Generated 3D Mockup Preview</p>
                         
-                        <div className="relative bg-white rounded-lg p-8 border border-border mb-4">
-                          <img 
-                            src={mockupImage} 
-                            alt="AI Generated Mockup" 
-                            className="w-full h-auto rounded-lg shadow-lg transition-transform duration-300"
-                            style={{ transform: `rotate(${rotation}deg)` }}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-center gap-4 mb-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setRotation(r => r - 15)}
-                            className="flex items-center gap-2"
-                          >
-                            ← Rotate Left
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setRotation(0)}
-                            className="flex items-center gap-2"
-                          >
-                            Reset
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setRotation(r => r + 15)}
-                            className="flex items-center gap-2"
-                          >
-                            Rotate Right →
-                          </Button>
-                        </div>
+                        <MockupViewer3D 
+                          frontDesign={mockupImage}
+                          backDesign={backMockupImage || undefined}
+                          productType={productType}
+                        />
 
                         <div className="p-4 bg-white rounded border border-border">
                           <p className="text-xs text-muted-foreground mb-1">Product: {productType}</p>
                           <p className="text-xs text-muted-foreground mb-1">Design Size: {designSize}</p>
+                          <p className="text-xs text-muted-foreground mb-1">
+                            Back Design: {backDesignFile ? "Included" : "Not included"}
+                          </p>
                           {mockupDescription && (
                             <p className="text-xs text-foreground mt-2">{mockupDescription}</p>
                           )}
@@ -237,14 +238,8 @@ const StartOrder = () => {
 
                     {!mockupImage && mockupDescription && (
                       <div className="p-6 bg-gray-50 rounded-xl border border-border">
-                        <p className="text-sm text-muted-foreground mb-2">AI-Generated Mockup Preview</p>
-                        <div className="prose prose-sm">
-                          <p className="text-foreground whitespace-pre-wrap">{mockupDescription}</p>
-                        </div>
-                        <div className="mt-4 p-4 bg-white rounded border border-border">
-                          <p className="text-xs text-muted-foreground">Product: {productType}</p>
-                          <p className="text-xs text-muted-foreground">Design Size: {designSize}</p>
-                        </div>
+                        <p className="text-sm font-semibold text-foreground mb-2">AI Mockup Description</p>
+                        <p className="text-sm text-muted-foreground">{mockupDescription}</p>
                       </div>
                     )}
                   </>

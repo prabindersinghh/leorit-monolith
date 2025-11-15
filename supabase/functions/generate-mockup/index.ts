@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // Validation schemas
-const VALID_PRODUCT_TYPES = ['t-shirt', 'hoodie', 'polo', 'jacket', 'sweatshirt'];
+const VALID_PRODUCT_TYPES = ['t-shirt', 't-shirts', 'hoodie', 'hoodies', 'polo', 'jacket', 'jackets', 'sweatshirt', 'caps', 'bags', 'custom'];
 const VALID_DESIGN_SIZES = ['A2', 'A3', 'A4', 'small', 'medium', 'large'];
 
 serve(async (req) => {
@@ -40,9 +40,16 @@ serve(async (req) => {
       );
     }
 
-    const { designPrompt, productType, designSize } = await req.json();
+    const { frontDesignImage, backDesignImage, productType, designSize } = await req.json();
 
     // Input validation
+    if (!frontDesignImage || typeof frontDesignImage !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Front design image is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!productType || typeof productType !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Invalid productType parameter' }),
@@ -82,15 +89,15 @@ serve(async (req) => {
 
     console.log('Generating mockup for user:', user.id, { productType: sanitizedProductType, designSize: sanitizedDesignSize });
 
-    // Create detailed prompt for apparel mockup image generation
-    const fullPrompt = `Professional product photography mockup of a ${sanitizedProductType} with a custom design print.
+    // Generate front mockup using the uploaded design
+    const frontPrompt = `Apply this design to the front of a ${sanitizedProductType}. 
+    Create a professional product mockup with the design placed on the ${sanitizedProductType}.
     The ${sanitizedProductType} should be displayed on a clean white background, centered, high quality studio lighting.
-    The design should be clearly visible on the front of the ${sanitizedProductType}.
     Design placement follows ${sanitizedDesignSize} proportions.
-    Style: Professional e-commerce product photo, minimalist, modern, pure black and white color scheme.
+    Style: Professional e-commerce product photo, minimalist, modern.
     The ${sanitizedProductType} should be photorealistic with visible fabric texture.`;
 
-    const response = await fetch(
+    const frontResponse = await fetch(
       'https://ai.gateway.lovable.dev/v1/chat/completions',
       {
         method: 'POST',
@@ -99,11 +106,14 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image',
+          model: 'google/gemini-2.5-flash-image-preview',
           messages: [
             {
               role: 'user',
-              content: fullPrompt
+              content: [
+                { type: 'text', text: frontPrompt },
+                { type: 'image_url', image_url: { url: frontDesignImage } }
+              ]
             }
           ],
           modalities: ['image', 'text']
@@ -111,47 +121,87 @@ serve(async (req) => {
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
+    if (!frontResponse.ok) {
+      const errorText = await frontResponse.text();
+      console.error('Lovable AI error:', frontResponse.status, errorText);
       
-      if (response.status === 429) {
+      if (frontResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      if (response.status === 402) {
+      if (frontResponse.status === 402) {
         return new Response(
           JSON.stringify({ error: 'AI credits exhausted. Please add credits to your workspace.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      throw new Error(`Lovable AI error: ${response.status}`);
+      throw new Error(`Lovable AI error: ${frontResponse.status}`);
     }
 
-    const data = await response.json();
+    const frontData = await frontResponse.json();
     
-    // Extract the generated image
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const textDescription = data.choices?.[0]?.message?.content || 'Mockup generated successfully';
+    // Extract the generated front image
+    const frontImageUrl = frontData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const textDescription = frontData.choices?.[0]?.message?.content || 'Mockup generated successfully';
 
-    if (!imageUrl) {
-      console.error('No image generated:', data);
+    if (!frontImageUrl) {
+      console.error('No front image generated:', frontData);
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to generate mockup image. Please try again.',
+          error: 'Failed to generate front mockup image. Please try again.',
           mockupDescription: textDescription
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Generate back mockup if back design is provided
+    let backImageUrl = null;
+    if (backDesignImage) {
+      const backPrompt = `Apply this design to the back of a ${sanitizedProductType}. 
+      Create a professional product mockup showing the back view with the design placed on it.
+      The ${sanitizedProductType} should be displayed on a clean white background, centered, high quality studio lighting.
+      Design placement follows ${sanitizedDesignSize} proportions.
+      Style: Professional e-commerce product photo, minimalist, modern.`;
+
+      const backResponse = await fetch(
+        'https://ai.gateway.lovable.dev/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-image-preview',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: backPrompt },
+                  { type: 'image_url', image_url: { url: backDesignImage } }
+                ]
+              }
+            ],
+            modalities: ['image', 'text']
+          }),
+        }
+      );
+
+      if (backResponse.ok) {
+        const backData = await backResponse.json();
+        backImageUrl = backData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
-        mockupImage: imageUrl,
+        mockupImage: frontImageUrl,
+        backMockupImage: backImageUrl,
         mockupDescription: textDescription,
         success: true,
         productType: sanitizedProductType,
