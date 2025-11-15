@@ -3,21 +3,50 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import logo from "@/assets/leorit-logo.png";
 
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"buyer" | "manufacturer" | "admin">("buyer");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement actual authentication with Lovable Cloud
-    // For now, just navigate based on role
-    if (role === "buyer") navigate("/buyer/dashboard");
-    else if (role === "manufacturer") navigate("/manufacturer/dashboard");
-    else navigate("/admin/dashboard");
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Get user role
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+
+        const userRole = roleData?.role || 'buyer';
+        
+        toast.success("Login successful!");
+        
+        // Navigate based on role
+        if (userRole === "buyer") navigate("/buyer/dashboard");
+        else if (userRole === "manufacturer") navigate("/manufacturer/dashboard");
+        else if (userRole === "admin") navigate("/admin/dashboard");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,28 +88,8 @@ const Login = () => {
               />
             </div>
 
-            <div>
-              <Label className="text-foreground mb-2 block">Login as</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["buyer", "manufacturer", "admin"] as const).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    className={`px-4 py-2 rounded-lg border transition-all capitalize text-sm font-medium ${
-                      role === r
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-background text-foreground border-border hover:border-gray-400"
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full bg-foreground text-background hover:bg-gray-800">
-              Sign In
+            <Button type="submit" className="w-full bg-foreground text-background hover:bg-gray-800" disabled={loading}>
+              {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
 

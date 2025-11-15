@@ -1,10 +1,15 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Validation schemas
+const VALID_PRODUCT_TYPES = ['t-shirt', 'hoodie', 'polo', 'jacket', 'sweatshirt'];
+const VALID_DESIGN_SIZES = ['A2', 'A3', 'A4', 'small', 'medium', 'large'];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,22 +17,78 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { designPrompt, productType, designSize } = await req.json();
+
+    // Input validation
+    if (!productType || typeof productType !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid productType parameter' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!VALID_PRODUCT_TYPES.includes(productType.toLowerCase())) {
+      return new Response(
+        JSON.stringify({ error: `Invalid productType. Must be one of: ${VALID_PRODUCT_TYPES.join(', ')}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!designSize || typeof designSize !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid designSize parameter' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!VALID_DESIGN_SIZES.includes(designSize)) {
+      return new Response(
+        JSON.stringify({ error: `Invalid designSize. Must be one of: ${VALID_DESIGN_SIZES.join(', ')}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Sanitize inputs
+    const sanitizedProductType = productType.toLowerCase().trim();
+    const sanitizedDesignSize = designSize.trim();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Generating mockup for:', { productType, designSize });
+    console.log('Generating mockup for user:', user.id, { productType: sanitizedProductType, designSize: sanitizedDesignSize });
 
     // Create detailed prompt for apparel mockup image generation
-    const fullPrompt = `Professional product photography mockup of a ${productType} with a custom design print. 
-    The ${productType} should be displayed on a clean white background, centered, high quality studio lighting.
-    The design should be clearly visible on the front of the ${productType}.
-    Design placement follows ${designSize} proportions.
+    const fullPrompt = `Professional product photography mockup of a ${sanitizedProductType} with a custom design print.
+    The ${sanitizedProductType} should be displayed on a clean white background, centered, high quality studio lighting.
+    The design should be clearly visible on the front of the ${sanitizedProductType}.
+    Design placement follows ${sanitizedDesignSize} proportions.
     Style: Professional e-commerce product photo, minimalist, modern, pure black and white color scheme.
-    The ${productType} should be photorealistic with visible fabric texture.`;
+    The ${sanitizedProductType} should be photorealistic with visible fabric texture.`;
 
     const response = await fetch(
       'https://ai.gateway.lovable.dev/v1/chat/completions',
@@ -93,8 +154,8 @@ serve(async (req) => {
         mockupImage: imageUrl,
         mockupDescription: textDescription,
         success: true,
-        productType,
-        designSize
+        productType: sanitizedProductType,
+        designSize: sanitizedDesignSize
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

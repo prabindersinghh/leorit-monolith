@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Auth
 import Login from "./pages/Auth/Login";
@@ -40,20 +41,60 @@ const App = () => (
           <Route path="/signup" element={<Signup />} />
 
           {/* Buyer Routes */}
-          <Route path="/buyer/dashboard" element={<DashboardHome />} />
-          <Route path="/buyer/start-order" element={<StartOrder />} />
-          <Route path="/buyer/orders" element={<OrderTracking />} />
-          <Route path="/buyer/profile" element={<BuyerProfile />} />
+          <Route path="/buyer/dashboard" element={
+            <ProtectedRoute allowedRoles={['buyer']}>
+              <DashboardHome />
+            </ProtectedRoute>
+          } />
+          <Route path="/buyer/start-order" element={
+            <ProtectedRoute allowedRoles={['buyer']}>
+              <StartOrder />
+            </ProtectedRoute>
+          } />
+          <Route path="/buyer/orders" element={
+            <ProtectedRoute allowedRoles={['buyer']}>
+              <OrderTracking />
+            </ProtectedRoute>
+          } />
+          <Route path="/buyer/profile" element={
+            <ProtectedRoute allowedRoles={['buyer']}>
+              <BuyerProfile />
+            </ProtectedRoute>
+          } />
 
           {/* Manufacturer Routes */}
-          <Route path="/manufacturer/dashboard" element={<ManufacturerDashboard />} />
-          <Route path="/manufacturer/orders" element={<ManufacturerOrders />} />
-          <Route path="/manufacturer/qc" element={<UploadQCProof />} />
+          <Route path="/manufacturer/dashboard" element={
+            <ProtectedRoute allowedRoles={['manufacturer']}>
+              <ManufacturerDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/manufacturer/orders" element={
+            <ProtectedRoute allowedRoles={['manufacturer']}>
+              <ManufacturerOrders />
+            </ProtectedRoute>
+          } />
+          <Route path="/manufacturer/qc" element={
+            <ProtectedRoute allowedRoles={['manufacturer']}>
+              <UploadQCProof />
+            </ProtectedRoute>
+          } />
 
           {/* Admin Routes */}
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/verification" element={<VerificationPanel />} />
-          <Route path="/admin/disputes" element={<DisputeCenter />} />
+          <Route path="/admin/dashboard" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/verification" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <VerificationPanel />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/disputes" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <DisputeCenter />
+            </ProtectedRoute>
+          } />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
