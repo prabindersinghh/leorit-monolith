@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import logo from "@/assets/leorit-logo.png";
 
 const Signup = () => {
@@ -11,11 +13,34 @@ const Signup = () => {
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [role, setRole] = useState<"buyer" | "manufacturer">("buyer");
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement actual signup with Lovable Cloud
-    navigate("/login");
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            company_name: companyName,
+            role: role,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success("Account created successfully! You can now sign in.");
+      navigate("/login");
+    } catch (error: any) {
+      toast.error(error.message || "Signup failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,11 +112,12 @@ const Signup = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 bg-background border-border"
                 required
+                minLength={6}
               />
             </div>
 
-            <Button type="submit" className="w-full bg-foreground text-background hover:bg-gray-800">
-              Create Account
+            <Button type="submit" className="w-full bg-foreground text-background hover:bg-gray-800" disabled={loading}>
+              {loading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
 
