@@ -3,11 +3,12 @@ import Sidebar from "@/components/Sidebar";
 import UploadBox from "@/components/UploadBox";
 import MockupViewer3D from "@/components/MockupViewer3D";
 import DesignEditor from "@/components/DesignEditor";
+import NameCustomizer, { NameSettings } from "@/components/NameCustomizer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Sparkles, Download, Edit, Link2 } from "lucide-react";
+import { ArrowRight, Sparkles, Download, Edit, Link2, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -26,6 +27,9 @@ const StartOrder = () => {
   const [canvaLink, setCanvaLink] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [showDesignEditor, setShowDesignEditor] = useState(false);
+  const [enableNamePersonalization, setEnableNamePersonalization] = useState(false);
+  const [showNameCustomizer, setShowNameCustomizer] = useState(false);
+  const [nameSettings, setNameSettings] = useState<NameSettings | null>(null);
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
@@ -149,6 +153,11 @@ const StartOrder = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleSaveNameSettings = (settings: NameSettings) => {
+    setNameSettings(settings);
+    toast.success("Name personalization enabled!");
   };
 
   const downloadCsvTemplate = () => {
@@ -399,6 +408,44 @@ const StartOrder = () => {
                             </p>
                           </div>
                         )}
+
+                        {/* Name Personalization Option */}
+                        <div className="bg-muted/50 rounded-lg p-4 space-y-3 mt-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label className="text-base font-semibold">Add Personalized Names</Label>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Print individual names from CSV on each design
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={enableNamePersonalization}
+                                onChange={(e) => setEnableNamePersonalization(e.target.checked)}
+                                className="w-5 h-5 rounded border-border"
+                              />
+                            </div>
+                          </div>
+
+                          {enableNamePersonalization && (
+                            <div className="pt-2">
+                              <Button 
+                                onClick={() => setShowNameCustomizer(true)} 
+                                variant="outline"
+                                className="w-full"
+                              >
+                                <Type className="w-4 h-4 mr-2" />
+                                Customize Name Placement
+                              </Button>
+                              {nameSettings && (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  ✓ Names from "{nameSettings.nameColumn}" column will be added
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </>
@@ -495,6 +542,19 @@ const StartOrder = () => {
             console.log("Design settings saved:", settings);
             toast.success("Design positioning saved!");
           }}
+        />
+      )}
+
+      {showNameCustomizer && csvAnalysis && designFile && (
+        <NameCustomizer
+          csvColumns={csvAnalysis.split('\n')
+            .find(line => line.includes('Columns:'))
+            ?.split('Columns:')[1]
+            ?.split(',')
+            .map(col => col.trim()) || ['name', 'size', 'quantity']}
+          designPreview={URL.createObjectURL(designFile)}
+          onClose={() => setShowNameCustomizer(false)}
+          onSave={handleSaveNameSettings}
         />
       )}
     </div>
