@@ -29,6 +29,31 @@ const StartOrder = () => {
       return;
     }
 
+    // Validate file type and size
+    const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
+    const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+
+    if (!ALLOWED_IMAGE_TYPES.includes(designFile.type)) {
+      toast.error("Front design must be PNG or JPEG format");
+      return;
+    }
+
+    if (designFile.size > MAX_IMAGE_SIZE) {
+      toast.error("Front design must be less than 10MB");
+      return;
+    }
+
+    if (backDesignFile) {
+      if (!ALLOWED_IMAGE_TYPES.includes(backDesignFile.type)) {
+        toast.error("Back design must be PNG or JPEG format");
+        return;
+      }
+      if (backDesignFile.size > MAX_IMAGE_SIZE) {
+        toast.error("Back design must be less than 10MB");
+        return;
+      }
+    }
+
     setIsGenerating(true);
     try {
       // Convert front design to base64
@@ -81,6 +106,20 @@ const StartOrder = () => {
   const handleParseCSV = async () => {
     if (!csvFile) {
       toast.error("Please upload a CSV file");
+      return;
+    }
+
+    // Validate CSV file type and size
+    const ALLOWED_CSV_TYPES = ['text/csv', 'application/vnd.ms-excel', 'text/plain'];
+    const MAX_CSV_SIZE = 1 * 1024 * 1024; // 1MB
+
+    if (!ALLOWED_CSV_TYPES.includes(csvFile.type) && !csvFile.name.endsWith('.csv')) {
+      toast.error("Please upload a valid CSV file");
+      return;
+    }
+
+    if (csvFile.size > MAX_CSV_SIZE) {
+      toast.error("CSV file must be less than 1MB");
       return;
     }
 

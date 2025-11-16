@@ -2,12 +2,27 @@ import { Home, Package, ClipboardList, Settings, Shield, Users, FileCheck } from
 import { NavLink } from "./NavLink";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/leorit-logo.png";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface SidebarProps {
   userRole: "buyer" | "manufacturer" | "admin";
 }
 
 const Sidebar = ({ userRole }: SidebarProps) => {
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate('/login');
+    } catch (error) {
+      toast.error("Failed to sign out");
+    }
+  };
+
   const buyerLinks = [
     { to: "/buyer/dashboard", icon: Home, label: "Dashboard" },
     { to: "/buyer/start-order", icon: Package, label: "Start Order" },
@@ -59,7 +74,10 @@ const Sidebar = ({ userRole }: SidebarProps) => {
       </nav>
 
       <div className="p-4 border-t border-sidebar-border">
-        <button className="w-full px-4 py-3 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-lg transition-all text-left">
+        <button 
+          onClick={handleSignOut}
+          className="w-full px-4 py-3 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-lg transition-all text-left"
+        >
           Sign Out
         </button>
       </div>
