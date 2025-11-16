@@ -1,9 +1,13 @@
 import Sidebar from "@/components/Sidebar";
 import DataTable from "@/components/DataTable";
+import SampleQCReview from "@/components/SampleQCReview";
 import { Button } from "@/components/ui/button";
 import { Eye, Download } from "lucide-react";
+import { useState } from "react";
 
 const OrderTracking = () => {
+  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+
   const orders = [
     {
       id: "ORD-001",
@@ -49,9 +53,13 @@ const OrderTracking = () => {
     {
       header: "Actions",
       accessor: "id",
-      cell: () => (
+      cell: (value: string) => (
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setSelectedOrder(value)}
+          >
             <Eye className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="sm">
@@ -73,9 +81,21 @@ const OrderTracking = () => {
             <p className="text-muted-foreground">Monitor all your bulk orders and samples</p>
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-6">
+          <div className="bg-card border border-border rounded-xl p-6 mb-6">
             <DataTable columns={columns} data={orders} />
           </div>
+
+          {/* Sample QC Section */}
+          {selectedOrder && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Sample QC Review</h2>
+              <SampleQCReview 
+                orderId={selectedOrder}
+                videoUrl={selectedOrder === "ORD-001" ? "mock-video-url" : undefined}
+                status="pending"
+              />
+            </div>
+          )}
         </div>
       </main>
     </div>
