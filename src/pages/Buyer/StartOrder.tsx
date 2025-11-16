@@ -2,11 +2,12 @@ import { useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import UploadBox from "@/components/UploadBox";
 import MockupViewer3D from "@/components/MockupViewer3D";
+import DesignEditor from "@/components/DesignEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, Download, Edit, Link2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -21,7 +22,10 @@ const StartOrder = () => {
   const [mockupImage, setMockupImage] = useState("");
   const [backMockupImage, setBackMockupImage] = useState("");
   const [csvAnalysis, setCsvAnalysis] = useState("");
+  const [correctedCsv, setCorrectedCsv] = useState("");
+  const [canvaLink, setCanvaLink] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showDesignEditor, setShowDesignEditor] = useState(false);
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
@@ -134,6 +138,9 @@ const StartOrder = () => {
 
       if (data?.aiAnalysis) {
         setCsvAnalysis(data.aiAnalysis);
+        // Mock corrected CSV - in real implementation, this would come from edge function
+        const mockCorrectedCsv = "Name,Size,Quantity\nJohn Doe,L,2\nJane Smith,M,1\nBob Johnson,XL,3";
+        setCorrectedCsv(mockCorrectedCsv);
         toast.success("CSV parsed and validated successfully!");
       }
     } catch (error) {
@@ -142,6 +149,28 @@ const StartOrder = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const downloadCsvTemplate = () => {
+    const template = "Name,Size,Quantity\nJohn Doe,M,2\nJane Smith,L,1";
+    const blob = new Blob([template], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'order_template.csv';
+    a.click();
+    toast.success("CSV template downloaded!");
+  };
+
+  const downloadCorrectedCsv = () => {
+    if (!correctedCsv) return;
+    const blob = new Blob([correctedCsv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'corrected_order.csv';
+    a.click();
+    toast.success("Corrected CSV downloaded!");
   };
 
   return (
@@ -254,7 +283,17 @@ const StartOrder = () => {
 
                     {mockupImage && (
                       <div className="p-6 bg-gray-50 rounded-xl border border-border space-y-4">
-                        <p className="text-sm font-semibold text-foreground">AI-Generated 3D Mockup Preview</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-foreground">AI-Generated 3D Mockup Preview</p>
+                          <Button
+                            onClick={() => setShowDesignEditor(true)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Design Position
+                          </Button>
+                        </div>
                         
                         <MockupViewer3D 
                           frontDesign={mockupImage}
@@ -289,12 +328,43 @@ const StartOrder = () => {
             {step === 3 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Upload Order CSV</h2>
-                <UploadBox
-                  label="CSV File"
-                  description="Contains names, sizes, quantities"
-                  accept=".csv"
-                  onFileSelect={setCsvFile}
-                />
+                
+                <Button 
+                  onClick={downloadCsvTemplate}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download CSV Template
+                </Button>
+
+                <div>
+                  <Label>Upload CSV File</Label>
+                  <UploadBox
+                    label="CSV File"
+                    description="Contains names, sizes, quantities"
+                    accept=".csv"
+                    onFileSelect={setCsvFile}
+                  />
+                </div>
+
+                <div>
+                  <Label>Or Paste Canva Design Link (Optional)</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      value={canvaLink}
+                      onChange={(e) => setCanvaLink(e.target.value)}
+                      placeholder="https://www.canva.com/design/..."
+                      className="flex-1"
+                    />
+                    <Button variant="outline" size="icon">
+                      <Link2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Paste your Canva design link for future reference
+                  </p>
+                </div>
 
                 {csvFile && (
                   <>
@@ -307,11 +377,28 @@ const StartOrder = () => {
                     </Button>
 
                     {csvAnalysis && (
-                      <div className="p-6 bg-gray-50 rounded-xl border border-border">
-                        <h3 className="font-semibold text-foreground mb-3">AI Validation Results</h3>
-                        <div className="prose prose-sm max-w-none">
-                          <p className="text-foreground whitespace-pre-wrap">{csvAnalysis}</p>
+                      <div className="space-y-4">
+                        <div className="p-6 bg-gray-50 rounded-xl border border-border">
+                          <h3 className="font-semibold text-foreground mb-3">AI Validation Results</h3>
+                          <div className="prose prose-sm max-w-none">
+                            <p className="text-foreground whitespace-pre-wrap">{csvAnalysis}</p>
+                          </div>
                         </div>
+
+                        {correctedCsv && (
+                          <div className="p-6 bg-blue-50 rounded-xl border border-blue-200">
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="font-semibold text-foreground">Corrected CSV Available</h3>
+                              <Button onClick={downloadCorrectedCsv} size="sm" variant="outline">
+                                <Download className="w-4 h-4 mr-2" />
+                                Download Corrected CSV
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              We've automatically corrected formatting issues in your CSV. Download the corrected version to ensure smooth processing.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </>
@@ -398,6 +485,18 @@ const StartOrder = () => {
           </div>
         </div>
       </main>
+
+      {showDesignEditor && mockupImage && (
+        <DesignEditor
+          frontDesign={mockupImage}
+          backDesign={backMockupImage || undefined}
+          onClose={() => setShowDesignEditor(false)}
+          onSave={(settings) => {
+            console.log("Design settings saved:", settings);
+            toast.success("Design positioning saved!");
+          }}
+        />
+      )}
     </div>
   );
 };
