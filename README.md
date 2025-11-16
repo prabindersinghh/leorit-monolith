@@ -1,73 +1,143 @@
-# Welcome to your Lovable project
+Leorit.ai — Monolith Repository
+AI-powered, sample-first manufacturing workflow for bulk apparel
 
-## Project info
+This repository contains the monolithic codebase for Leorit.ai, a B2B platform that centralizes custom apparel manufacturing with:
 
-**URL**: https://lovable.dev/projects/af1fc5c1-f4dd-45bf-bb65-734641e5dc78
+AI-generated product mockups
 
-## How can I edit this code?
+CSV parsing, validation & correction
 
-There are several ways of editing your application.
+3D interactive design previews
 
-**Use Lovable**
+Role-based dashboards for buyers & manufacturers
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/af1fc5c1-f4dd-45bf-bb65-734641e5dc78) and start prompting.
+Sample-first order workflow
 
-Changes made via Lovable will be committed automatically to this repo.
+QC (video/image) review & approval
 
-**Use your preferred IDE**
+Supabase authentication with RLS security
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Edge functions for server-side logic
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Project Structure:
 
-Follow these steps:
+This monolithic repo includes:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Frontend
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+React.js
 
-# Step 3: Install the necessary dependencies.
-npm i
+Tailwind CSS
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3D model rendering (basic interactive viewer)
+
+Buyer dashboard
+
+Manufacturer dashboard
+
+Design editor (repositioning, layering, personalization)
+
+Backend / API
+
+FastAPI (Python) for business logic
+
+Node.js (TypeScript) for mockup generation + utilities
+
+Groq API for reasoning flows
+
+Stable Diffusion for mockup generation
+
+CSV parsing & AI-based correction pipeline
+
+QC video validation endpoints
+
+Authentication & Security
+
+Supabase auth
+
+Role-based access (buyer / manufacturer / admin)
+
+RLS policies for DB tables
+
+Server-side input validation
+
+JWT-protected edge functions
+
+Key Features:
+AI + Design Workflow
+
+Upload front/back design files
+Auto-generate mockups (basic SD integration)
+3D preview of garment
+Upload CSV → AI auto-corrects errors
+Personalization module (names, positions, colors, rotation)
+Sample-First Manufacturing Flow
+Buyer requests sample → manufacturer receives request
+Manufacturer uploads QC video (approve / reject / raise concern)
+Flow prepared for escrow milestone logic
+Manufacturer Tools
+Dashboard for incoming orders
+QC uploads
+
+Status updates
+
+Current Development Status
+
+This repo currently powers:
+
+ Working design upload
+ Working 3D preview (basic)
+ Basic AI mockup generation
+ CSV upload + AI correction
+ Personalization panel with live preview
+ QC workflow (video upload + review options)
+ Role-based dashboard access
+ Supabase auth + RLS
+ Edge function validation logic
+
+Upcoming:
+Full escrow milestone flow
+More advanced mockup generation
+Production-ready manufacturer onboarding
+
+Running the Project Locally
+Clone:
+git clone https://github.com/prabindersinghh/leorit-monolith.git
+cd leorit-monolith
+
+Install Dependencies:
+
+(If using monorepo layout: adjust commands accordingly)
+
+npm install
+pip install -r requirements.txt
+
+Setup Environment:
+
+Create .env file(s) with:
+
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+OPENAI_API_KEY=
+GROQ_API_KEY=
+STABILITY_API_KEY=
+
+Start Dev Servers
+
+Frontend
 npm run dev
-```
 
-**Edit a file directly in GitHub**
+Backend (FastAPI)
+uvicorn api.main:app --reload
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Author
+Prabinder Singh
+Founder, Leorit.ai
+Email: prabindersinghh@gmail.com
 
-**Use GitHub Codespaces**
+Purpose of Repo
+This repository is the core monolithic build used for early YC-facing MVP development, pilot testing with Leorit India, and rapid shipping of new features.
+It is continuously updated as part of the MVP → pilot → scalable platform roadmap.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/af1fc5c1-f4dd-45bf-bb65-734641e5dc78) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+License
+Private — All rights reserved.
