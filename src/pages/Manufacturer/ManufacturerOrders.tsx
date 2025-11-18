@@ -158,7 +158,7 @@ const ManufacturerOrders = () => {
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole="manufacturer" />
       
-      <main className="flex-1 p-8">
+      <main className="flex-1 ml-64 p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Order Management</h1>
           <p className="text-muted-foreground">View and manage orders assigned to you</p>
