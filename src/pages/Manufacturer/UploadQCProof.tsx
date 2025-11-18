@@ -1,73 +1,173 @@
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
-import UploadBox from "@/components/UploadBox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Upload, Video } from "lucide-react";
 
 const UploadQCProof = () => {
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState("");
+  const [qcVideo, setQcVideo] = useState<File | null>(null);
+  const [qcNotes, setQcNotes] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    fetchInProductionOrders();
+  }, []);
+
+  const fetchInProductionOrders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('manufacturer_id', user.id)
+        .eq('sample_status', 'in_production');
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      toast.error("Failed to load orders");
+    }
+  };
+
+  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate video file
+      const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+      const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
+
+      if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+        toast.error("Please upload a valid video file (MP4, WebM, or MOV)");
+        return;
+      }
+
+      if (file.size > MAX_VIDEO_SIZE) {
+        toast.error("Video file must be less than 100MB");
+        return;
+      }
+
+      setQcVideo(file);
+    }
+  };
+
+  const handleUploadQC = async () => {
+    if (!selectedOrder || !qcVideo) {
+      toast.error("Please select an order and upload a QC video");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // For now, we'll store a mock URL
+      // In production, this would upload to Supabase Storage
+      const mockVideoUrl = `https://storage.example.com/qc-videos/${Date.now()}.mp4`;
+
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          sample_status: 'qc_uploaded',
+          qc_video_url: mockVideoUrl,
+          qc_feedback: qcNotes
+        })
+        .eq('id', selectedOrder);
+
+      if (error) throw error;
+
+      toast.success("QC video uploaded successfully! Buyer will be notified.");
+      setSelectedOrder("");
+      setQcVideo(null);
+      setQcNotes("");
+      fetchInProductionOrders();
+    } catch (error) {
+      console.error('Error uploading QC:', error);
+      toast.error("Failed to upload QC video");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole="manufacturer" />
-
-      <main className="ml-64 flex-1 p-8">
-        <div className="max-w-4xl mx-auto">
+      
+      <main className="flex-1 p-8">
+        <div className="max-w-2xl">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">Upload QC Proof</h1>
-            <p className="text-muted-foreground">Submit quality control video evidence</p>
+            <p className="text-muted-foreground">Upload quality control videos for sample verification</p>
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-8 space-y-6">
+          <div className="bg-card border border-border rounded-xl p-6 space-y-6">
             <div>
-              <Label>Select Order</Label>
-              <Select>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Choose order" />
+              <Label className="text-foreground">Select Order</Label>
+              <Select value={selectedOrder} onValueChange={setSelectedOrder}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Choose an order..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ord-101">ORD-101 - T-Shirts (500 units)</SelectItem>
-                  <SelectItem value="ord-102">ORD-102 - Hoodies (300 units)</SelectItem>
+                  {orders.map((order) => (
+                    <SelectItem key={order.id} value={order.id}>
+                      Order {order.id.slice(0, 8)} - {order.product_type} (Qty: {order.quantity})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label>QC Phase</Label>
-              <Select>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select phase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sample">Sample QC</SelectItem>
-                  <SelectItem value="bulk">Bulk Production QC</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <UploadBox
-              label="QC Video Proof"
-              description="MP4, MOV up to 100MB - Show product quality, packaging, labels"
-              accept="video/*"
-              onFileSelect={setVideoFile}
-            />
-
-            {videoFile && (
-              <div className="p-6 bg-gray-50 rounded-xl border border-border">
-                <h3 className="font-semibold text-foreground mb-3">AI Analysis Preview</h3>
-                <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center mb-4">
-                  <span className="text-gray-500">Video will be analyzed here</span>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <p className="text-muted-foreground">✓ Quality check pending</p>
-                  <p className="text-muted-foreground">✓ CLIP similarity analysis will run</p>
-                </div>
+              <Label className="text-foreground">QC Video</Label>
+              <div className="mt-2">
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    {qcVideo ? (
+                      <>
+                        <Video className="w-8 h-8 text-green-600 mb-2" />
+                        <p className="text-sm text-foreground font-medium">{qcVideo.name}</p>
+                        <p className="text-xs text-muted-foreground">{(qcVideo.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Click to upload QC video</p>
+                        <p className="text-xs text-muted-foreground">MP4, WebM or MOV (max 100MB)</p>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    onChange={handleVideoChange}
+                  />
+                </label>
               </div>
-            )}
+            </div>
 
-            <Button className="w-full bg-foreground text-background hover:bg-gray-800" disabled={!videoFile}>
-              Submit QC Proof
+            <div>
+              <Label className="text-foreground">QC Notes (Optional)</Label>
+              <Textarea
+                placeholder="Add any notes about the sample quality..."
+                value={qcNotes}
+                onChange={(e) => setQcNotes(e.target.value)}
+                className="mt-2 min-h-[100px]"
+              />
+            </div>
+
+            <Button
+              onClick={handleUploadQC}
+              disabled={uploading || !selectedOrder || !qcVideo}
+              className="w-full bg-foreground text-background hover:bg-foreground/90"
+            >
+              {uploading ? "Uploading..." : "Upload QC Proof"}
             </Button>
           </div>
         </div>

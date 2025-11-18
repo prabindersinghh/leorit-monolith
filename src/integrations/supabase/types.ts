@@ -14,6 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      orders: {
+        Row: {
+          buyer_id: string
+          concern_notes: string | null
+          created_at: string
+          design_size: string
+          escrow_amount: number | null
+          id: string
+          manufacturer_id: string | null
+          product_type: string
+          qc_feedback: string | null
+          qc_video_url: string | null
+          quantity: number
+          rejection_reason: string | null
+          sample_status: string | null
+          status: string
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          buyer_id: string
+          concern_notes?: string | null
+          created_at?: string
+          design_size: string
+          escrow_amount?: number | null
+          id?: string
+          manufacturer_id?: string | null
+          product_type: string
+          qc_feedback?: string | null
+          qc_video_url?: string | null
+          quantity?: number
+          rejection_reason?: string | null
+          sample_status?: string | null
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          buyer_id?: string
+          concern_notes?: string | null
+          created_at?: string
+          design_size?: string
+          escrow_amount?: number | null
+          id?: string
+          manufacturer_id?: string | null
+          product_type?: string
+          qc_feedback?: string | null
+          qc_video_url?: string | null
+          quantity?: number
+          rejection_reason?: string | null
+          sample_status?: string | null
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_metrics: {
+        Row: {
+          completed_orders: number | null
+          created_at: string
+          id: string
+          metric_date: string
+          pending_qc: number | null
+          rejected_orders: number | null
+          total_buyers: number | null
+          total_manufacturers: number | null
+          total_orders: number | null
+          total_revenue: number | null
+        }
+        Insert: {
+          completed_orders?: number | null
+          created_at?: string
+          id?: string
+          metric_date?: string
+          pending_qc?: number | null
+          rejected_orders?: number | null
+          total_buyers?: number | null
+          total_manufacturers?: number | null
+          total_orders?: number | null
+          total_revenue?: number | null
+        }
+        Update: {
+          completed_orders?: number | null
+          created_at?: string
+          id?: string
+          metric_date?: string
+          pending_qc?: number | null
+          rejected_orders?: number | null
+          total_buyers?: number | null
+          total_manufacturers?: number | null
+          total_orders?: number | null
+          total_revenue?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company_name: string | null
