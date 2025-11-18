@@ -160,44 +160,46 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background w-full">
       <Sidebar userRole="admin" />
       
-      <main className="flex-1 ml-64 p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Platform overview and monitoring</p>
-        </div>
+      <main className="flex-1 p-8 w-[calc(100%-16rem)] ml-64">
+        <div className="max-w-full">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
+            <p className="text-muted-foreground">Platform overview and monitoring</p>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <DashboardCard key={index} {...stat} />
-          ))}
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {stats.map((stat, index) => (
+              <DashboardCard key={index} {...stat} />
+            ))}
+          </div>
 
-        <div className="bg-card border border-border rounded-xl p-6 mb-8">
-          <h2 className="text-xl font-bold text-foreground mb-4">Platform Statistics</h2>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <p className="text-2xl font-bold text-green-700">{metrics.completedOrders}</p>
-              <p className="text-sm text-muted-foreground">Completed Orders</p>
-            </div>
-            <div className="text-center p-4 bg-red-50 rounded-lg">
-              <p className="text-2xl font-bold text-red-700">{metrics.rejectedOrders}</p>
-              <p className="text-sm text-muted-foreground">Rejected Orders</p>
-            </div>
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <p className="text-2xl font-bold text-blue-700">
-                {metrics.totalOrders > 0 ? ((metrics.completedOrders / metrics.totalOrders) * 100).toFixed(1) : 0}%
-              </p>
-              <p className="text-sm text-muted-foreground">Success Rate</p>
+          <div className="bg-card border border-border rounded-xl p-6 mb-8">
+            <h2 className="text-xl font-bold text-foreground mb-4">Platform Statistics</h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <p className="text-2xl font-bold text-green-700">{metrics.completedOrders}</p>
+                <p className="text-sm text-muted-foreground">Completed Orders</p>
+              </div>
+              <div className="text-center p-4 bg-red-50 rounded-lg">
+                <p className="text-2xl font-bold text-red-700">{metrics.rejectedOrders}</p>
+                <p className="text-sm text-muted-foreground">Rejected Orders</p>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <p className="text-2xl font-bold text-blue-700">
+                  {metrics.totalOrders > 0 ? ((metrics.completedOrders / metrics.totalOrders) * 100).toFixed(1) : 0}%
+                </p>
+                <p className="text-sm text-muted-foreground">Success Rate</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-xl font-bold text-foreground mb-4">Recent Orders</h2>
-          <DataTable columns={orderColumns} data={recentOrders} />
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="text-xl font-bold text-foreground mb-4">Recent Orders</h2>
+            <DataTable columns={orderColumns} data={recentOrders} />
+          </div>
         </div>
       </main>
     </div>

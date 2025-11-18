@@ -155,22 +155,24 @@ const ManufacturerOrders = () => {
   ];
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background w-full">
       <Sidebar userRole="manufacturer" />
       
-      <main className="flex-1 ml-64 p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Order Management</h1>
-          <p className="text-muted-foreground">View and manage orders assigned to you</p>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+      <main className="flex-1 p-8 w-[calc(100%-16rem)] ml-64 overflow-x-auto">
+        <div className="max-w-full">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Order Management</h1>
+            <p className="text-muted-foreground">View and manage orders assigned to you</p>
           </div>
-        ) : (
-          <DataTable columns={columns} data={orders} />
-        )}
+
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+            </div>
+          ) : (
+            <DataTable columns={columns} data={orders} />
+          )}
+        </div>
       </main>
     </div>
   );

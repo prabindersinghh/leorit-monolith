@@ -71,11 +71,11 @@ const OrderTracking = () => {
   ];
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background w-full">
       <Sidebar userRole="buyer" />
 
-      <main className="ml-64 flex-1 p-8">
-        <div className="max-w-7xl mx-auto">
+      <main className="flex-1 p-8 w-[calc(100%-16rem)] ml-64">
+        <div className="max-w-full">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">Order Tracking</h1>
             <p className="text-muted-foreground">Monitor all your bulk orders and samples</p>
