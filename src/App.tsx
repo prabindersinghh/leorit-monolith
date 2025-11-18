@@ -26,6 +26,7 @@ import VerificationPanel from "./pages/Admin/VerificationPanel";
 import DisputeCenter from "./pages/Admin/DisputeCenter";
 
 import NotFound from "./pages/NotFound";
+import Unauthorized from "./pages/Unauthorized";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,7 @@ const App = () => (
             </ProtectedRoute>
           } />
 
+          <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

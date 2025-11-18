@@ -505,8 +505,14 @@ const StartOrder = () => {
                   </div>
                 </div>
 
-                <Button className="w-full bg-foreground text-background hover:bg-gray-800">
-                  Confirm & Pay $6,250
+                <Button 
+                  className="w-full bg-foreground text-background hover:bg-gray-800"
+                  onClick={() => {
+                    toast.success("Sample order placed! Payment held in escrow.");
+                    // In production, this would integrate with Razorpay
+                  }}
+                >
+                  Buy Sample - Pay $6,250
                 </Button>
               </div>
             )}
