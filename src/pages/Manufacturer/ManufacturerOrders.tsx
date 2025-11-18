@@ -1,70 +1,176 @@
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import DataTable from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { CheckCircle, XCircle } from "lucide-react";
 
 const ManufacturerOrders = () => {
-  const activeOrders = [
-    {
-      id: "ORD-101",
-      buyer: "Acme Retail",
-      product: "T-Shirts",
-      quantity: 500,
-      progress: "Sample Phase",
-      deadline: "2025-01-25",
-    },
-    {
-      id: "ORD-102",
-      buyer: "Fashion Co",
-      product: "Hoodies",
-      quantity: 300,
-      progress: "In Production",
-      deadline: "2025-01-30",
-    },
-  ];
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('manufacturer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      toast.error("Failed to load orders");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAcceptOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'accepted',
+          sample_status: 'in_production'
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Order accepted!");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error accepting order:', error);
+      toast.error("Failed to accept order");
+    }
+  };
+
+  const handleRejectOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'rejected',
+          rejection_reason: 'Manufacturer declined the order'
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Order rejected");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error rejecting order:', error);
+      toast.error("Failed to reject order");
+    }
+  };
 
   const columns = [
-    { header: "Order ID", accessor: "id" },
-    { header: "Buyer", accessor: "buyer" },
-    { header: "Product", accessor: "product" },
-    { header: "Quantity", accessor: "quantity" },
     {
-      header: "Progress",
-      accessor: "progress",
-      cell: (value: string) => (
-        <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-foreground">
-          {value}
-        </span>
-      ),
+      header: "Order ID",
+      accessor: "id",
+      cell: (value: string) => <span className="font-mono text-xs">{value.slice(0, 8)}</span>
     },
-    { header: "Deadline", accessor: "deadline" },
+    {
+      header: "Product",
+      accessor: "product_type",
+    },
+    {
+      header: "Quantity",
+      accessor: "quantity",
+    },
+    {
+      header: "Escrow Status",
+      accessor: "escrow_amount",
+      cell: (value: number) => (
+        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+          ${value?.toFixed(2) || '0.00'} in Escrow
+        </Badge>
+      )
+    },
+    {
+      header: "Sample Status",
+      accessor: "sample_status",
+      cell: (value: string) => {
+        const statusColors: Record<string, string> = {
+          'not_started': 'bg-gray-100 text-gray-700',
+          'in_production': 'bg-blue-100 text-blue-700',
+          'qc_uploaded': 'bg-yellow-100 text-yellow-700',
+          'approved': 'bg-green-100 text-green-700',
+          'rejected': 'bg-red-100 text-red-700',
+        };
+        return (
+          <Badge className={statusColors[value] || 'bg-gray-100 text-gray-700'}>
+            {value?.replace('_', ' ') || 'Not Started'}
+          </Badge>
+        );
+      }
+    },
     {
       header: "Actions",
       accessor: "id",
-      cell: () => (
-        <Button variant="ghost" size="sm">
-          <Upload className="w-4 h-4 mr-2" />
-          Upload QC
-        </Button>
-      ),
+      cell: (value: string, row: any) => (
+        <div className="flex gap-2">
+          {row.status === 'pending' && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => handleAcceptOrder(value)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <CheckCircle className="w-4 h-4 mr-1" />
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleRejectOrder(value)}
+              >
+                <XCircle className="w-4 h-4 mr-1" />
+                Decline
+              </Button>
+            </>
+          )}
+          {row.status === 'accepted' && row.sample_status === 'in_production' && (
+            <Button
+              size="sm"
+              onClick={() => window.location.href = '/manufacturer/qc'}
+              className="bg-foreground text-background hover:bg-foreground/90"
+            >
+              Upload QC
+            </Button>
+          )}
+        </div>
+      )
     },
   ];
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole="manufacturer" />
-
-      <main className="ml-64 flex-1 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">My Orders</h1>
-            <p className="text-muted-foreground">Track and manage production orders</p>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-6">
-            <DataTable columns={columns} data={activeOrders} />
-          </div>
+      
+      <main className="flex-1 p-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Order Management</h1>
+          <p className="text-muted-foreground">View and manage orders assigned to you</p>
         </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+          </div>
+        ) : (
+          <DataTable columns={columns} data={orders} />
+        )}
       </main>
     </div>
   );
