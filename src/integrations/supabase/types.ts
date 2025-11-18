@@ -14,11 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
+      disputes: {
+        Row: {
+          created_at: string | null
+          id: string
+          order_id: string
+          raised_by: string
+          reason: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          order_id: string
+          raised_by: string
+          reason: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          order_id?: string
+          raised_by?: string
+          reason?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disputes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manufacturer_verifications: {
+        Row: {
+          capacity: string
+          company_name: string
+          id: string
+          location: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          submitted_at: string | null
+          user_id: string
+        }
+        Insert: {
+          capacity: string
+          company_name: string
+          id?: string
+          location: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          submitted_at?: string | null
+          user_id: string
+        }
+        Update: {
+          capacity?: string
+          company_name?: string
+          id?: string
+          location?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          submitted_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          order_id: string | null
+          read: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          order_id?: string | null
+          read?: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          order_id?: string | null
+          read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           buyer_id: string
           concern_notes: string | null
           created_at: string
+          design_file_url: string | null
           design_size: string
           escrow_amount: number | null
           id: string
@@ -37,6 +159,7 @@ export type Database = {
           buyer_id: string
           concern_notes?: string | null
           created_at?: string
+          design_file_url?: string | null
           design_size: string
           escrow_amount?: number | null
           id?: string
@@ -55,6 +178,7 @@ export type Database = {
           buyer_id?: string
           concern_notes?: string | null
           created_at?: string
+          design_file_url?: string | null
           design_size?: string
           escrow_amount?: number | null
           id?: string
