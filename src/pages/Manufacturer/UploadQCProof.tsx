@@ -72,20 +72,57 @@ const UploadQCProof = () => {
 
     setUploading(true);
     try {
-      // For now, we'll store a mock URL
-      // In production, this would upload to Supabase Storage
-      const mockVideoUrl = `https://storage.example.com/qc-videos/${Date.now()}.mp4`;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase
+      // Upload video to Supabase Storage
+      const fileExt = qcVideo.name.split('.').pop();
+      const filePath = `${user.id}/${selectedOrder}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('qc-videos')
+        .upload(filePath, qcVideo, {
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('qc-videos')
+        .getPublicUrl(filePath);
+
+      // Update order with video URL and status
+      const { error: updateError } = await supabase
         .from('orders')
         .update({
           sample_status: 'qc_uploaded',
-          qc_video_url: mockVideoUrl,
+          qc_video_url: publicUrl,
           qc_feedback: qcNotes
         })
         .eq('id', selectedOrder);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Get order details to notify buyer
+      const { data: orderData } = await supabase
+        .from('orders')
+        .select('buyer_id, product_type')
+        .eq('id', selectedOrder)
+        .single();
+
+      if (orderData) {
+        // Create notification for buyer
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: orderData.buyer_id,
+            order_id: selectedOrder,
+            type: 'qc_uploaded',
+            title: 'QC Video Uploaded',
+            message: `Quality control video for your ${orderData.product_type} order is ready for review.`
+          });
+      }
 
       toast.success("QC video uploaded successfully! Buyer will be notified.");
       setSelectedOrder("");
