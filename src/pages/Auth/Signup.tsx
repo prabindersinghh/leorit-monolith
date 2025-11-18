@@ -12,7 +12,7 @@ const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [role, setRole] = useState<"buyer" | "manufacturer">("buyer");
+  const [role, setRole] = useState<"buyer" | "manufacturer" | "admin">("buyer");
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -58,8 +58,8 @@ const Signup = () => {
           <form onSubmit={handleSignup} className="space-y-5">
             <div>
               <Label className="text-foreground mb-2 block">Account Type</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {(["buyer", "manufacturer"] as const).map((r) => (
+              <div className="grid grid-cols-3 gap-2">
+                {(["buyer", "manufacturer", "admin"] as const).map((r) => (
                   <button
                     key={r}
                     type="button"
