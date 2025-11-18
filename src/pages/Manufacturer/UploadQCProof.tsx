@@ -104,8 +104,8 @@ const UploadQCProof = () => {
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole="manufacturer" />
       
-      <main className="flex-1 p-8">
-        <div className="max-w-2xl">
+      <main className="flex-1 ml-64 p-8">
+        <div className="max-w-3xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">Upload QC Proof</h1>
             <p className="text-muted-foreground">Upload quality control videos for sample verification</p>
