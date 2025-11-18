@@ -28,10 +28,15 @@ const UploadQCProof = () => {
         .from('orders')
         .select('*')
         .eq('manufacturer_id', user.id)
-        .eq('sample_status', 'in_production');
+        .in('sample_status', ['in_production', 'not_started'])
+        .eq('status', 'accepted');
 
       if (error) throw error;
       setOrders(data || []);
+      
+      if (!data || data.length === 0) {
+        console.log('No orders found for QC upload. Make sure you have accepted orders first.');
+      }
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast.error("Failed to load orders");
@@ -107,68 +112,85 @@ const UploadQCProof = () => {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-6 space-y-6">
-            <div>
-              <Label className="text-foreground">Select Order</Label>
-              <Select value={selectedOrder} onValueChange={setSelectedOrder}>
-                <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Choose an order..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {orders.map((order) => (
-                    <SelectItem key={order.id} value={order.id}>
-                      Order {order.id.slice(0, 8)} - {order.product_type} (Qty: {order.quantity})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-foreground">QC Video</Label>
-              <div className="mt-2">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    {qcVideo ? (
-                      <>
-                        <Video className="w-8 h-8 text-green-600 mb-2" />
-                        <p className="text-sm text-foreground font-medium">{qcVideo.name}</p>
-                        <p className="text-xs text-muted-foreground">{(qcVideo.size / 1024 / 1024).toFixed(2)} MB</p>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">Click to upload QC video</p>
-                        <p className="text-xs text-muted-foreground">MP4, WebM or MOV (max 100MB)</p>
-                      </>
-                    )}
-                  </div>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="video/mp4,video/webm,video/quicktime"
-                    onChange={handleVideoChange}
-                  />
-                </label>
+            {orders.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Upload className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No Orders Available</h3>
+                <p className="text-muted-foreground mb-4">
+                  You don't have any accepted orders ready for QC upload.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Please go to the <a href="/manufacturer/orders" className="text-primary underline">Orders page</a> to accept orders first.
+                </p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div>
+                  <Label className="text-foreground">Select Order</Label>
+                  <Select value={selectedOrder} onValueChange={setSelectedOrder}>
+                    <SelectTrigger className="mt-2 bg-background">
+                      <SelectValue placeholder="Choose an order..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border z-50">
+                      {orders.map((order) => (
+                        <SelectItem key={order.id} value={order.id}>
+                          Order {order.id.slice(0, 8)} - {order.product_type} (Qty: {order.quantity})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div>
-              <Label className="text-foreground">QC Notes (Optional)</Label>
-              <Textarea
-                placeholder="Add any notes about the sample quality..."
-                value={qcNotes}
-                onChange={(e) => setQcNotes(e.target.value)}
-                className="mt-2 min-h-[100px]"
-              />
-            </div>
+                <div>
+                  <Label className="text-foreground">QC Video</Label>
+                  <div className="mt-2">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        {qcVideo ? (
+                          <>
+                            <Video className="w-8 h-8 text-green-600 mb-2" />
+                            <p className="text-sm text-foreground font-medium">{qcVideo.name}</p>
+                            <p className="text-xs text-muted-foreground">{(qcVideo.size / 1024 / 1024).toFixed(2)} MB</p>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                            <p className="text-sm text-muted-foreground">Click to upload QC video</p>
+                            <p className="text-xs text-muted-foreground">MP4, WebM or MOV (max 100MB)</p>
+                          </>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="video/mp4,video/webm,video/quicktime"
+                        onChange={handleVideoChange}
+                      />
+                    </label>
+                  </div>
+                </div>
 
-            <Button
-              onClick={handleUploadQC}
-              disabled={uploading || !selectedOrder || !qcVideo}
-              className="w-full bg-foreground text-background hover:bg-foreground/90"
-            >
-              {uploading ? "Uploading..." : "Upload QC Proof"}
-            </Button>
+                <div>
+                  <Label className="text-foreground">QC Notes (Optional)</Label>
+                  <Textarea
+                    placeholder="Add any notes about the sample quality..."
+                    value={qcNotes}
+                    onChange={(e) => setQcNotes(e.target.value)}
+                    className="mt-2 min-h-[100px]"
+                  />
+                </div>
+
+                <Button
+                  onClick={handleUploadQC}
+                  disabled={uploading || !selectedOrder || !qcVideo}
+                  className="w-full bg-foreground text-background hover:bg-foreground/90"
+                >
+                  {uploading ? "Uploading..." : "Upload QC Proof"}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </main>
