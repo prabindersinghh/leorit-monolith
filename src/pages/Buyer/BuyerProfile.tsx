@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 
 const BuyerProfile = () => {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background w-full">
       <Sidebar userRole="buyer" />
 
-      <main className="ml-64 flex-1 p-8">
+      <main className="flex-1 p-8 w-[calc(100%-16rem)] ml-64">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">Profile Settings</h1>
