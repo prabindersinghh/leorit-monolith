@@ -142,6 +142,9 @@ export type Database = {
           created_at: string
           design_file_url: string | null
           design_size: string
+          detailed_status:
+            | Database["public"]["Enums"]["order_detailed_status"]
+            | null
           escrow_amount: number | null
           id: string
           manufacturer_id: string | null
@@ -161,6 +164,9 @@ export type Database = {
           created_at?: string
           design_file_url?: string | null
           design_size: string
+          detailed_status?:
+            | Database["public"]["Enums"]["order_detailed_status"]
+            | null
           escrow_amount?: number | null
           id?: string
           manufacturer_id?: string | null
@@ -180,6 +186,9 @@ export type Database = {
           created_at?: string
           design_file_url?: string | null
           design_size?: string
+          detailed_status?:
+            | Database["public"]["Enums"]["order_detailed_status"]
+            | null
           escrow_amount?: number | null
           id?: string
           manufacturer_id?: string | null
@@ -298,6 +307,19 @@ export type Database = {
     }
     Enums: {
       app_role: "buyer" | "manufacturer" | "admin"
+      order_detailed_status:
+        | "created"
+        | "submitted_to_manufacturer"
+        | "accepted_by_manufacturer"
+        | "rejected_by_manufacturer"
+        | "sample_in_production"
+        | "qc_uploaded"
+        | "sample_approved_by_buyer"
+        | "sample_rejected_by_buyer"
+        | "bulk_in_production"
+        | "dispatched"
+        | "delivered"
+        | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -426,6 +448,20 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["buyer", "manufacturer", "admin"],
+      order_detailed_status: [
+        "created",
+        "submitted_to_manufacturer",
+        "accepted_by_manufacturer",
+        "rejected_by_manufacturer",
+        "sample_in_production",
+        "qc_uploaded",
+        "sample_approved_by_buyer",
+        "sample_rejected_by_buyer",
+        "bulk_in_production",
+        "dispatched",
+        "delivered",
+        "completed",
+      ],
     },
   },
 } as const
