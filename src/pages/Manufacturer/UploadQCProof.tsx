@@ -92,12 +92,23 @@ const UploadQCProof = () => {
         .from('qc-videos')
         .getPublicUrl(filePath);
 
-      // Update order with video URL and status
+      // Get existing qc_files array
+      const { data: existingOrder } = await supabase
+        .from('orders')
+        .select('qc_files')
+        .eq('id', selectedOrder)
+        .single();
+
+      const existingFiles = existingOrder?.qc_files || [];
+
+      // Update order with video URL, add to qc_files array, and set status to qc_uploaded
       const { error: updateError } = await supabase
         .from('orders')
         .update({
+          status: 'qc_uploaded',
           sample_status: 'qc_uploaded',
           qc_video_url: publicUrl,
+          qc_files: [...existingFiles, publicUrl],
           qc_feedback: qcNotes
         })
         .eq('id', selectedOrder);
