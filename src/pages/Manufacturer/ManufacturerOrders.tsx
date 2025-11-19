@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle, XCircle } from "lucide-react";
+import { canTransitionTo, getActionLabel, statusLabels, statusColors, OrderDetailedStatus } from "@/lib/orderStateMachine";
 
 const ManufacturerOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -56,13 +57,21 @@ const ManufacturerOrders = () => {
     }
   };
 
-  const handleAcceptOrder = async (orderId: string) => {
+  const handleAcceptOrder = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+    const newStatus: OrderDetailedStatus = 'accepted_by_manufacturer';
+    
+    if (!canTransitionTo(currentStatus, newStatus)) {
+      toast.error("Invalid state transition");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('orders')
         .update({ 
-          status: 'accepted',
-          sample_status: 'in_production'
+          detailed_status: newStatus,
+          status: 'accepted', // Backward compatibility
+          sample_status: 'not_started' // Backward compatibility
         })
         .eq('id', orderId);
 
@@ -75,31 +84,20 @@ const ManufacturerOrders = () => {
     }
   };
 
-  const handleDispatchOrder = async (orderId: string) => {
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ 
-          status: 'dispatched',
-          sample_status: 'dispatched'
-        })
-        .eq('id', orderId);
-
-      if (error) throw error;
-      toast.success("Order dispatched!");
-      fetchOrders();
-    } catch (error) {
-      console.error('Error dispatching order:', error);
-      toast.error("Failed to dispatch order");
+  const handleRejectOrder = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+    const newStatus: OrderDetailedStatus = 'rejected_by_manufacturer';
+    
+    if (!canTransitionTo(currentStatus, newStatus)) {
+      toast.error("Invalid state transition");
+      return;
     }
-  };
 
-  const handleRejectOrder = async (orderId: string) => {
     try {
       const { error } = await supabase
         .from('orders')
         .update({ 
-          status: 'rejected',
+          detailed_status: newStatus,
+          status: 'rejected', // Backward compatibility
           rejection_reason: 'Manufacturer declined the order'
         })
         .eq('id', orderId);
@@ -112,6 +110,85 @@ const ManufacturerOrders = () => {
       toast.error("Failed to reject order");
     }
   };
+
+  const handleDispatchOrder = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+    const newStatus: OrderDetailedStatus = 'dispatched';
+    
+    if (!canTransitionTo(currentStatus, newStatus)) {
+      toast.error("Invalid state transition");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          detailed_status: newStatus,
+          status: 'dispatched', // Backward compatibility
+          sample_status: 'dispatched' // Backward compatibility
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Order dispatched!");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error dispatching order:', error);
+      toast.error("Failed to dispatch order");
+    }
+  };
+
+  const handleStartSampleProduction = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+    const newStatus: OrderDetailedStatus = 'sample_in_production';
+    
+    if (!canTransitionTo(currentStatus, newStatus)) {
+      toast.error("Invalid state transition");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          detailed_status: newStatus,
+          sample_status: 'in_production' // Backward compatibility
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Sample production started!");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error starting production:', error);
+      toast.error("Failed to start production");
+    }
+  };
+
+  const handleStartBulkProduction = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+    const newStatus: OrderDetailedStatus = 'bulk_in_production';
+    
+    if (!canTransitionTo(currentStatus, newStatus)) {
+      toast.error("Invalid state transition");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          detailed_status: newStatus
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Bulk production started!");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error starting bulk production:', error);
+      toast.error("Failed to start bulk production");
+    }
+  };
+
 
   const columns = [
     {
@@ -137,68 +214,81 @@ const ManufacturerOrders = () => {
       )
     },
     {
-      header: "Sample Status",
-      accessor: "sample_status",
-      cell: (value: string) => {
-        const statusColors: Record<string, string> = {
-          'not_started': 'bg-gray-100 text-gray-700',
-          'in_production': 'bg-blue-100 text-blue-700',
-          'qc_uploaded': 'bg-yellow-100 text-yellow-700',
-          'approved': 'bg-green-100 text-green-700',
-          'rejected': 'bg-red-100 text-red-700',
-        };
-        return (
-          <Badge className={statusColors[value] || 'bg-gray-100 text-gray-700'}>
-            {value?.replace('_', ' ') || 'Not Started'}
-          </Badge>
-        );
-      }
+      header: "Detailed Status",
+      accessor: "detailed_status",
+      cell: (value: OrderDetailedStatus) => (
+        <Badge className={statusColors[value] || 'bg-gray-100 text-gray-700'}>
+          {statusLabels[value] || value}
+        </Badge>
+      )
     },
     {
       header: "Actions",
       accessor: "id",
-      cell: (value: string, row: any) => (
-        <div className="flex gap-2">
-          {row.status === 'pending' && (
-            <>
+      cell: (value: string, row: any) => {
+        const currentStatus = row.detailed_status as OrderDetailedStatus;
+        
+        return (
+          <div className="flex gap-2 flex-wrap">
+            {currentStatus === 'submitted_to_manufacturer' && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => handleAcceptOrder(value, currentStatus)}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {getActionLabel('accepted_by_manufacturer')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleRejectOrder(value, currentStatus)}
+                >
+                  <XCircle className="w-4 h-4 mr-1" />
+                  {getActionLabel('rejected_by_manufacturer')}
+                </Button>
+              </>
+            )}
+            {currentStatus === 'accepted_by_manufacturer' && (
               <Button
                 size="sm"
-                onClick={() => handleAcceptOrder(value)}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => handleStartSampleProduction(value, currentStatus)}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
               >
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Accept
+                {getActionLabel('sample_in_production')}
               </Button>
+            )}
+            {currentStatus === 'sample_in_production' && (
               <Button
                 size="sm"
-                variant="destructive"
-                onClick={() => handleRejectOrder(value)}
+                onClick={() => window.location.href = '/manufacturer/qc'}
+                className="bg-foreground text-background hover:bg-foreground/90"
               >
-                <XCircle className="w-4 h-4 mr-1" />
-                Decline
+                {getActionLabel('qc_uploaded')}
               </Button>
-            </>
-          )}
-          {row.status === 'accepted' && row.sample_status === 'in_production' && (
-            <Button
-              size="sm"
-              onClick={() => window.location.href = '/manufacturer/qc'}
-              className="bg-foreground text-background hover:bg-foreground/90"
-            >
-              Upload QC
-            </Button>
-          )}
-          {row.sample_status === 'approved' && row.status !== 'dispatched' && (
-            <Button
-              size="sm"
-              onClick={() => handleDispatchOrder(value)}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Dispatch Order
-            </Button>
-          )}
-        </div>
-      )
+            )}
+            {currentStatus === 'sample_approved_by_buyer' && (
+              <Button
+                size="sm"
+                onClick={() => handleStartBulkProduction(value, currentStatus)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {getActionLabel('bulk_in_production')}
+              </Button>
+            )}
+            {currentStatus === 'bulk_in_production' && (
+              <Button
+                size="sm"
+                onClick={() => handleDispatchOrder(value, currentStatus)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {getActionLabel('dispatched')}
+              </Button>
+            )}
+          </div>
+        );
+      }
     },
   ];
 

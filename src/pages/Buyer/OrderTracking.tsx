@@ -2,10 +2,11 @@ import Sidebar from "@/components/Sidebar";
 import DataTable from "@/components/DataTable";
 import SampleQCReview from "@/components/SampleQCReview";
 import { Button } from "@/components/ui/button";
-import { Eye, Download, CheckCircle } from "lucide-react";
+import { Eye, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { canTransitionTo, statusLabels, statusColors, OrderDetailedStatus } from "@/lib/orderStateMachine";
 
 const OrderTracking = () => {
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
@@ -57,13 +58,21 @@ const OrderTracking = () => {
     }
   };
 
-  const markAsReceived = async (orderId: string) => {
+  const markAsReceived = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+    const newStatus: OrderDetailedStatus = 'delivered';
+    
+    if (!canTransitionTo(currentStatus, newStatus)) {
+      toast.error("Invalid state transition");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('orders')
         .update({ 
-          status: 'completed',
-          sample_status: 'delivered'
+          detailed_status: newStatus,
+          status: 'completed', // Backward compatibility
+          sample_status: 'delivered' // Backward compatibility
         })
         .eq('id', orderId);
 
@@ -80,20 +89,11 @@ const OrderTracking = () => {
     { header: "Product", accessor: "product_type" },
     { header: "Quantity", accessor: "quantity" },
     {
-      header: "Status",
-      accessor: "status",
-      cell: (value: string) => (
-        <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-foreground">
-          {value}
-        </span>
-      ),
-    },
-    {
-      header: "Sample Status",
-      accessor: "sample_status",
-      cell: (value: string) => (
-        <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-foreground">
-          {value || 'N/A'}
+      header: "Detailed Status",
+      accessor: "detailed_status",
+      cell: (value: OrderDetailedStatus) => (
+        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[value] || 'bg-gray-100 text-foreground'}`}>
+          {statusLabels[value] || value}
         </span>
       ),
     },
@@ -110,26 +110,30 @@ const OrderTracking = () => {
     {
       header: "Actions",
       accessor: "id",
-      cell: (value: string, row: any) => (
-        <div className="flex gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => setSelectedOrder(value)}
-          >
-            <Eye className="w-4 h-4" />
-          </Button>
-          {row.status === 'dispatched' && (
+      cell: (value: string, row: any) => {
+        const currentStatus = row.detailed_status as OrderDetailedStatus;
+        
+        return (
+          <div className="flex gap-2">
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => markAsReceived(value)}
+              onClick={() => setSelectedOrder(value)}
             >
-              <CheckCircle className="w-4 h-4" />
+              <Eye className="w-4 h-4" />
             </Button>
-          )}
-        </div>
-      ),
+            {currentStatus === 'dispatched' && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => markAsReceived(value, currentStatus)}
+              >
+                <CheckCircle className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

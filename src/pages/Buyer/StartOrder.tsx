@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowRight, Sparkles, Download, Edit, Link2, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { OrderDetailedStatus } from "@/lib/orderStateMachine";
 
 const StartOrder = () => {
   const [step, setStep] = useState(1);
@@ -507,9 +508,33 @@ const StartOrder = () => {
 
                 <Button 
                   className="w-full bg-foreground text-background hover:bg-gray-800"
-                  onClick={() => {
-                    toast.success("Sample order placed! Payment held in escrow.");
-                    // In production, this would integrate with Razorpay
+                  onClick={async () => {
+                    try {
+                      const { data: { user } } = await supabase.auth.getUser();
+                      if (!user) {
+                        toast.error("Please login to place an order");
+                        return;
+                      }
+
+                      const { error } = await supabase.from('orders').insert({
+                        buyer_id: user.id,
+                        product_type: productType,
+                        design_size: designSize,
+                        quantity: 1,
+                        escrow_amount: 6250,
+                        total_amount: 6250,
+                        detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
+                        status: 'pending', // Keep for backward compatibility
+                        sample_status: 'not_started' // Keep for backward compatibility
+                      });
+
+                      if (error) throw error;
+                      toast.success("Sample order placed! Payment held in escrow.");
+                      // Reset form or redirect
+                    } catch (error) {
+                      console.error('Error placing order:', error);
+                      toast.error("Failed to place order");
+                    }
                   }}
                 >
                   Buy Sample - Pay $6,250

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { canTransitionTo, getActionLabel, OrderDetailedStatus } from "@/lib/orderStateMachine";
 
 interface SampleQCReviewProps {
   orderId: string;
@@ -40,11 +41,20 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   };
 
   const handleApprove = async () => {
+    const currentStatus = order.detailed_status as OrderDetailedStatus;
+    const newStatus: OrderDetailedStatus = 'sample_approved_by_buyer';
+    
+    if (!canTransitionTo(currentStatus, newStatus)) {
+      toast.error("Invalid state transition");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('orders')
         .update({ 
-          sample_status: 'approved',
+          detailed_status: newStatus,
+          sample_status: 'approved', // Backward compatibility
           qc_feedback: 'Approved by buyer'
         })
         .eq('id', orderId);
@@ -60,11 +70,20 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   };
 
   const handleReject = async () => {
+    const currentStatus = order.detailed_status as OrderDetailedStatus;
+    const newStatus: OrderDetailedStatus = 'sample_rejected_by_buyer';
+    
+    if (!canTransitionTo(currentStatus, newStatus)) {
+      toast.error("Invalid state transition");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('orders')
         .update({ 
-          sample_status: 'rejected',
+          detailed_status: newStatus,
+          sample_status: 'rejected', // Backward compatibility
           qc_feedback: 'Rejected by buyer'
         })
         .eq('id', orderId);
@@ -114,7 +133,7 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
     return <div className="text-center py-8">Order not found</div>;
   }
 
-  const status = order.sample_status || 'pending';
+  const status = order.detailed_status as OrderDetailedStatus || 'created';
   const videoUrl = order.qc_video_url;
 
   return (
@@ -122,15 +141,15 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-foreground">Sample QC Review - {orderId}</h3>
         <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-          status === "approved" ? "bg-green-100 text-green-700" :
-          status === "rejected" ? "bg-red-100 text-red-700" :
-          status === "concern" ? "bg-yellow-100 text-yellow-700" :
+          status === 'sample_approved_by_buyer' ? "bg-green-100 text-green-700" :
+          status === 'sample_rejected_by_buyer' ? "bg-red-100 text-red-700" :
+          status === 'qc_uploaded' ? "bg-yellow-100 text-yellow-700" :
           "bg-gray-100 text-gray-700"
         }`}>
-          {status === "pending" ? "Awaiting Review" : 
-           status === "approved" ? "Approved" :
-           status === "rejected" ? "Rejected" :
-           "Concern Raised"}
+          {status === 'qc_uploaded' ? "Awaiting Review" : 
+           status === 'sample_approved_by_buyer' ? "Approved" :
+           status === 'sample_rejected_by_buyer' ? "Rejected" :
+           status}
         </div>
       </div>
 
@@ -143,7 +162,7 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
             </p>
           </div>
 
-          {status === "qc_submitted" && (
+          {status === "qc_uploaded" && (
             <div className="space-y-3">
               <div className="flex gap-3">
                 <Button 
