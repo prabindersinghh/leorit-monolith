@@ -2,11 +2,12 @@ import Sidebar from "@/components/Sidebar";
 import DataTable from "@/components/DataTable";
 import SampleQCReview from "@/components/SampleQCReview";
 import { Button } from "@/components/ui/button";
-import { Eye, CheckCircle } from "lucide-react";
+import { Eye, Package } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { canTransitionTo, statusLabels, statusColors, OrderDetailedStatus } from "@/lib/orderStateMachine";
+import { format, parseISO } from "date-fns";
 
 const OrderTracking = () => {
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
@@ -58,29 +59,44 @@ const OrderTracking = () => {
     }
   };
 
-  const markAsReceived = async (orderId: string, currentStatus: OrderDetailedStatus) => {
-    const newStatus: OrderDetailedStatus = 'delivered';
-    
-    if (!canTransitionTo(currentStatus, newStatus)) {
+  const confirmDelivery = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+    // Transition through delivered to completed
+    if (!canTransitionTo(currentStatus, 'delivered')) {
       toast.error("Invalid state transition");
       return;
     }
 
     try {
-      const { error } = await supabase
+      const now = new Date();
+      
+      // First update to delivered
+      const { error: deliveredError } = await supabase
         .from('orders')
         .update({ 
-          detailed_status: newStatus,
+          detailed_status: 'delivered',
+          delivered_at: now.toISOString()
+        })
+        .eq('id', orderId);
+
+      if (deliveredError) throw deliveredError;
+
+      // Then immediately update to completed
+      const { error: completedError } = await supabase
+        .from('orders')
+        .update({ 
+          detailed_status: 'completed',
           status: 'completed', // Backward compatibility
           sample_status: 'delivered' // Backward compatibility
         })
         .eq('id', orderId);
 
-      if (error) throw error;
-      toast.success('Order marked as received!');
+      if (completedError) throw completedError;
+      
+      toast.success('Thank you! Order marked as delivered and completed.');
+      fetchOrders();
     } catch (error) {
-      console.error('Error updating order:', error);
-      toast.error('Failed to update order');
+      console.error('Error confirming delivery:', error);
+      toast.error('Failed to confirm delivery');
     }
   };
 
@@ -102,6 +118,14 @@ const OrderTracking = () => {
       accessor: "escrow_amount",
       cell: (value: number) => value ? `$${value.toLocaleString()}` : 'N/A'
     },
+    {
+      header: "Estimated Delivery",
+      accessor: "estimated_delivery_date",
+      cell: (value: string, row: any) => {
+        if (!value || row.detailed_status === 'completed' || row.detailed_status === 'delivered') return '-';
+        return format(parseISO(value), 'MMM dd, yyyy');
+      }
+    },
     { 
       header: "Date", 
       accessor: "created_at",
@@ -119,16 +143,18 @@ const OrderTracking = () => {
               variant="ghost" 
               size="sm"
               onClick={() => setSelectedOrder(value)}
+              title="View Details"
             >
               <Eye className="w-4 h-4" />
             </Button>
             {currentStatus === 'dispatched' && (
               <Button 
-                variant="ghost" 
                 size="sm"
-                onClick={() => markAsReceived(value, currentStatus)}
+                onClick={() => confirmDelivery(value, currentStatus)}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold"
               >
-                <CheckCircle className="w-4 h-4" />
+                <Package className="w-4 h-4 mr-2" />
+                YES, I RECEIVED MY ORDER
               </Button>
             )}
           </div>
