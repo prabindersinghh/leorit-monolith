@@ -31,6 +31,7 @@ const StartOrder = () => {
   const [enableNamePersonalization, setEnableNamePersonalization] = useState(false);
   const [showNameCustomizer, setShowNameCustomizer] = useState(false);
   const [nameSettings, setNameSettings] = useState<NameSettings | null>(null);
+  const [isSampleOnly, setIsSampleOnly] = useState(false);
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
@@ -221,7 +222,7 @@ const StartOrder = () => {
 
           {/* Step Content */}
           <div className="bg-card border border-border rounded-xl p-8">
-            {step === 1 && (
+          {step === 1 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Select Product Type</h2>
                 <div className="grid grid-cols-2 gap-4">
@@ -240,6 +241,24 @@ const StartOrder = () => {
                     </button>
                   ))}
                 </div>
+                
+                {productType && (
+                  <div className="pt-4 border-t border-border">
+                    <Button 
+                      onClick={() => {
+                        setIsSampleOnly(true);
+                        setStep(5);
+                      }}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      Order Sample Only (1 unit)
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      Skip bulk order steps and go directly to sample order
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -507,11 +526,11 @@ const StartOrder = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-foreground">Sample Cost</span>
-                    <span className="font-bold text-foreground">₹12,500</span>
+                    <span className="font-bold text-foreground">₹{isSampleOnly ? '500' : '12,500'}</span>
                   </div>
                   <div className="flex justify-between text-lg">
                     <span className="text-foreground font-semibold">Escrow Amount</span>
-                    <span className="font-bold text-foreground">₹12,500</span>
+                    <span className="font-bold text-foreground">₹{isSampleOnly ? '500' : '12,500'}</span>
                   </div>
                   <div className="pt-4 border-t border-border">
                     <p className="text-xs text-muted-foreground">
@@ -531,24 +550,15 @@ const StartOrder = () => {
                       }
 
                       const quantity = 1; // Sample order
-                      const pricePerPiece = 12500; // ₹12,500 per sample
+                      const pricePerPiece = isSampleOnly ? 500 : 12500; // ₹500 for sample-only, ₹12,500 for full order sample
                       const escrowAmount = quantity * pricePerPiece;
 
-                      // Query for verified manufacturers
-                      const { data: manufacturers, error: mfgError } = await supabase
-                        .from('manufacturer_verifications')
-                        .select('user_id')
-                        .eq('status', 'approved')
-                        .limit(1);
+                      // Fixed manufacturer ID
+                      const FIXED_MANUFACTURER_ID = '81bf98d4-352b-4296-a577-81fb3973c6c2';
 
-                      if (mfgError || !manufacturers?.length) {
-                        toast.error("No verified manufacturers available at the moment. Please try again later.");
-                        return;
-                      }
-
-                      const { error } = await supabase.from('orders').insert({
+                      const orderData: any = {
                         buyer_id: user.id,
-                        manufacturer_id: manufacturers[0].user_id,
+                        manufacturer_id: FIXED_MANUFACTURER_ID,
                         product_type: productType,
                         design_size: designSize,
                         quantity: quantity,
@@ -556,9 +566,16 @@ const StartOrder = () => {
                         total_amount: escrowAmount,
                         escrow_status: 'fake_paid',
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
-                        status: 'pending', // Keep for backward compatibility
-                        sample_status: 'not_started' // Keep for backward compatibility
-                      });
+                        status: 'pending',
+                        sample_status: 'not_started'
+                      };
+
+                      // Add order_type for sample-only orders
+                      if (isSampleOnly) {
+                        orderData.order_type = 'sample_only';
+                      }
+
+                      const { error } = await supabase.from('orders').insert(orderData);
 
                       if (error) throw error;
                       
@@ -577,7 +594,7 @@ const StartOrder = () => {
                     }
                   }}
                 >
-                  Place Order - ₹12,500
+                  Place Order - ₹{isSampleOnly ? '500' : '12,500'}
                 </Button>
               </div>
             )}
