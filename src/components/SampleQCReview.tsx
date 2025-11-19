@@ -1,41 +1,121 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SampleQCReviewProps {
   orderId: string;
-  videoUrl?: string;
-  status: "pending" | "approved" | "rejected" | "concern";
+  onStatusChange?: () => void;
 }
 
-const SampleQCReview = ({ orderId, videoUrl, status: initialStatus }: SampleQCReviewProps) => {
-  const [status, setStatus] = useState(initialStatus);
+const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [showConcernForm, setShowConcernForm] = useState(false);
   const [concernMessage, setConcernMessage] = useState("");
 
-  const handleApprove = () => {
-    setStatus("approved");
-    toast.success("Sample QC approved! Payment will be released.");
+  useEffect(() => {
+    fetchOrder();
+  }, [orderId]);
+
+  const fetchOrder = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (error) throw error;
+      setOrder(data);
+    } catch (error) {
+      console.error('Error fetching order:', error);
+      toast.error('Failed to load order details');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReject = () => {
-    setStatus("rejected");
-    toast.error("Sample QC rejected. Manufacturer will be notified.");
+  const handleApprove = async () => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          sample_status: 'approved',
+          qc_feedback: 'Approved by buyer'
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Sample QC approved! Payment will be released.");
+      fetchOrder();
+      onStatusChange?.();
+    } catch (error) {
+      console.error('Error approving sample:', error);
+      toast.error('Failed to approve sample');
+    }
   };
 
-  const handleConcern = () => {
+  const handleReject = async () => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          sample_status: 'rejected',
+          qc_feedback: 'Rejected by buyer'
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.error("Sample QC rejected. Manufacturer will be notified.");
+      fetchOrder();
+      onStatusChange?.();
+    } catch (error) {
+      console.error('Error rejecting sample:', error);
+      toast.error('Failed to reject sample');
+    }
+  };
+
+  const handleConcern = async () => {
     if (!concernMessage.trim()) {
       toast.error("Please specify your concerns");
       return;
     }
-    setStatus("concern");
-    toast.info("Concern submitted. Manufacturer will review and respond.");
-    setShowConcernForm(false);
-    setConcernMessage("");
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          concern_notes: concernMessage,
+          qc_feedback: 'Concerns raised by buyer'
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.info("Concern submitted. Manufacturer will review and respond.");
+      setShowConcernForm(false);
+      setConcernMessage("");
+      fetchOrder();
+      onStatusChange?.();
+    } catch (error) {
+      console.error('Error submitting concern:', error);
+      toast.error('Failed to submit concern');
+    }
   };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading...</div>;
+  }
+
+  if (!order) {
+    return <div className="text-center py-8">Order not found</div>;
+  }
+
+  const status = order.sample_status || 'pending';
+  const videoUrl = order.qc_video_url;
 
   return (
     <div className="bg-card border border-border rounded-xl p-6">
@@ -63,7 +143,7 @@ const SampleQCReview = ({ orderId, videoUrl, status: initialStatus }: SampleQCRe
             </p>
           </div>
 
-          {status === "pending" && (
+          {status === "qc_submitted" && (
             <div className="space-y-3">
               <div className="flex gap-3">
                 <Button 
