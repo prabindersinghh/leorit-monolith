@@ -32,6 +32,7 @@ const StartOrder = () => {
   const [showNameCustomizer, setShowNameCustomizer] = useState(false);
   const [nameSettings, setNameSettings] = useState<NameSettings | null>(null);
   const [isSampleOnly, setIsSampleOnly] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
@@ -541,6 +542,7 @@ const StartOrder = () => {
 
                 <Button 
                   className="w-full bg-foreground text-background hover:bg-gray-800"
+                  disabled={isProcessingPayment}
                   onClick={async () => {
                     try {
                       const { data: { user } } = await supabase.auth.getUser();
@@ -552,6 +554,19 @@ const StartOrder = () => {
                       const quantity = 1; // Sample order
                       const pricePerPiece = isSampleOnly ? 500 : 12500; // ₹500 for sample-only, ₹12,500 for full order sample
                       const escrowAmount = quantity * pricePerPiece;
+
+                      // START: Fake Escrow Payment Simulation Layer
+                      setIsProcessingPayment(true);
+                      toast.loading("Processing payment...", { id: "payment-processing" });
+                      
+                      // Simulate 2-second payment processing
+                      await new Promise(resolve => setTimeout(resolve, 2000));
+                      
+                      toast.success(`Payment Sent to Escrow (Test Mode) - ₹${escrowAmount.toLocaleString()}`, { 
+                        id: "payment-processing",
+                        duration: 4000 
+                      });
+                      // END: Fake Escrow Payment Simulation Layer
 
                       // Fixed manufacturer ID
                       const FIXED_MANUFACTURER_ID = '81bf98d4-352b-4296-a577-81fb3973c6c2';
@@ -591,10 +606,11 @@ const StartOrder = () => {
                     } catch (error) {
                       console.error('Error placing order:', error);
                       toast.error("Failed to place order");
+                      setIsProcessingPayment(false);
                     }
                   }}
                 >
-                  Place Order - ₹{isSampleOnly ? '500' : '12,500'}
+                  {isProcessingPayment ? "Processing..." : `Place Order - ₹${isSampleOnly ? '500' : '12,500'}`}
                 </Button>
               </div>
             )}
