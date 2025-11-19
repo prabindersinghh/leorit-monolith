@@ -80,9 +80,18 @@ const DashboardHome = () => {
       )
     },
     { 
-      header: "Date", 
+      header: "Created", 
       accessor: "created_at",
-      cell: (value: string) => new Date(value).toLocaleDateString()
+      cell: (value: string) => (
+        <div className="text-sm">
+          <div className="font-medium text-foreground">
+            {new Date(value).toLocaleDateString()}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+      )
     },
   ];
 
