@@ -19,6 +19,7 @@ import BuyerProfile from "./pages/Buyer/BuyerProfile";
 import ManufacturerDashboard from "./pages/Manufacturer/ManufacturerDashboard";
 import ManufacturerOrders from "./pages/Manufacturer/ManufacturerOrders";
 import UploadQCProof from "./pages/Manufacturer/UploadQCProof";
+import ManufacturerProfile from "./pages/Manufacturer/ManufacturerProfile";
 
 // Admin
 import AdminDashboard from "./pages/Admin/AdminDashboard";
@@ -77,6 +78,11 @@ const App = () => (
           <Route path="/manufacturer/qc" element={
             <ProtectedRoute allowedRoles={['manufacturer']}>
               <UploadQCProof />
+            </ProtectedRoute>
+          } />
+          <Route path="/manufacturer/profile" element={
+            <ProtectedRoute allowedRoles={['manufacturer']}>
+              <ManufacturerProfile />
             </ProtectedRoute>
           } />
 
