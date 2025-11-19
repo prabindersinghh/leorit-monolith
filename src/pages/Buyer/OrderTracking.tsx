@@ -2,7 +2,7 @@ import Sidebar from "@/components/Sidebar";
 import DataTable from "@/components/DataTable";
 import SampleQCReview from "@/components/SampleQCReview";
 import { Button } from "@/components/ui/button";
-import { Eye, Package } from "lucide-react";
+import { Eye, Package, Clock, CheckCircle2, Truck, Send } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -146,9 +146,18 @@ const OrderTracking = () => {
       }
     },
     { 
-      header: "Date", 
+      header: "Created", 
       accessor: "created_at",
-      cell: (value: string) => new Date(value).toLocaleDateString()
+      cell: (value: string) => (
+        <div className="text-sm">
+          <div className="font-medium text-foreground">
+            {new Date(value).toLocaleDateString()}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+      )
     },
     {
       header: "Actions",
@@ -200,6 +209,81 @@ const OrderTracking = () => {
               <DataTable columns={columns} data={orders} />
             )}
           </div>
+
+          {/* Order Timeline Section */}
+          {selectedOrder && (
+            <div className="bg-card border border-border rounded-xl p-6 mb-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Order Timeline</h2>
+              {(() => {
+                const order = orders.find(o => o.id === selectedOrder);
+                if (!order) return <p className="text-muted-foreground">Order not found</p>;
+
+                const timelineEvents = [
+                  {
+                    label: "Order Created",
+                    timestamp: order.created_at,
+                    icon: Send,
+                    color: "text-blue-600",
+                    bgColor: "bg-blue-100",
+                    show: true
+                  },
+                  {
+                    label: "QC Uploaded",
+                    timestamp: order.qc_uploaded_at,
+                    icon: CheckCircle2,
+                    color: "text-purple-600",
+                    bgColor: "bg-purple-100",
+                    show: !!order.qc_uploaded_at
+                  },
+                  {
+                    label: "Sample Approved",
+                    timestamp: order.sample_approved_at,
+                    icon: CheckCircle2,
+                    color: "text-green-600",
+                    bgColor: "bg-green-100",
+                    show: !!order.sample_approved_at
+                  },
+                  {
+                    label: "Dispatched",
+                    timestamp: order.dispatched_at,
+                    icon: Truck,
+                    color: "text-orange-600",
+                    bgColor: "bg-orange-100",
+                    show: !!order.dispatched_at
+                  },
+                  {
+                    label: "Delivered",
+                    timestamp: order.delivered_at,
+                    icon: Package,
+                    color: "text-green-700",
+                    bgColor: "bg-green-200",
+                    show: !!order.delivered_at
+                  }
+                ].filter(event => event.show);
+
+                return (
+                  <div className="space-y-4">
+                    {timelineEvents.map((event, index) => {
+                      const Icon = event.icon;
+                      return (
+                        <div key={index} className="flex items-start gap-4">
+                          <div className={`flex-shrink-0 w-10 h-10 rounded-full ${event.bgColor} flex items-center justify-center`}>
+                            <Icon className={`w-5 h-5 ${event.color}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-foreground">{event.label}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {format(parseISO(event.timestamp), 'MMM dd, yyyy - hh:mm a')}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Sample QC Section */}
           {selectedOrder && (
