@@ -63,8 +63,6 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Parsing CSV for user:', user.id);
-
     const prompt = `Analyze this CSV data for a bulk apparel order and provide validation results:
 
 ${sanitizedContent}
@@ -105,7 +103,6 @@ Format the response as a clear, structured analysis.`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -147,7 +144,6 @@ Format the response as a clear, structured analysis.`;
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in parse-csv function:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

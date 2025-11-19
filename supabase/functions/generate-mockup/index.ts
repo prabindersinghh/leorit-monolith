@@ -87,8 +87,6 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Generating mockup for user:', user.id, { productType: sanitizedProductType, designSize: sanitizedDesignSize });
-
     // Generate front mockup using the uploaded design
     const frontPrompt = `Apply this design to the front of a ${sanitizedProductType}. 
     Create a professional product mockup with the design placed on the ${sanitizedProductType}.
@@ -123,7 +121,6 @@ serve(async (req) => {
 
     if (!frontResponse.ok) {
       const errorText = await frontResponse.text();
-      console.error('Lovable AI error:', frontResponse.status, errorText);
       
       if (frontResponse.status === 429) {
         return new Response(
@@ -149,7 +146,6 @@ serve(async (req) => {
     const textDescription = frontData.choices?.[0]?.message?.content || 'Mockup generated successfully';
 
     if (!frontImageUrl) {
-      console.error('No front image generated:', frontData);
       return new Response(
         JSON.stringify({ 
           error: 'Failed to generate front mockup image. Please try again.',
@@ -210,7 +206,6 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in generate-mockup function:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
