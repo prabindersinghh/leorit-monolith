@@ -568,12 +568,24 @@ const StartOrder = () => {
                       });
                       // END: Fake Escrow Payment Simulation Layer
 
-                      // Fixed manufacturer ID
-                      const FIXED_MANUFACTURER_ID = '81bf98d4-352b-4296-a577-81fb3973c6c2';
+                      // Initialize manufacturer_id - can be set by other logic in the future
+                      let assignedManufacturerId = null;
+
+                      // Existing assignment logic can go here
+                      // For example, if you have manufacturer selection or verification logic
+                      // assignedManufacturerId = selectedManufacturer?.id;
+
+                      // START: Fallback Assignment Rule (only activates when needed)
+                      if (!assignedManufacturerId) {
+                        // Fallback to fixed manufacturer if no assignment was made
+                        const FALLBACK_MANUFACTURER_ID = '81bf98d4-352b-4296-a577-81fb3973c6c2';
+                        assignedManufacturerId = FALLBACK_MANUFACTURER_ID;
+                      }
+                      // END: Fallback Assignment Rule
 
                       const orderData: any = {
                         buyer_id: user.id,
-                        manufacturer_id: FIXED_MANUFACTURER_ID,
+                        manufacturer_id: assignedManufacturerId,
                         product_type: productType,
                         design_size: designSize,
                         quantity: quantity,
