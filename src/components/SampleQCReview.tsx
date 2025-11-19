@@ -135,6 +135,11 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
 
   const status = order.detailed_status as OrderDetailedStatus || 'created';
   const videoUrl = order.qc_video_url;
+  const qcFiles = order.qc_files || [];
+  
+  // Show QC review interface when status is qc_uploaded
+  const showQCReview = order.status === 'qc_uploaded' || status === 'qc_uploaded';
+  const latestVideo = qcFiles.length > 0 ? qcFiles[qcFiles.length - 1] : videoUrl;
 
   return (
     <div className="bg-card border border-border rounded-xl p-6">
@@ -143,26 +148,58 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
         <div className={`px-3 py-1 rounded-full text-xs font-medium ${
           status === 'sample_approved_by_buyer' ? "bg-green-100 text-green-700" :
           status === 'sample_rejected_by_buyer' ? "bg-red-100 text-red-700" :
-          status === 'qc_uploaded' ? "bg-yellow-100 text-yellow-700" :
+          showQCReview ? "bg-yellow-100 text-yellow-700" :
           "bg-gray-100 text-gray-700"
         }`}>
-          {status === 'qc_uploaded' ? "Awaiting Review" : 
+          {showQCReview && status !== 'sample_approved_by_buyer' && status !== 'sample_rejected_by_buyer' ? "Awaiting Review" : 
            status === 'sample_approved_by_buyer' ? "Approved" :
            status === 'sample_rejected_by_buyer' ? "Rejected" :
            status}
         </div>
       </div>
 
-      {videoUrl ? (
+      {showQCReview && latestVideo ? (
         <div className="space-y-4">
-          <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center relative">
-            <Play className="w-16 h-16 text-gray-400" />
-            <p className="absolute bottom-4 text-sm text-muted-foreground">
-              QC Video Preview - Click to play
-            </p>
+          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+            <video 
+              controls 
+              className="w-full h-full"
+              src={latestVideo}
+            >
+              Your browser does not support the video tag.
+            </video>
           </div>
 
-          {status === "qc_uploaded" && (
+          {/* Show all QC files if multiple */}
+          {qcFiles.length > 1 && (
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm font-medium mb-2">All QC Videos ({qcFiles.length})</p>
+              <div className="flex flex-wrap gap-2">
+                {qcFiles.map((fileUrl: string, index: number) => (
+                  <a 
+                    key={index}
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs px-2 py-1 bg-background rounded hover:bg-accent"
+                  >
+                    Video {index + 1}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Manufacturer notes */}
+          {order.qc_feedback && (
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm font-medium mb-1">Manufacturer Notes</p>
+              <p className="text-sm text-muted-foreground">{order.qc_feedback}</p>
+            </div>
+          )}
+
+          {/* Action buttons - only show when QC uploaded and not yet reviewed */}
+          {showQCReview && status !== 'sample_approved_by_buyer' && status !== 'sample_rejected_by_buyer' && (
             <div className="space-y-3">
               <div className="flex gap-3">
                 <Button 
