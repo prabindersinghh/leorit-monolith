@@ -137,8 +137,8 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   const videoUrl = order.qc_video_url;
   const qcFiles = order.qc_files || [];
   
-  // Show QC review interface when status is qc_uploaded
-  const showQCReview = order.status === 'qc_uploaded' || status === 'qc_uploaded';
+  // Show QC review interface when detailed_status is qc_uploaded
+  const showQCReview = status === 'qc_uploaded';
   const latestVideo = qcFiles.length > 0 ? qcFiles[qcFiles.length - 1] : videoUrl;
 
   return (
@@ -148,10 +148,10 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
         <div className={`px-3 py-1 rounded-full text-xs font-medium ${
           status === 'sample_approved_by_buyer' ? "bg-green-100 text-green-700" :
           status === 'sample_rejected_by_buyer' ? "bg-red-100 text-red-700" :
-          showQCReview ? "bg-yellow-100 text-yellow-700" :
+          status === 'qc_uploaded' ? "bg-yellow-100 text-yellow-700" :
           "bg-gray-100 text-gray-700"
         }`}>
-          {showQCReview && status !== 'sample_approved_by_buyer' && status !== 'sample_rejected_by_buyer' ? "Awaiting Review" : 
+          {status === 'qc_uploaded' ? "Awaiting Review" : 
            status === 'sample_approved_by_buyer' ? "Approved" :
            status === 'sample_rejected_by_buyer' ? "Rejected" :
            status}
@@ -198,8 +198,8 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
             </div>
           )}
 
-          {/* Action buttons - only show when QC uploaded and not yet reviewed */}
-          {showQCReview && status !== 'sample_approved_by_buyer' && status !== 'sample_rejected_by_buyer' && (
+          {/* Action buttons - only show when detailed_status is qc_uploaded */}
+          {status === 'qc_uploaded' && (
             <div className="space-y-3">
               <div className="flex gap-3">
                 <Button 
