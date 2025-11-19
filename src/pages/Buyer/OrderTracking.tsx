@@ -59,7 +59,7 @@ const OrderTracking = () => {
     }
   };
 
-  const confirmDelivery = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+  const confirmDelivery = async (orderId: string, currentStatus: OrderDetailedStatus, escrowAmount: number) => {
     // Transition through delivered to completed
     if (!canTransitionTo(currentStatus, 'delivered')) {
       toast.error("Invalid state transition");
@@ -80,19 +80,23 @@ const OrderTracking = () => {
 
       if (deliveredError) throw deliveredError;
 
-      // Then immediately update to completed
+      // Then immediately update to completed and release escrow
       const { error: completedError } = await supabase
         .from('orders')
         .update({ 
           detailed_status: 'completed',
           status: 'completed', // Backward compatibility
-          sample_status: 'delivered' // Backward compatibility
+          sample_status: 'delivered', // Backward compatibility
+          escrow_status: 'fake_released'
         })
         .eq('id', orderId);
 
       if (completedError) throw completedError;
       
-      toast.success('Thank you! Order marked as delivered and completed.');
+      toast.success(
+        `Order completed! ₹${escrowAmount.toLocaleString()} escrow released to manufacturer.`,
+        { duration: 5000 }
+      );
       fetchOrders();
     } catch (error) {
       console.error('Error confirming delivery:', error);
@@ -105,7 +109,7 @@ const OrderTracking = () => {
     { header: "Product", accessor: "product_type" },
     { header: "Quantity", accessor: "quantity" },
     {
-      header: "Detailed Status",
+      header: "Status",
       accessor: "detailed_status",
       cell: (value: OrderDetailedStatus) => (
         <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[value] || 'bg-gray-100 text-foreground'}`}>
@@ -116,7 +120,22 @@ const OrderTracking = () => {
     { 
       header: "Escrow", 
       accessor: "escrow_amount",
-      cell: (value: number) => value ? `$${value.toLocaleString()}` : 'N/A'
+      cell: (value: number, row: any) => {
+        const escrowStatus = row.escrow_status;
+        return (
+          <div className="space-y-1">
+            <div className="font-semibold text-foreground">
+              {value ? `₹${value.toLocaleString()}` : 'N/A'}
+            </div>
+            {escrowStatus === 'fake_paid' && (
+              <div className="text-xs text-blue-600 font-medium">In Escrow</div>
+            )}
+            {escrowStatus === 'fake_released' && (
+              <div className="text-xs text-green-600 font-medium">Released</div>
+            )}
+          </div>
+        );
+      }
     },
     {
       header: "Estimated Delivery",
@@ -150,7 +169,7 @@ const OrderTracking = () => {
             {currentStatus === 'dispatched' && (
               <Button 
                 size="sm"
-                onClick={() => confirmDelivery(value, currentStatus)}
+                onClick={() => confirmDelivery(value, currentStatus, row.escrow_amount)}
                 className="bg-green-600 hover:bg-green-700 text-white font-semibold"
               >
                 <Package className="w-4 h-4 mr-2" />

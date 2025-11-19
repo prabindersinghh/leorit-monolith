@@ -58,7 +58,12 @@ const DashboardHome = () => {
     { title: "Active Orders", value: orders.filter(o => o.status === 'accepted').length.toString(), icon: Package, description: "In production" },
     { title: "Pending Samples", value: orders.filter(o => o.sample_status === 'qc_submitted').length.toString(), icon: Clock, description: "Awaiting QC" },
     { title: "Completed", value: orders.filter(o => o.status === 'completed').length.toString(), icon: CheckCircle, description: "This month" },
-    { title: "In Escrow", value: `$${orders.reduce((sum, o) => sum + (o.escrow_amount || 0), 0).toLocaleString()}`, icon: DollarSign, description: "Protected funds" },
+    { 
+      title: "In Escrow", 
+      value: `₹${orders.filter(o => o.escrow_status === 'fake_paid').reduce((sum, o) => sum + (o.escrow_amount || 0), 0).toLocaleString()}`, 
+      icon: DollarSign, 
+      description: "Protected funds" 
+    },
   ];
 
   const columns = [
