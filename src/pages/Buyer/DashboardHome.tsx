@@ -1,25 +1,69 @@
+import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import DashboardCard from "@/components/DashboardCard";
 import DataTable from "@/components/DataTable";
 import { Package, Clock, CheckCircle, DollarSign } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const DashboardHome = () => {
-  const stats = [
-    { title: "Active Orders", value: "12", icon: Package, description: "In production" },
-    { title: "Pending Samples", value: "3", icon: Clock, description: "Awaiting QC" },
-    { title: "Completed", value: "47", icon: CheckCircle, description: "This month" },
-    { title: "In Escrow", value: "$24,500", icon: DollarSign, description: "Protected funds" },
-  ];
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentOrders = [
-    { id: "ORD-001", product: "Cotton T-Shirts", quantity: 500, status: "Sample QC", date: "2025-01-10" },
-    { id: "ORD-002", product: "Hoodies", quantity: 300, status: "In Production", date: "2025-01-08" },
-    { id: "ORD-003", product: "Caps", quantity: 1000, status: "QC Approved", date: "2025-01-05" },
+  useEffect(() => {
+    fetchOrders();
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('buyer-dashboard')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('buyer_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const stats = [
+    { title: "Active Orders", value: orders.filter(o => o.status === 'accepted').length.toString(), icon: Package, description: "In production" },
+    { title: "Pending Samples", value: orders.filter(o => o.sample_status === 'qc_submitted').length.toString(), icon: Clock, description: "Awaiting QC" },
+    { title: "Completed", value: orders.filter(o => o.status === 'completed').length.toString(), icon: CheckCircle, description: "This month" },
+    { title: "In Escrow", value: `$${orders.reduce((sum, o) => sum + (o.escrow_amount || 0), 0).toLocaleString()}`, icon: DollarSign, description: "Protected funds" },
   ];
 
   const columns = [
-    { header: "Order ID", accessor: "id" },
-    { header: "Product", accessor: "product" },
+    { header: "Order ID", accessor: "id", cell: (value: string) => value.slice(0, 8) },
+    { header: "Product", accessor: "product_type" },
     { header: "Quantity", accessor: "quantity" },
     { 
       header: "Status", 
@@ -30,7 +74,11 @@ const DashboardHome = () => {
         </span>
       )
     },
-    { header: "Date", accessor: "date" },
+    { 
+      header: "Date", 
+      accessor: "created_at",
+      cell: (value: string) => new Date(value).toLocaleDateString()
+    },
   ];
 
   return (
@@ -52,7 +100,11 @@ const DashboardHome = () => {
 
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="text-xl font-bold text-foreground mb-4">Recent Orders</h2>
-            <DataTable columns={columns} data={recentOrders} />
+            {loading ? (
+              <div className="text-center py-8">Loading...</div>
+            ) : (
+              <DataTable columns={columns} data={orders} />
+            )}
           </div>
         </div>
       </main>

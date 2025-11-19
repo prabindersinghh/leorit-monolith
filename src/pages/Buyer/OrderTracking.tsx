@@ -2,42 +2,82 @@ import Sidebar from "@/components/Sidebar";
 import DataTable from "@/components/DataTable";
 import SampleQCReview from "@/components/SampleQCReview";
 import { Button } from "@/components/ui/button";
-import { Eye, Download } from "lucide-react";
-import { useState } from "react";
+import { Eye, Download, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const OrderTracking = () => {
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const orders = [
-    {
-      id: "ORD-001",
-      product: "Cotton T-Shirts",
-      quantity: 500,
-      status: "Sample QC",
-      escrow: "$6,250",
-      date: "2025-01-10",
-    },
-    {
-      id: "ORD-002",
-      product: "Hoodies",
-      quantity: 300,
-      status: "In Production",
-      escrow: "$9,000",
-      date: "2025-01-08",
-    },
-    {
-      id: "ORD-003",
-      product: "Caps",
-      quantity: 1000,
-      status: "QC Approved",
-      escrow: "$0 (Released)",
-      date: "2025-01-05",
-    },
-  ];
+  useEffect(() => {
+    fetchOrders();
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('buyer-orders')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('buyer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      toast.error('Failed to load orders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsReceived = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'completed',
+          sample_status: 'delivered'
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success('Order marked as received!');
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast.error('Failed to update order');
+    }
+  };
 
   const columns = [
     { header: "Order ID", accessor: "id" },
-    { header: "Product", accessor: "product" },
+    { header: "Product", accessor: "product_type" },
     { header: "Quantity", accessor: "quantity" },
     {
       header: "Status",
@@ -48,12 +88,29 @@ const OrderTracking = () => {
         </span>
       ),
     },
-    { header: "Escrow", accessor: "escrow" },
-    { header: "Date", accessor: "date" },
+    {
+      header: "Sample Status",
+      accessor: "sample_status",
+      cell: (value: string) => (
+        <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-foreground">
+          {value || 'N/A'}
+        </span>
+      ),
+    },
+    { 
+      header: "Escrow", 
+      accessor: "escrow_amount",
+      cell: (value: number) => value ? `$${value.toLocaleString()}` : 'N/A'
+    },
+    { 
+      header: "Date", 
+      accessor: "created_at",
+      cell: (value: string) => new Date(value).toLocaleDateString()
+    },
     {
       header: "Actions",
       accessor: "id",
-      cell: (value: string) => (
+      cell: (value: string, row: any) => (
         <div className="flex gap-2">
           <Button 
             variant="ghost" 
@@ -62,9 +119,15 @@ const OrderTracking = () => {
           >
             <Eye className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm">
-            <Download className="w-4 h-4" />
-          </Button>
+          {row.status === 'dispatched' && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => markAsReceived(value)}
+            >
+              <CheckCircle className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -82,7 +145,11 @@ const OrderTracking = () => {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-6 mb-6">
-            <DataTable columns={columns} data={orders} />
+            {loading ? (
+              <div className="text-center py-12">Loading orders...</div>
+            ) : (
+              <DataTable columns={columns} data={orders} />
+            )}
           </div>
 
           {/* Sample QC Section */}
@@ -91,8 +158,7 @@ const OrderTracking = () => {
               <h2 className="text-xl font-semibold text-foreground mb-4">Sample QC Review</h2>
               <SampleQCReview 
                 orderId={selectedOrder}
-                videoUrl={selectedOrder === "ORD-001" ? "mock-video-url" : undefined}
-                status="pending"
+                onStatusChange={() => fetchOrders()}
               />
             </div>
           )}

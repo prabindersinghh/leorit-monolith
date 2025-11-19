@@ -13,6 +13,26 @@ const ManufacturerOrders = () => {
 
   useEffect(() => {
     fetchOrders();
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('manufacturer-orders')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchOrders = async () => {
@@ -52,6 +72,25 @@ const ManufacturerOrders = () => {
     } catch (error) {
       console.error('Error accepting order:', error);
       toast.error("Failed to accept order");
+    }
+  };
+
+  const handleDispatchOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'dispatched',
+          sample_status: 'dispatched'
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Order dispatched!");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error dispatching order:', error);
+      toast.error("Failed to dispatch order");
     }
   };
 
@@ -147,6 +186,15 @@ const ManufacturerOrders = () => {
               className="bg-foreground text-background hover:bg-foreground/90"
             >
               Upload QC
+            </Button>
+          )}
+          {row.sample_status === 'approved' && row.status !== 'dispatched' && (
+            <Button
+              size="sm"
+              onClick={() => handleDispatchOrder(value)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Dispatch Order
             </Button>
           )}
         </div>

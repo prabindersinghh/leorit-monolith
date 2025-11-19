@@ -1,28 +1,76 @@
+import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import DashboardCard from "@/components/DashboardCard";
 import DataTable from "@/components/DataTable";
 import { Package, Clock, TrendingUp, DollarSign } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const ManufacturerDashboard = () => {
-  const stats = [
-    { title: "Active Orders", value: "8", icon: Package, description: "In progress" },
-    { title: "Pending Acceptance", value: "4", icon: Clock, description: "New requests" },
-    { title: "On-Time Rate", value: "96%", icon: TrendingUp, description: "+2% this month" },
-    { title: "Total Earnings", value: "$89,400", icon: DollarSign, description: "Last 30 days" },
-  ];
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const pendingOrders = [
-    { id: "ORD-101", buyer: "Acme Retail", product: "T-Shirts", quantity: 500, deadline: "15 days" },
-    { id: "ORD-102", buyer: "Fashion Co", product: "Hoodies", quantity: 300, deadline: "20 days" },
-    { id: "ORD-103", buyer: "Brand X", product: "Caps", quantity: 1000, deadline: "25 days" },
+  useEffect(() => {
+    fetchOrders();
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('manufacturer-dashboard')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('manufacturer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pendingOrders = orders.filter(o => o.status === 'pending').slice(0, 5);
+
+  const stats = [
+    { title: "Active Orders", value: orders.filter(o => o.status === 'accepted').length.toString(), icon: Package, description: "In progress" },
+    { title: "Pending Acceptance", value: orders.filter(o => o.status === 'pending').length.toString(), icon: Clock, description: "New requests" },
+    { title: "On-Time Rate", value: "96%", icon: TrendingUp, description: "+2% this month" },
+    { title: "Total Earnings", value: `$${orders.reduce((sum, o) => sum + (o.total_amount || 0), 0).toLocaleString()}`, icon: DollarSign, description: "Last 30 days" },
   ];
 
   const columns = [
-    { header: "Order ID", accessor: "id" },
-    { header: "Buyer", accessor: "buyer" },
-    { header: "Product", accessor: "product" },
+    { header: "Order ID", accessor: "id", cell: (value: string) => value.slice(0, 8) },
+    { header: "Product", accessor: "product_type" },
     { header: "Quantity", accessor: "quantity" },
-    { header: "Deadline", accessor: "deadline" },
+    { 
+      header: "Created", 
+      accessor: "created_at",
+      cell: (value: string) => new Date(value).toLocaleDateString()
+    },
     {
       header: "Actions",
       accessor: "id",
@@ -58,7 +106,11 @@ const ManufacturerDashboard = () => {
 
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="text-xl font-bold text-foreground mb-4">Pending Order Requests</h2>
-            <DataTable columns={columns} data={pendingOrders} />
+            {loading ? (
+              <div className="text-center py-8">Loading...</div>
+            ) : (
+              <DataTable columns={columns} data={pendingOrders} />
+            )}
           </div>
         </div>
       </main>
