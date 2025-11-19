@@ -59,7 +59,12 @@ const ManufacturerDashboard = () => {
     { title: "Active Orders", value: orders.filter(o => o.status === 'accepted').length.toString(), icon: Package, description: "In progress" },
     { title: "Pending Acceptance", value: orders.filter(o => o.status === 'pending').length.toString(), icon: Clock, description: "New requests" },
     { title: "On-Time Rate", value: "96%", icon: TrendingUp, description: "+2% this month" },
-    { title: "Total Earnings", value: `$${orders.reduce((sum, o) => sum + (o.total_amount || 0), 0).toLocaleString()}`, icon: DollarSign, description: "Last 30 days" },
+    { 
+      title: "Escrow Released", 
+      value: `₹${orders.filter(o => o.escrow_status === 'fake_released').reduce((sum, o) => sum + (o.total_amount || 0), 0).toLocaleString()}`, 
+      icon: DollarSign, 
+      description: "Completed orders" 
+    },
   ];
 
   const columns = [

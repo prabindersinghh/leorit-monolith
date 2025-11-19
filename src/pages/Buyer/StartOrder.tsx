@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Sparkles, Download, Edit, Link2, Type } from "lucide-react";
+import { ArrowRight, Sparkles, Download, Edit, Link2, Type, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OrderDetailedStatus } from "@/lib/orderStateMachine";
@@ -490,18 +490,32 @@ const StartOrder = () => {
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Payment & Escrow</h2>
                 
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                  <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-blue-900 mb-1">Protected Payment</h3>
+                    <p className="text-sm text-blue-700">
+                      Your payment is held securely in escrow and only released to the manufacturer after you approve the sample QC.
+                    </p>
+                  </div>
+                </div>
+                
                 <div className="p-6 bg-gray-50 rounded-xl border border-border space-y-4">
                   <div className="flex justify-between">
-                    <span className="text-foreground">Order Total</span>
-                    <span className="font-bold text-foreground">$12,500</span>
+                    <span className="text-foreground">Sample Quantity</span>
+                    <span className="font-bold text-foreground">1 piece</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-foreground">50% Advance (Escrow)</span>
-                    <span className="font-bold text-foreground">$6,250</span>
+                    <span className="text-foreground">Sample Cost</span>
+                    <span className="font-bold text-foreground">₹12,500</span>
+                  </div>
+                  <div className="flex justify-between text-lg">
+                    <span className="text-foreground font-semibold">Escrow Amount</span>
+                    <span className="font-bold text-foreground">₹12,500</span>
                   </div>
                   <div className="pt-4 border-t border-border">
                     <p className="text-xs text-muted-foreground">
-                      Your payment is held in escrow and released only after QC approval.
+                      Full amount will be transferred to escrow upon order placement and released only after QC approval.
                     </p>
                   </div>
                 </div>
@@ -516,28 +530,41 @@ const StartOrder = () => {
                         return;
                       }
 
+                      const quantity = 1; // Sample order
+                      const pricePerPiece = 12500; // ₹12,500 per sample
+                      const escrowAmount = quantity * pricePerPiece;
+
                       const { error } = await supabase.from('orders').insert({
                         buyer_id: user.id,
                         product_type: productType,
                         design_size: designSize,
-                        quantity: 1,
-                        escrow_amount: 6250,
-                        total_amount: 6250,
+                        quantity: quantity,
+                        escrow_amount: escrowAmount,
+                        total_amount: escrowAmount,
+                        escrow_status: 'fake_paid',
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
                         status: 'pending', // Keep for backward compatibility
                         sample_status: 'not_started' // Keep for backward compatibility
                       });
 
                       if (error) throw error;
-                      toast.success("Sample order placed! Payment held in escrow.");
+                      
+                      toast.success(
+                        `Order placed! ₹${escrowAmount.toLocaleString()} transferred to escrow.`,
+                        { duration: 5000 }
+                      );
+                      
                       // Reset form or redirect
+                      setTimeout(() => {
+                        window.location.href = '/buyer/orders';
+                      }, 2000);
                     } catch (error) {
                       console.error('Error placing order:', error);
                       toast.error("Failed to place order");
                     }
                   }}
                 >
-                  Buy Sample - Pay $6,250
+                  Place Order - ₹12,500
                 </Button>
               </div>
             )}

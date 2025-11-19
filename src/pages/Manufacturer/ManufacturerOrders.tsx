@@ -213,11 +213,31 @@ const ManufacturerOrders = () => {
     {
       header: "Escrow Status",
       accessor: "escrow_amount",
-      cell: (value: number) => (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-          ${value?.toFixed(2) || '0.00'} in Escrow
-        </Badge>
-      )
+      cell: (value: number, row: any) => {
+        const escrowStatus = row.escrow_status;
+        return (
+          <div>
+            <div className="font-semibold text-foreground mb-1">
+              ₹{value?.toLocaleString() || '0'}
+            </div>
+            {escrowStatus === 'fake_paid' && (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                In Escrow
+              </Badge>
+            )}
+            {escrowStatus === 'fake_released' && (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                Released to You
+              </Badge>
+            )}
+            {escrowStatus === 'pending' && (
+              <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+                Pending
+              </Badge>
+            )}
+          </div>
+        );
+      }
     },
     {
       header: "Detailed Status",

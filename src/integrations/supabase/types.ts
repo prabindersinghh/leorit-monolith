@@ -148,6 +148,7 @@ export type Database = {
             | null
           dispatched_at: string | null
           escrow_amount: number | null
+          escrow_status: Database["public"]["Enums"]["escrow_status"] | null
           estimated_delivery_date: string | null
           id: string
           manufacturer_id: string | null
@@ -173,6 +174,7 @@ export type Database = {
             | null
           dispatched_at?: string | null
           escrow_amount?: number | null
+          escrow_status?: Database["public"]["Enums"]["escrow_status"] | null
           estimated_delivery_date?: string | null
           id?: string
           manufacturer_id?: string | null
@@ -198,6 +200,7 @@ export type Database = {
             | null
           dispatched_at?: string | null
           escrow_amount?: number | null
+          escrow_status?: Database["public"]["Enums"]["escrow_status"] | null
           estimated_delivery_date?: string | null
           id?: string
           manufacturer_id?: string | null
@@ -316,6 +319,7 @@ export type Database = {
     }
     Enums: {
       app_role: "buyer" | "manufacturer" | "admin"
+      escrow_status: "pending" | "fake_paid" | "fake_released"
       order_detailed_status:
         | "created"
         | "submitted_to_manufacturer"
@@ -457,6 +461,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["buyer", "manufacturer", "admin"],
+      escrow_status: ["pending", "fake_paid", "fake_released"],
       order_detailed_status: [
         "created",
         "submitted_to_manufacturer",
