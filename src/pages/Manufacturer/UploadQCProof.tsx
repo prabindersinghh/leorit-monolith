@@ -106,6 +106,7 @@ const UploadQCProof = () => {
         .from('orders')
         .update({
           status: 'qc_uploaded',
+          detailed_status: 'qc_uploaded',
           sample_status: 'qc_uploaded',
           qc_video_url: publicUrl,
           qc_files: [...existingFiles, publicUrl],
