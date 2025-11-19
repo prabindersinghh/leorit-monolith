@@ -140,12 +140,15 @@ export type Database = {
           buyer_id: string
           concern_notes: string | null
           created_at: string
+          delivered_at: string | null
           design_file_url: string | null
           design_size: string
           detailed_status:
             | Database["public"]["Enums"]["order_detailed_status"]
             | null
+          dispatched_at: string | null
           escrow_amount: number | null
+          estimated_delivery_date: string | null
           id: string
           manufacturer_id: string | null
           product_type: string
@@ -162,12 +165,15 @@ export type Database = {
           buyer_id: string
           concern_notes?: string | null
           created_at?: string
+          delivered_at?: string | null
           design_file_url?: string | null
           design_size: string
           detailed_status?:
             | Database["public"]["Enums"]["order_detailed_status"]
             | null
+          dispatched_at?: string | null
           escrow_amount?: number | null
+          estimated_delivery_date?: string | null
           id?: string
           manufacturer_id?: string | null
           product_type: string
@@ -184,12 +190,15 @@ export type Database = {
           buyer_id?: string
           concern_notes?: string | null
           created_at?: string
+          delivered_at?: string | null
           design_file_url?: string | null
           design_size?: string
           detailed_status?:
             | Database["public"]["Enums"]["order_detailed_status"]
             | null
+          dispatched_at?: string | null
           escrow_amount?: number | null
+          estimated_delivery_date?: string | null
           id?: string
           manufacturer_id?: string | null
           product_type?: string

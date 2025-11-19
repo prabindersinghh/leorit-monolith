@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Truck } from "lucide-react";
 import { canTransitionTo, getActionLabel, statusLabels, statusColors, OrderDetailedStatus } from "@/lib/orderStateMachine";
+import { addDays, format } from "date-fns";
 
 const ManufacturerOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -119,18 +120,23 @@ const ManufacturerOrders = () => {
       return;
     }
 
+    const now = new Date();
+    const estimatedDelivery = addDays(now, 3);
+
     try {
       const { error } = await supabase
         .from('orders')
         .update({ 
           detailed_status: newStatus,
           status: 'dispatched', // Backward compatibility
-          sample_status: 'dispatched' // Backward compatibility
+          sample_status: 'dispatched', // Backward compatibility
+          dispatched_at: now.toISOString(),
+          estimated_delivery_date: format(estimatedDelivery, 'yyyy-MM-dd')
         })
         .eq('id', orderId);
 
       if (error) throw error;
-      toast.success("Order dispatched!");
+      toast.success(`Order dispatched! Estimated delivery: ${format(estimatedDelivery, 'MMM dd, yyyy')}`);
       fetchOrders();
     } catch (error) {
       console.error('Error dispatching order:', error);
@@ -283,7 +289,8 @@ const ManufacturerOrders = () => {
                 onClick={() => handleDispatchOrder(value, currentStatus)}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {getActionLabel('dispatched')}
+                <Truck className="w-4 h-4 mr-1" />
+                Mark as Dispatched
               </Button>
             )}
           </div>
