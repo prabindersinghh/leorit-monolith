@@ -534,21 +534,12 @@ const StartOrder = () => {
                       const pricePerPiece = 12500; // ₹12,500 per sample
                       const escrowAmount = quantity * pricePerPiece;
 
-                      // Query for verified manufacturers
-                      const { data: manufacturers, error: mfgError } = await supabase
-                        .from('manufacturer_verifications')
-                        .select('user_id')
-                        .eq('status', 'approved')
-                        .limit(1);
-
-                      if (mfgError || !manufacturers?.length) {
-                        toast.error("No verified manufacturers available at the moment. Please try again later.");
-                        return;
-                      }
+                      // Fixed manufacturer ID - singhprabindersingh@gmail.com
+                      const FIXED_MANUFACTURER_ID = '81bf98d4-352b-4296-a577-81fb3973c6c2';
 
                       const { error } = await supabase.from('orders').insert({
                         buyer_id: user.id,
-                        manufacturer_id: manufacturers[0].user_id,
+                        manufacturer_id: FIXED_MANUFACTURER_ID,
                         product_type: productType,
                         design_size: designSize,
                         quantity: quantity,
