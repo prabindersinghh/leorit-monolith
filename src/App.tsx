@@ -58,6 +58,11 @@ const App = () => (
               <OrderTracking />
             </ProtectedRoute>
           } />
+          <Route path="/buyer/order-tracking" element={
+            <ProtectedRoute allowedRoles={['buyer']}>
+              <OrderTracking />
+            </ProtectedRoute>
+          } />
           <Route path="/buyer/profile" element={
             <ProtectedRoute allowedRoles={['buyer']}>
               <BuyerProfile />
