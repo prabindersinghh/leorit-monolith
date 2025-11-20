@@ -243,23 +243,6 @@ const StartOrder = () => {
                   ))}
                 </div>
                 
-                {productType && (
-                  <div className="pt-4 border-t border-border">
-                    <Button 
-                      onClick={() => {
-                        setIsSampleOnly(true);
-                        setStep(5);
-                      }}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Order Sample Only (1 unit)
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                      Skip bulk order steps and go directly to sample order
-                    </p>
-                  </div>
-                )}
               </div>
             )}
 
@@ -519,16 +502,86 @@ const StartOrder = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* Checkout Options */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-foreground">Select Order Type</h3>
+                  
+                  {/* Option 1: Sample Only */}
+                  <button
+                    onClick={() => setIsSampleOnly(true)}
+                    className={`w-full p-6 border-2 rounded-xl transition-all text-left ${
+                      isSampleOnly
+                        ? "border-foreground bg-gray-50"
+                        : "border-border hover:border-foreground hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-1">Order Sample Only (1 unit)</h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Test the quality before committing to bulk order
+                        </p>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Sample Quantity:</span>
+                            <span className="font-medium text-foreground">1 piece</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Sample Cost:</span>
+                            <span className="font-bold text-foreground">₹500</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        isSampleOnly ? "border-foreground bg-foreground" : "border-gray-300"
+                      }`}>
+                        {isSampleOnly && <div className="w-3 h-3 rounded-full bg-background" />}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Option 2: Bulk Order */}
+                  <button
+                    onClick={() => setIsSampleOnly(false)}
+                    className={`w-full p-6 border-2 rounded-xl transition-all text-left ${
+                      !isSampleOnly
+                        ? "border-foreground bg-gray-50"
+                        : "border-border hover:border-foreground hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-1">Order Bulk Order (MOQ 50+)</h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Get 1 sample for QC approval, then proceed to bulk production
+                        </p>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Sample Quantity:</span>
+                            <span className="font-medium text-foreground">1 piece</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Sample Cost:</span>
+                            <span className="font-bold text-foreground">₹12,500</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Min Bulk Order:</span>
+                            <span className="font-medium text-foreground">50 pieces</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        !isSampleOnly ? "border-foreground bg-foreground" : "border-gray-300"
+                      }`}>
+                        {!isSampleOnly && <div className="w-3 h-3 rounded-full bg-background" />}
+                      </div>
+                    </div>
+                  </button>
+                </div>
                 
+                {/* Escrow Summary */}
                 <div className="p-6 bg-gray-50 rounded-xl border border-border space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-foreground">Sample Quantity</span>
-                    <span className="font-bold text-foreground">1 piece</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-foreground">Sample Cost</span>
-                    <span className="font-bold text-foreground">₹{isSampleOnly ? '500' : '12,500'}</span>
-                  </div>
                   <div className="flex justify-between text-lg">
                     <span className="text-foreground font-semibold">Escrow Amount</span>
                     <span className="font-bold text-foreground">₹{isSampleOnly ? '500' : '12,500'}</span>
@@ -596,11 +649,6 @@ const StartOrder = () => {
                         status: 'pending',
                         sample_status: 'not_started'
                       };
-
-                      // Add order_type for sample-only orders
-                      if (isSampleOnly) {
-                        orderData.order_type = 'sample_only';
-                      }
 
                       const { error } = await supabase.from('orders').insert(orderData);
 
