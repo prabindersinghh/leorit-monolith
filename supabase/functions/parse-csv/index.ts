@@ -38,6 +38,20 @@ serve(async (req) => {
       );
     }
 
+    // Verify user has buyer role (server-side authorization)
+    const { data: userRole } = await supabaseClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!userRole || userRole.role !== 'buyer') {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Buyer role required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { csvContent } = await req.json();
 
     // Input validation
