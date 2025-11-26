@@ -1,27 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { calculateDeliveryCost, formatWeight, formatCost } from "@/lib/deliveryCostCalculator";
 
 interface DeliveryCostCalculatorProps {
   productType: string;
-  pincode: string;
+  quantity: number;
+  pincode?: string;
 }
 
-const DeliveryCostCalculator = ({ productType, pincode }: DeliveryCostCalculatorProps) => {
-  // Dummy calculation
-  const getWeight = (type: string) => {
-    if (type.toLowerCase().includes("hoodie")) return 0.6;
-    return 0.25; // T-shirt default
-  };
-
-  const calculateCost = (weight: number, pincode: string) => {
-    const distance = parseInt(pincode) % 1000; // Dummy distance calculation
-    const baseCost = weight * 100;
-    const distanceCost = (distance / 10) * 2;
-    return Math.min(Math.max(baseCost + distanceCost, 60), 120);
-  };
-
-  const weight = getWeight(productType);
-  const cost = calculateCost(weight, pincode);
+const DeliveryCostCalculator = ({ productType, quantity, pincode }: DeliveryCostCalculatorProps) => {
+  const { weight, cost, slabs } = calculateDeliveryCost({
+    productType,
+    quantity,
+    buyerPincode: pincode,
+  });
 
   return (
     <Card>
@@ -31,18 +23,28 @@ const DeliveryCostCalculator = ({ productType, pincode }: DeliveryCostCalculator
       <CardContent className="space-y-3">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Product Weight:</span>
-          <Badge variant="secondary">{weight} kg</Badge>
+          <Badge variant="secondary">{formatWeight(weight)}</Badge>
         </div>
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Delivery Pincode:</span>
-          <span className="font-medium">{pincode}</span>
+          <span className="text-muted-foreground">Quantity:</span>
+          <span className="font-medium">{quantity} pcs</span>
         </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Weight Slabs:</span>
+          <span className="font-medium">{slabs} slab{slabs > 1 ? 's' : ''}</span>
+        </div>
+        {pincode && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Delivery Pincode:</span>
+            <span className="font-medium">{pincode}</span>
+          </div>
+        )}
         <div className="flex justify-between text-lg font-semibold pt-2 border-t">
           <span>Delivery Cost:</span>
-          <span className="text-primary">₹{cost.toFixed(0)}</span>
+          <span className="text-primary">{formatCost(cost)}</span>
         </div>
         <p className="text-xs text-muted-foreground">
-          * Cost calculated based on weight and distance. Final charges may vary.
+          * Slab-based pricing: ₹35 for first 0.5kg, ₹20 per additional 0.5kg slab
         </p>
       </CardContent>
     </Card>

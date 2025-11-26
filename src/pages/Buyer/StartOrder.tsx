@@ -14,6 +14,7 @@ import { ArrowRight, Sparkles, Download, Edit, Link2, Type, Shield } from "lucid
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OrderDetailedStatus } from "@/lib/orderStateMachine";
+import { calculateDeliveryCost } from "@/lib/deliveryCostCalculator";
 
 const StartOrder = () => {
   const [step, setStep] = useState(1);
@@ -506,6 +507,7 @@ const StartOrder = () => {
                 {shippingAddress && (
                   <DeliveryCostCalculator
                     productType={productType}
+                    quantity={1}
                     pincode={shippingAddress.pincode}
                   />
                 )}
@@ -603,15 +605,44 @@ const StartOrder = () => {
                   </button>
                 </div>
                 
-                {/* Escrow Summary */}
-                <div className="p-6 bg-gray-50 rounded-xl border border-border space-y-4">
-                  <div className="flex justify-between text-lg">
-                    <span className="text-foreground font-semibold">Escrow Amount</span>
-                    <span className="font-bold text-foreground">₹{isSampleOnly ? '500' : '12,500'}</span>
-                  </div>
-                  <div className="pt-4 border-t border-border">
+                {/* Cost Breakdown */}
+                <div className="p-6 bg-gray-50 rounded-xl border border-border space-y-3">
+                  <h3 className="font-semibold text-foreground mb-3">Order Summary</h3>
+                  
+                  {(() => {
+                    const quantity = 1; // Sample order
+                    const sampleCost = isSampleOnly ? 500 : 12500;
+                    const deliveryCost = calculateDeliveryCost({
+                      productType,
+                      quantity,
+                    }).cost;
+                    const totalAmount = sampleCost + deliveryCost;
+
+                    return (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            {isSampleOnly ? "Sample Cost:" : "Sample Cost (for bulk order):"}
+                          </span>
+                          <span className="font-medium text-foreground">₹{sampleCost.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Delivery Cost:</span>
+                          <span className="font-medium text-foreground">₹{deliveryCost}</span>
+                        </div>
+                        <div className="pt-3 border-t border-border">
+                          <div className="flex justify-between text-lg">
+                            <span className="text-foreground font-semibold">Total Payable:</span>
+                            <span className="font-bold text-foreground">₹{totalAmount.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                  
+                  <div className="pt-3 border-t border-border">
                     <p className="text-xs text-muted-foreground">
-                      Full amount will be transferred to escrow upon order placement and released only after QC approval.
+                      Full amount will be transferred to escrow and released only after QC approval.
                     </p>
                   </div>
                 </div>
@@ -630,6 +661,14 @@ const StartOrder = () => {
                       const quantity = 1; // Sample order
                       const pricePerPiece = isSampleOnly ? 500 : 12500; // ₹500 for sample-only, ₹12,500 for full order sample
                       const escrowAmount = quantity * pricePerPiece;
+                      
+                      // Calculate delivery cost
+                      const deliveryCostResult = calculateDeliveryCost({
+                        productType,
+                        quantity,
+                      });
+                      const deliveryCost = deliveryCostResult.cost;
+                      const totalAmount = escrowAmount + deliveryCost;
 
                       // START: Fake Escrow Payment Simulation Layer
                       setIsProcessingPayment(true);
@@ -638,7 +677,7 @@ const StartOrder = () => {
                       // Simulate 2-second payment processing
                       await new Promise(resolve => setTimeout(resolve, 2000));
                       
-                      toast.success(`Payment Sent to Escrow (Test Mode) - ₹${escrowAmount.toLocaleString()}`, { 
+                      toast.success(`Payment Sent to Escrow (Test Mode) - ₹${totalAmount.toLocaleString()}`, { 
                         id: "payment-processing",
                         duration: 4000 
                       });
@@ -666,7 +705,8 @@ const StartOrder = () => {
                         design_size: designSize,
                         quantity: quantity,
                         escrow_amount: escrowAmount,
-                        total_amount: escrowAmount,
+                        delivery_cost: deliveryCost,
+                        total_amount: totalAmount,
                         escrow_status: 'fake_paid',
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
                         status: 'pending',
@@ -691,7 +731,7 @@ const StartOrder = () => {
                       }
                       
                       toast.success(
-                        `Order placed! ₹${escrowAmount.toLocaleString()} transferred to escrow.`,
+                        `Order placed! ₹${totalAmount.toLocaleString()} total (₹${escrowAmount.toLocaleString()} + ₹${deliveryCost} delivery) transferred to escrow.`,
                         { duration: 5000 }
                       );
                       
@@ -706,7 +746,11 @@ const StartOrder = () => {
                     }
                   }}
                 >
-                  {isProcessingPayment ? "Processing..." : `Place Order - ₹${isSampleOnly ? '500' : '12,500'}`}
+                  {isProcessingPayment ? "Processing..." : `Place Order - ₹${(() => {
+                    const sampleCost = isSampleOnly ? 500 : 12500;
+                    const deliveryCost = calculateDeliveryCost({ productType, quantity: 1 }).cost;
+                    return (sampleCost + deliveryCost).toLocaleString();
+                  })()}`}
                 </Button>
               </div>
             )}

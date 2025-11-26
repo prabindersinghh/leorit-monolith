@@ -140,6 +140,22 @@ const OrderTracking = () => {
       }
     },
     {
+      header: "Total",
+      accessor: "total_amount",
+      cell: (value: number, row: any) => (
+        <div className="space-y-1">
+          <div className="font-bold text-foreground">
+            {value ? `₹${value.toLocaleString()}` : 'N/A'}
+          </div>
+          {row.delivery_cost && (
+            <div className="text-xs text-muted-foreground">
+              (incl. ₹{row.delivery_cost} delivery)
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
       header: "Estimated Delivery",
       accessor: "estimated_delivery_date",
       cell: (value: string, row: any) => {
