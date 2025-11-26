@@ -4,13 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PaymentTimelineProps {
   orderCreatedAt: string;
-  fakePaymentTimestamp?: string | null;
-  escrowLockedTimestamp?: string | null;
-  sampleProductionStartedAt?: string | null;
-  qcUploadedAt?: string | null;
-  sampleApprovedAt?: string | null;
-  escrowReleasedTimestamp?: string | null;
-  escrowAmount?: number;
+  fakePaymentTimestamp: string | null;
+  escrowLockedTimestamp: string | null; // = Accepted by Manufacturer timestamp
+  sampleProductionStartedAt: string | null;
+  qcUploadedAt: string | null;
+  sampleApprovedAt: string | null;
+  escrowReleasedTimestamp: string | null;
+  escrowAmount: number;
 }
 
 const PaymentTimeline = ({
@@ -45,16 +45,16 @@ const PaymentTimeline = ({
       bgColor: "bg-blue-100",
       completed: !!fakePaymentTimestamp,
       amount: escrowAmount,
-      description: `₹${escrowAmount} deducted from Buyer Wallet → Transferred to Escrow`,
+      description: `₹${escrowAmount} received from buyer`,
     },
     {
-      label: "Marked Accepted by Manufacturer",
+      label: "Accepted by Manufacturer",
       timestamp: escrowLockedTimestamp,
       icon: CheckCircle,
       color: "text-green-600",
       bgColor: "bg-green-100",
       completed: !!escrowLockedTimestamp,
-      description: "Escrow Locked: Awaiting QC Upload",
+      description: "Escrow locked",
     },
     {
       label: "Sample Production Started",
@@ -81,14 +81,14 @@ const PaymentTimeline = ({
       completed: !!sampleApprovedAt,
     },
     {
-      label: "Escrow Released to Manufacturer",
+      label: "Escrow Released",
       timestamp: escrowReleasedTimestamp,
       icon: ArrowRight,
       color: "text-green-600",
       bgColor: "bg-green-100",
       completed: !!escrowReleasedTimestamp,
       amount: escrowAmount,
-      description: `₹${escrowAmount} Released from Escrow → Manufacturer Wallet`,
+      description: `₹${escrowAmount} released to manufacturer`,
     },
   ];
 

@@ -129,10 +129,10 @@ const OrderTracking = () => {
             <div className="font-semibold text-foreground">
               {value ? `₹${value.toLocaleString()}` : 'N/A'}
             </div>
-            {escrowStatus === 'fake_paid' && (
-              <div className="text-xs text-blue-600 font-medium">In Escrow</div>
+            {row.escrow_locked_timestamp && !row.escrow_released_timestamp && (
+              <div className="text-xs text-yellow-600 font-medium">In Escrow</div>
             )}
-            {escrowStatus === 'fake_released' && (
+            {row.escrow_released_timestamp && (
               <div className="text-xs text-green-600 font-medium">Released</div>
             )}
           </div>
@@ -217,12 +217,15 @@ const OrderTracking = () => {
             const order = orders.find(o => o.id === selectedOrder);
             if (!order || !isSampleOrder(order.quantity)) return null;
             
-            // Determine escrow flow stage
-            let escrowStage: "payment" | "locked" | "released" = "payment";
+            // Only show escrow flow if escrow has been locked (manufacturer accepted)
+            if (!order.escrow_locked_timestamp) return null;
+            
+            // Determine escrow flow stage based on timestamps
+            let escrowStage: "payment" | "locked" | "released" = "locked";
             if (order.escrow_released_timestamp) {
               escrowStage = "released";
-            } else if (order.escrow_locked_timestamp) {
-              escrowStage = "locked";
+            } else if (order.fake_payment_timestamp) {
+              escrowStage = "payment";
             }
 
             return (

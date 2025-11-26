@@ -44,8 +44,8 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
     const currentStatus = order.detailed_status as OrderDetailedStatus;
     const isSample = isSampleOrder(order.quantity);
     
-    // For sample orders, complete the order and release escrow
-    const newStatus: OrderDetailedStatus = isSample ? 'sample_completed' : 'sample_approved_by_buyer';
+    // First transition to sample_approved_by_buyer
+    const newStatus: OrderDetailedStatus = 'sample_approved_by_buyer';
     
     if (!canTransitionTo(currentStatus, newStatus)) {
       toast.error("Invalid state transition");
@@ -54,28 +54,33 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
 
     try {
       const now = new Date().toISOString();
-      const updateData: any = { 
-        detailed_status: newStatus,
-        sample_status: 'approved', // Backward compatibility
-        qc_feedback: 'Approved by buyer',
-        sample_approved_at: now
-      };
-
-      // For sample orders, release escrow immediately
-      if (isSample) {
-        updateData.escrow_status = 'fake_released';
-        updateData.escrow_released_timestamp = now;
-      }
-
-      const { error } = await supabase
+      
+      // First update: Transition to sample_approved_by_buyer
+      const { error: approveError } = await supabase
         .from('orders')
-        .update(updateData)
+        .update({ 
+          detailed_status: 'sample_approved_by_buyer',
+          sample_status: 'approved', // Backward compatibility
+          qc_feedback: 'Approved by buyer',
+          sample_approved_at: now
+        })
         .eq('id', orderId);
 
-      if (error) throw error;
-      
+      if (approveError) throw approveError;
+
+      // For sample orders, immediately transition to sample_completed and release escrow
       if (isSample) {
-        toast.success(`Sample approved! ₹${order.escrow_amount} released from Escrow → Manufacturer Wallet`);
+        const { error: completeError } = await supabase
+          .from('orders')
+          .update({
+            detailed_status: 'sample_completed',
+            escrow_status: 'fake_released',
+            escrow_released_timestamp: now
+          })
+          .eq('id', orderId);
+          
+        if (completeError) throw completeError;
+        toast.success(`Sample approved! ₹${order.escrow_amount} released from Escrow → Manufacturer Wallet`, { duration: 5000 });
       } else {
         toast.success("Sample approved! You can now proceed to bulk production.");
       }

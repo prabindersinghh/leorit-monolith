@@ -27,16 +27,16 @@ const EscrowMoneyFlow = ({
     switch (stage) {
       case "payment":
         return {
-          title: "Payment to Escrow",
-          description: `₹${amount} deducted from Buyer Wallet → Transferred to Escrow`,
+          title: "Payment Received",
+          description: `₹${amount} received from Buyer`,
           color: "text-blue-600",
           bgColor: "bg-blue-50",
-          icon: Shield,
+          icon: Wallet,
         };
       case "locked":
         return {
           title: "Escrow Locked",
-          description: "Awaiting QC Upload & Buyer Approval",
+          description: `₹${amount} locked in Escrow • Awaiting QC Upload & Buyer Approval`,
           color: "text-yellow-600",
           bgColor: "bg-yellow-50",
           icon: Shield,
