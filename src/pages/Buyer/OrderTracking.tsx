@@ -159,8 +159,10 @@ const OrderTracking = () => {
       header: "Estimated Delivery",
       accessor: "estimated_delivery_date",
       cell: (value: string, row: any) => {
-        if (!value || row.detailed_status === 'completed' || row.detailed_status === 'delivered') return '-';
-        return format(parseISO(value), 'MMM dd, yyyy');
+        // Only show estimated delivery if dispatched
+        if (!value || !row.dispatched_at) return '-';
+        if (row.detailed_status === 'completed' || row.detailed_status === 'delivered') return 'Delivered';
+        return format(parseISO(value), 'dd MMM yyyy, EEE');
       }
     },
     { 

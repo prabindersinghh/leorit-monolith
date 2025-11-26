@@ -660,7 +660,6 @@ const StartOrder = () => {
 
                       const quantity = 1; // Sample order
                       const pricePerPiece = isSampleOnly ? 500 : 12500; // ₹500 for sample-only, ₹12,500 for full order sample
-                      const escrowAmount = quantity * pricePerPiece;
                       
                       // Calculate delivery cost
                       const deliveryCostResult = calculateDeliveryCost({
@@ -668,7 +667,11 @@ const StartOrder = () => {
                         quantity,
                       });
                       const deliveryCost = deliveryCostResult.cost;
-                      const totalAmount = escrowAmount + deliveryCost;
+                      
+                      // IMPORTANT: Escrow amount now includes delivery cost
+                      const sampleCost = quantity * pricePerPiece;
+                      const escrowAmount = sampleCost + deliveryCost;
+                      const totalAmount = escrowAmount; // Total = escrow (which includes delivery)
 
                       // START: Fake Escrow Payment Simulation Layer
                       setIsProcessingPayment(true);
@@ -704,9 +707,9 @@ const StartOrder = () => {
                         product_type: productType,
                         design_size: designSize,
                         quantity: quantity,
-                        escrow_amount: escrowAmount,
+                        escrow_amount: escrowAmount, // Now includes delivery cost
                         delivery_cost: deliveryCost,
-                        total_amount: totalAmount,
+                        total_amount: totalAmount, // Same as escrow_amount
                         escrow_status: 'fake_paid',
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
                         status: 'pending',
@@ -731,7 +734,7 @@ const StartOrder = () => {
                       }
                       
                       toast.success(
-                        `Order placed! ₹${totalAmount.toLocaleString()} total (₹${escrowAmount.toLocaleString()} + ₹${deliveryCost} delivery) transferred to escrow.`,
+                        `Order placed! ₹${totalAmount.toLocaleString()} (incl. ₹${deliveryCost} delivery) transferred to escrow.`,
                         { duration: 5000 }
                       );
                       

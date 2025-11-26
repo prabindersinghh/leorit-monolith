@@ -2,32 +2,25 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Sidebar from "@/components/Sidebar";
-import OrderChat from "@/components/OrderChat";
-import TrackingIdInput from "@/components/TrackingIdInput";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
 import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MapPin } from "lucide-react";
+import { FileText, Package, MapPin, User } from "lucide-react";
 import { toast } from "sonner";
 
-const ManufacturerOrderDetails = () => {
+const AdminOrderDetails = () => {
   const { id } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [shippingInfo, setShippingInfo] = useState<any>(null);
+  const [buyerInfo, setBuyerInfo] = useState<any>(null);
+  const [manufacturerInfo, setManufacturerInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState("");
 
   useEffect(() => {
     fetchOrderDetails();
-    getCurrentUser();
   }, [id]);
-
-  const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) setCurrentUserId(user.id);
-  };
 
   const fetchOrderDetails = async () => {
     const { data: orderData, error: orderError } = await supabase
@@ -48,8 +41,26 @@ const ManufacturerOrderDetails = () => {
       .eq("order_id", id)
       .single();
 
+    // Fetch buyer profile
+    const { data: buyerData } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", orderData.buyer_id)
+      .single();
+
+    // Fetch manufacturer profile
+    if (orderData.manufacturer_id) {
+      const { data: manufacturerData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", orderData.manufacturer_id)
+        .single();
+      setManufacturerInfo(manufacturerData);
+    }
+
     setOrder(orderData);
     setShippingInfo(shippingData);
+    setBuyerInfo(buyerData);
     setLoading(false);
   };
 
@@ -64,7 +75,7 @@ const ManufacturerOrderDetails = () => {
   if (!order) {
     return (
       <div className="flex min-h-screen bg-background">
-        <Sidebar userRole="manufacturer" />
+        <Sidebar userRole="admin" />
         <div className="flex-1 p-8">
           <p className="text-center text-muted-foreground">Order not found</p>
         </div>
@@ -74,11 +85,11 @@ const ManufacturerOrderDetails = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar userRole="manufacturer" />
+      <Sidebar userRole="admin" />
       <div className="flex-1 p-8 ml-64">
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Order Details</h1>
+            <h1 className="text-3xl font-bold">Order Details (Admin View)</h1>
             <Badge>{order.status}</Badge>
           </div>
 
@@ -107,19 +118,9 @@ const ManufacturerOrderDetails = () => {
                   <span className="text-muted-foreground">Design Size:</span>
                   <span className="font-medium">{order.design_size}</span>
                 </div>
-                <div className="flex justify-between pt-2 border-t">
-                  <span className="text-muted-foreground">Order Value:</span>
-                  <span className="font-semibold">₹{order.escrow_amount?.toLocaleString() || '0'}</span>
-                </div>
-                {order.delivery_cost && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Delivery Cost:</span>
-                    <span className="font-semibold">₹{order.delivery_cost}</span>
-                  </div>
-                )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Amount:</span>
-                  <span className="font-bold text-lg">₹{order.total_amount?.toLocaleString() || '0'}</span>
+                  <span className="text-muted-foreground">Status:</span>
+                  <Badge>{order.detailed_status || order.status}</Badge>
                 </div>
               </CardContent>
             </Card>
@@ -129,7 +130,7 @@ const ManufacturerOrderDetails = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
-                    Delivery Address
+                    Shipping Address
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
@@ -147,6 +148,66 @@ const ManufacturerOrderDetails = () => {
               </Card>
             )}
           </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {buyerInfo && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Buyer Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Company:</span>
+                    <span className="font-medium">{buyerInfo.company_name || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Email:</span>
+                    <span className="font-medium">{buyerInfo.email}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {manufacturerInfo && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Manufacturer Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Company:</span>
+                    <span className="font-medium">{manufacturerInfo.company_name || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Email:</span>
+                    <span className="font-medium">{manufacturerInfo.email}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <OrderCostBreakdown
+            orderValue={(order.escrow_amount || 0) - (order.delivery_cost || 0)}
+            deliveryCost={order.delivery_cost || undefined}
+            totalAmount={order.total_amount || order.escrow_amount || 0}
+            title="Financial Summary"
+          />
+
+          {order.tracking_id || order.dispatched_at ? (
+            <DeliveryTrackingInfo
+              trackingId={order.tracking_id || undefined}
+              trackingUrl={order.tracking_url || undefined}
+              dispatchedAt={order.dispatched_at || undefined}
+              estimatedDeliveryDate={order.estimated_delivery_date || undefined}
+            />
+          ) : null}
 
           {order.design_file_url && (
             <Card>
@@ -181,45 +242,23 @@ const ManufacturerOrderDetails = () => {
             </Card>
           )}
 
-          {order.size_chart_url && (
+          {order.qc_files && order.qc_files.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Size Chart</CardTitle>
+                <CardTitle>QC Video</CardTitle>
               </CardHeader>
               <CardContent>
-                <Button asChild variant="outline">
-                  <a href={order.size_chart_url} target="_blank" rel="noopener noreferrer">
-                    <FileText className="w-4 h-4 mr-2" />
-                    View Size Chart PDF
-                  </a>
-                </Button>
+                <video controls className="w-full max-w-2xl mx-auto rounded">
+                  <source src={order.qc_files[0]} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
               </CardContent>
             </Card>
           )}
-
-          <OrderCostBreakdown
-            orderValue={(order.escrow_amount || 0) - (order.delivery_cost || 0)}
-            deliveryCost={order.delivery_cost || undefined}
-            totalAmount={order.total_amount || order.escrow_amount || 0}
-            title="Order Cost Summary"
-          />
-
-          {order.tracking_id || order.dispatched_at ? (
-            <DeliveryTrackingInfo
-              trackingId={order.tracking_id || undefined}
-              trackingUrl={order.tracking_url || undefined}
-              dispatchedAt={order.dispatched_at || undefined}
-              estimatedDeliveryDate={order.estimated_delivery_date || undefined}
-            />
-          ) : order.status === "sample_in_production" ? (
-            <TrackingIdInput orderId={order.id} onSuccess={fetchOrderDetails} />
-          ) : null}
-
-          <OrderChat orderId={order.id} currentUserId={currentUserId} />
         </div>
       </div>
     </div>
   );
 };
 
-export default ManufacturerOrderDetails;
+export default AdminOrderDetails;
