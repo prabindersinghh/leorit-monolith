@@ -4,6 +4,8 @@ import UploadBox from "@/components/UploadBox";
 import MockupViewer3D from "@/components/MockupViewer3D";
 import DesignEditor from "@/components/DesignEditor";
 import NameCustomizer, { NameSettings } from "@/components/NameCustomizer";
+import ShippingAddressForm from "@/components/ShippingAddressForm";
+import DeliveryCostCalculator from "@/components/DeliveryCostCalculator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +35,7 @@ const StartOrder = () => {
   const [nameSettings, setNameSettings] = useState<NameSettings | null>(null);
   const [isSampleOnly, setIsSampleOnly] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [shippingAddress, setShippingAddress] = useState<any>(null);
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
@@ -199,7 +202,7 @@ const StartOrder = () => {
           {/* Progress Bar */}
           <div className="mb-12">
             <div className="flex items-center justify-between mb-4">
-              {[1, 2, 3, 4, 5].map((s) => (
+              {[1, 2, 3, 4, 5, 6].map((s) => (
                 <div key={s} className="flex items-center">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
                     s === step ? "bg-foreground text-background" :
@@ -208,7 +211,7 @@ const StartOrder = () => {
                   }`}>
                     {s}
                   </div>
-                  {s < 5 && <div className={`w-20 h-1 mx-2 ${s < step ? "bg-gray-300" : "bg-gray-100"}`} />}
+                  {s < 6 && <div className={`w-16 h-1 mx-2 ${s < step ? "bg-gray-300" : "bg-gray-100"}`} />}
                 </div>
               ))}
             </div>
@@ -217,6 +220,7 @@ const StartOrder = () => {
               <span>Design</span>
               <span>CSV Data</span>
               <span>Fabric</span>
+              <span>Shipping</span>
               <span>Payment</span>
             </div>
           </div>
@@ -491,6 +495,25 @@ const StartOrder = () => {
 
             {step === 5 && (
               <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-foreground">Shipping Address</h2>
+                <ShippingAddressForm
+                  onSubmit={(address) => {
+                    setShippingAddress(address);
+                    setStep(6);
+                  }}
+                  onBack={() => setStep(4)}
+                />
+                {shippingAddress && (
+                  <DeliveryCostCalculator
+                    productType={productType}
+                    pincode={shippingAddress.pincode}
+                  />
+                )}
+              </div>
+            )}
+
+            {step === 6 && (
+              <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Payment & Escrow</h2>
                 
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
@@ -651,9 +674,21 @@ const StartOrder = () => {
                         fake_payment_timestamp: new Date().toISOString() // Record payment timestamp for UI
                       };
 
-                      const { error } = await supabase.from('orders').insert(orderData);
+                      const { data: orderResponse, error } = await supabase
+                        .from('orders')
+                        .insert(orderData)
+                        .select()
+                        .single();
 
                       if (error) throw error;
+
+                      // Save shipping address
+                      if (shippingAddress && orderResponse) {
+                        await supabase.from('order_shipping_info').insert({
+                          order_id: orderResponse.id,
+                          ...shippingAddress
+                        });
+                      }
                       
                       toast.success(
                         `Order placed! ₹${escrowAmount.toLocaleString()} transferred to escrow.`,

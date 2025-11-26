@@ -94,6 +94,38 @@ export type Database = {
         }
         Relationships: []
       }
+      messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          order_id: string
+          sender_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          order_id: string
+          sender_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          order_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -135,12 +167,63 @@ export type Database = {
           },
         ]
       }
+      order_shipping_info: {
+        Row: {
+          address_line1: string
+          address_line2: string | null
+          city: string
+          country: string
+          created_at: string | null
+          full_name: string
+          id: string
+          order_id: string
+          phone: string
+          pincode: string
+          state: string
+        }
+        Insert: {
+          address_line1: string
+          address_line2?: string | null
+          city: string
+          country?: string
+          created_at?: string | null
+          full_name: string
+          id?: string
+          order_id: string
+          phone: string
+          pincode: string
+          state: string
+        }
+        Update: {
+          address_line1?: string
+          address_line2?: string | null
+          city?: string
+          country?: string
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          order_id?: string
+          phone?: string
+          pincode?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_shipping_info_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           buyer_id: string
           concern_notes: string | null
           created_at: string
           delivered_at: string | null
+          delivery_cost: number | null
           design_file_url: string | null
           design_size: string
           detailed_status:
@@ -165,8 +248,10 @@ export type Database = {
           sample_approved_at: string | null
           sample_production_started_at: string | null
           sample_status: string | null
+          size_chart_url: string | null
           status: string
           total_amount: number | null
+          tracking_id: string | null
           updated_at: string
         }
         Insert: {
@@ -174,6 +259,7 @@ export type Database = {
           concern_notes?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_cost?: number | null
           design_file_url?: string | null
           design_size: string
           detailed_status?:
@@ -198,8 +284,10 @@ export type Database = {
           sample_approved_at?: string | null
           sample_production_started_at?: string | null
           sample_status?: string | null
+          size_chart_url?: string | null
           status?: string
           total_amount?: number | null
+          tracking_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -207,6 +295,7 @@ export type Database = {
           concern_notes?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_cost?: number | null
           design_file_url?: string | null
           design_size?: string
           detailed_status?:
@@ -231,8 +320,10 @@ export type Database = {
           sample_approved_at?: string | null
           sample_production_started_at?: string | null
           sample_status?: string | null
+          size_chart_url?: string | null
           status?: string
           total_amount?: number | null
+          tracking_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -282,6 +373,10 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          on_time_deliveries: number | null
+          performance_score: number | null
+          qc_pass_rate: number | null
+          total_disputes: number | null
           updated_at: string
         }
         Insert: {
@@ -289,6 +384,10 @@ export type Database = {
           created_at?: string
           email: string
           id: string
+          on_time_deliveries?: number | null
+          performance_score?: number | null
+          qc_pass_rate?: number | null
+          total_disputes?: number | null
           updated_at?: string
         }
         Update: {
@@ -296,6 +395,10 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          on_time_deliveries?: number | null
+          performance_score?: number | null
+          qc_pass_rate?: number | null
+          total_disputes?: number | null
           updated_at?: string
         }
         Relationships: []

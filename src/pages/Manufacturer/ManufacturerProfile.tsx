@@ -3,6 +3,7 @@ import Sidebar from "@/components/Sidebar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import ManufacturerPerformanceScore from "@/components/ManufacturerPerformanceScore";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -14,6 +15,10 @@ const ManufacturerProfile = () => {
     email: "",
     phone: "",
     address: "",
+    on_time_deliveries: 0,
+    qc_pass_rate: 0,
+    total_disputes: 0,
+    performance_score: 0,
   });
 
   useEffect(() => {
@@ -34,11 +39,16 @@ const ManufacturerProfile = () => {
       if (error) throw error;
 
       if (data) {
+        const score = (data.on_time_deliveries || 0) * 2 + (data.qc_pass_rate || 0) * 3 - (data.total_disputes || 0) * 5;
         setProfile({
           company_name: data.company_name || "",
           email: data.email || "",
           phone: "",
           address: "",
+          on_time_deliveries: data.on_time_deliveries || 0,
+          qc_pass_rate: data.qc_pass_rate || 0,
+          total_disputes: data.total_disputes || 0,
+          performance_score: Math.max(0, score),
         });
       }
     } catch (error) {
@@ -91,11 +101,18 @@ const ManufacturerProfile = () => {
       <Sidebar userRole="manufacturer" />
 
       <main className="flex-1 p-8 w-[calc(100%-16rem)] ml-64">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto space-y-6">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">Profile Settings</h1>
             <p className="text-muted-foreground">Manage your manufacturer account information</p>
           </div>
+
+          <ManufacturerPerformanceScore
+            onTimeDeliveries={profile.on_time_deliveries}
+            qcPassRate={profile.qc_pass_rate}
+            totalDisputes={profile.total_disputes}
+            performanceScore={profile.performance_score}
+          />
 
           <div className="bg-card border border-border rounded-xl p-8">
             <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-6">
