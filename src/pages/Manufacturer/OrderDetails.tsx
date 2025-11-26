@@ -105,6 +105,20 @@ const ManufacturerOrderDetails = () => {
                   <span className="text-muted-foreground">Design Size:</span>
                   <span className="font-medium">{order.design_size}</span>
                 </div>
+                <div className="flex justify-between pt-2 border-t">
+                  <span className="text-muted-foreground">Order Value:</span>
+                  <span className="font-semibold">₹{order.escrow_amount?.toLocaleString() || '0'}</span>
+                </div>
+                {order.delivery_cost && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Delivery Cost:</span>
+                    <span className="font-semibold">₹{order.delivery_cost}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Amount:</span>
+                  <span className="font-bold text-lg">₹{order.total_amount?.toLocaleString() || '0'}</span>
+                </div>
               </CardContent>
             </Card>
 
