@@ -14,6 +14,7 @@ import DashboardHome from "./pages/Buyer/DashboardHome";
 import StartOrder from "./pages/Buyer/StartOrder";
 import OrderTracking from "./pages/Buyer/OrderTracking";
 import BuyerProfile from "./pages/Buyer/BuyerProfile";
+import OrderDetails from "./pages/Buyer/OrderDetails";
 
 // Manufacturer
 import ManufacturerDashboard from "./pages/Manufacturer/ManufacturerDashboard";
@@ -25,6 +26,7 @@ import ManufacturerProfile from "./pages/Manufacturer/ManufacturerProfile";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import VerificationPanel from "./pages/Admin/VerificationPanel";
 import DisputeCenter from "./pages/Admin/DisputeCenter";
+import Analytics from "./pages/Admin/Analytics";
 
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
@@ -68,6 +70,11 @@ const App = () => (
               <BuyerProfile />
             </ProtectedRoute>
           } />
+          <Route path="/buyer/order/:id" element={
+            <ProtectedRoute allowedRoles={['buyer']}>
+              <OrderDetails />
+            </ProtectedRoute>
+          } />
 
           {/* Manufacturer Routes */}
           <Route path="/manufacturer/dashboard" element={
@@ -105,6 +112,11 @@ const App = () => (
           <Route path="/admin/disputes" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <DisputeCenter />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/analytics" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Analytics />
             </ProtectedRoute>
           } />
 

@@ -41,6 +41,7 @@ const Sidebar = ({ userRole }: SidebarProps) => {
     { to: "/admin/dashboard", icon: Home, label: "Dashboard" },
     { to: "/admin/verification", icon: Shield, label: "Verification" },
     { to: "/admin/disputes", icon: Users, label: "Disputes" },
+    { to: "/admin/analytics", icon: ClipboardList, label: "Analytics" },
   ];
 
   const links = userRole === "buyer" ? buyerLinks : userRole === "manufacturer" ? manufacturerLinks : adminLinks;
