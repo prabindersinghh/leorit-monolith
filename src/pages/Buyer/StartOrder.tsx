@@ -647,7 +647,8 @@ const StartOrder = () => {
                         escrow_status: 'fake_paid',
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
                         status: 'pending',
-                        sample_status: 'not_started'
+                        sample_status: 'not_started',
+                        fake_payment_timestamp: new Date().toISOString() // Record payment timestamp for UI
                       };
 
                       const { error } = await supabase.from('orders').insert(orderData);

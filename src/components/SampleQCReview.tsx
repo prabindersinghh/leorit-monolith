@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { canTransitionTo, getActionLabel, OrderDetailedStatus } from "@/lib/orderStateMachine";
+import { canTransitionTo, getActionLabel, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
 
 interface SampleQCReviewProps {
   orderId: string;
@@ -42,7 +42,10 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
 
   const handleApprove = async () => {
     const currentStatus = order.detailed_status as OrderDetailedStatus;
-    const newStatus: OrderDetailedStatus = 'sample_approved_by_buyer';
+    const isSample = isSampleOrder(order.quantity);
+    
+    // For sample orders, complete the order and release escrow
+    const newStatus: OrderDetailedStatus = isSample ? 'sample_completed' : 'sample_approved_by_buyer';
     
     if (!canTransitionTo(currentStatus, newStatus)) {
       toast.error("Invalid state transition");
@@ -50,17 +53,33 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
     }
 
     try {
+      const now = new Date().toISOString();
+      const updateData: any = { 
+        detailed_status: newStatus,
+        sample_status: 'approved', // Backward compatibility
+        qc_feedback: 'Approved by buyer',
+        sample_approved_at: now
+      };
+
+      // For sample orders, release escrow immediately
+      if (isSample) {
+        updateData.escrow_status = 'fake_released';
+        updateData.escrow_released_timestamp = now;
+      }
+
       const { error } = await supabase
         .from('orders')
-        .update({ 
-          detailed_status: newStatus,
-          sample_status: 'approved', // Backward compatibility
-          qc_feedback: 'Approved by buyer'
-        })
+        .update(updateData)
         .eq('id', orderId);
 
       if (error) throw error;
-      toast.success("Sample QC approved! Payment will be released.");
+      
+      if (isSample) {
+        toast.success(`Sample approved! ₹${order.escrow_amount} released from Escrow → Manufacturer Wallet`);
+      } else {
+        toast.success("Sample approved! You can now proceed to bulk production.");
+      }
+      
       fetchOrder();
       onStatusChange?.();
     } catch (error) {

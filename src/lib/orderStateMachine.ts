@@ -8,10 +8,16 @@ export type OrderDetailedStatus =
   | 'qc_uploaded'
   | 'sample_approved_by_buyer'
   | 'sample_rejected_by_buyer'
+  | 'sample_completed'
   | 'bulk_in_production'
   | 'dispatched'
   | 'delivered'
   | 'completed';
+
+// Helper to determine if order is sample-only (quantity === 1)
+export function isSampleOrder(quantity: number): boolean {
+  return quantity === 1;
+}
 
 // Define valid state transitions
 const stateTransitions: Record<OrderDetailedStatus, OrderDetailedStatus[]> = {
@@ -21,8 +27,9 @@ const stateTransitions: Record<OrderDetailedStatus, OrderDetailedStatus[]> = {
   rejected_by_manufacturer: [], // Terminal state
   sample_in_production: ['qc_uploaded'],
   qc_uploaded: ['sample_approved_by_buyer', 'sample_rejected_by_buyer'],
-  sample_approved_by_buyer: ['bulk_in_production'],
+  sample_approved_by_buyer: ['sample_completed', 'bulk_in_production'], // Can complete or continue to bulk
   sample_rejected_by_buyer: ['sample_in_production'], // Can retry
+  sample_completed: [], // Terminal state for sample-only orders
   bulk_in_production: ['dispatched'],
   dispatched: ['delivered'],
   delivered: ['completed'],
@@ -39,6 +46,7 @@ export const statusLabels: Record<OrderDetailedStatus, string> = {
   qc_uploaded: 'QC Uploaded',
   sample_approved_by_buyer: 'Sample Approved',
   sample_rejected_by_buyer: 'Sample Rejected',
+  sample_completed: 'Sample Completed',
   bulk_in_production: 'Bulk Production',
   dispatched: 'Dispatched',
   delivered: 'Delivered',
@@ -55,6 +63,7 @@ export const statusColors: Record<OrderDetailedStatus, string> = {
   qc_uploaded: 'bg-yellow-100 text-yellow-700',
   sample_approved_by_buyer: 'bg-green-100 text-green-700',
   sample_rejected_by_buyer: 'bg-red-100 text-red-700',
+  sample_completed: 'bg-green-100 text-green-700',
   bulk_in_production: 'bg-indigo-100 text-indigo-700',
   dispatched: 'bg-blue-100 text-blue-700',
   delivered: 'bg-teal-100 text-teal-700',
@@ -101,6 +110,7 @@ export function getActionLabel(targetStatus: OrderDetailedStatus): string {
     qc_uploaded: 'Upload QC',
     sample_approved_by_buyer: 'Approve Sample',
     sample_rejected_by_buyer: 'Reject Sample',
+    sample_completed: 'Complete Sample',
     bulk_in_production: 'Start Bulk Production',
     dispatched: 'Dispatch Order',
     delivered: 'Mark as Delivered',
