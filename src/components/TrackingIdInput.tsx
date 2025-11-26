@@ -24,19 +24,30 @@ const TrackingIdInput = ({ orderId, onSuccess }: TrackingIdInputProps) => {
     }
 
     setLoading(true);
+    
+    const trackingUrl = `https://tracking.leorit.ai/${trackingId.trim()}`;
+    const dispatchedAt = new Date();
+    
+    // Calculate estimated delivery date (dispatched_at + 3 days)
+    const estimatedDeliveryDate = new Date(dispatchedAt);
+    estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 3);
+    
     const { error } = await supabase
       .from("orders")
       .update({ 
         tracking_id: trackingId.trim(),
-        dispatched_at: new Date().toISOString(),
-        status: "dispatched"
+        tracking_url: trackingUrl,
+        dispatched_at: dispatchedAt.toISOString(),
+        estimated_delivery_date: estimatedDeliveryDate.toISOString(),
+        status: "dispatched",
+        detailed_status: "dispatched"
       })
       .eq("id", orderId);
 
     if (error) {
       toast.error("Failed to update tracking ID");
     } else {
-      toast.success("Tracking ID added successfully");
+      toast.success("Order dispatched with tracking ID");
       onSuccess();
     }
     setLoading(false);

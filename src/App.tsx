@@ -28,6 +28,7 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import VerificationPanel from "./pages/Admin/VerificationPanel";
 import DisputeCenter from "./pages/Admin/DisputeCenter";
 import Analytics from "./pages/Admin/Analytics";
+import AdminOrderDetails from "./pages/Admin/OrderDetails";
 
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
@@ -123,6 +124,11 @@ const App = () => (
           <Route path="/admin/analytics" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <Analytics />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/order/:id" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminOrderDetails />
             </ProtectedRoute>
           } />
 

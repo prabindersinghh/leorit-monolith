@@ -5,6 +5,8 @@ import Sidebar from "@/components/Sidebar";
 import PaymentTimeline from "@/components/PaymentTimeline";
 import EscrowMoneyFlow from "@/components/EscrowMoneyFlow";
 import OrderChat from "@/components/OrderChat";
+import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
+import OrderCostBreakdown from "@/components/OrderCostBreakdown";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,26 +108,6 @@ const OrderDetails = () => {
                   <span className="text-muted-foreground">Design Size:</span>
                   <span className="font-medium">{order.design_size}</span>
                 </div>
-                <div className="flex justify-between pt-2 border-t">
-                  <span className="text-muted-foreground">Escrow Amount:</span>
-                  <span className="font-semibold">₹{order.escrow_amount?.toLocaleString() || '0'}</span>
-                </div>
-                {order.delivery_cost && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Delivery Cost:</span>
-                    <span className="font-semibold">₹{order.delivery_cost}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Amount:</span>
-                  <span className="font-bold text-lg">₹{order.total_amount?.toLocaleString() || '0'}</span>
-                </div>
-                {order.tracking_id && (
-                  <div className="flex justify-between pt-2 border-t">
-                    <span className="text-muted-foreground">Tracking ID:</span>
-                    <span className="font-mono text-sm">{order.tracking_id}</span>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
@@ -201,6 +183,21 @@ const OrderDetails = () => {
               </CardContent>
             </Card>
           )}
+
+          <OrderCostBreakdown
+            orderValue={(order.escrow_amount || 0) - (order.delivery_cost || 0)}
+            deliveryCost={order.delivery_cost || undefined}
+            totalAmount={order.total_amount || order.escrow_amount || 0}
+          />
+
+          {order.tracking_id || order.dispatched_at ? (
+            <DeliveryTrackingInfo
+              trackingId={order.tracking_id || undefined}
+              trackingUrl={order.tracking_url || undefined}
+              dispatchedAt={order.dispatched_at || undefined}
+              estimatedDeliveryDate={order.estimated_delivery_date || undefined}
+            />
+          ) : null}
 
           {order.quantity === 1 && (
             <>
