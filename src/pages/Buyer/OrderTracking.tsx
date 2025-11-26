@@ -238,7 +238,7 @@ const OrderTracking = () => {
                     fakePaymentTimestamp={order.fake_payment_timestamp}
                     escrowLockedTimestamp={order.escrow_locked_timestamp}
                     sampleProductionStartedAt={order.sample_production_started_at}
-                    qcUploadedAt={order.qc_video_url ? order.updated_at : null}
+                    qcUploadedAt={order.qc_uploaded_at}
                     sampleApprovedAt={order.sample_approved_at}
                     escrowReleasedTimestamp={order.escrow_released_timestamp}
                     escrowAmount={order.escrow_amount || 500}

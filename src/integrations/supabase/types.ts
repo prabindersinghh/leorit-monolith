@@ -158,6 +158,7 @@ export type Database = {
           product_type: string
           qc_feedback: string | null
           qc_files: string[] | null
+          qc_uploaded_at: string | null
           qc_video_url: string | null
           quantity: number
           rejection_reason: string | null
@@ -190,6 +191,7 @@ export type Database = {
           product_type: string
           qc_feedback?: string | null
           qc_files?: string[] | null
+          qc_uploaded_at?: string | null
           qc_video_url?: string | null
           quantity?: number
           rejection_reason?: string | null
@@ -222,6 +224,7 @@ export type Database = {
           product_type?: string
           qc_feedback?: string | null
           qc_files?: string[] | null
+          qc_uploaded_at?: string | null
           qc_video_url?: string | null
           quantity?: number
           rejection_reason?: string | null
