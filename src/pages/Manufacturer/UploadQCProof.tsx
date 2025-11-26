@@ -102,6 +102,7 @@ const UploadQCProof = () => {
       const existingFiles = existingOrder?.qc_files || [];
 
       // Update order with video URL, add to qc_files array, and set status to qc_uploaded
+      const now = new Date().toISOString();
       const { error: updateError } = await supabase
         .from('orders')
         .update({
@@ -110,7 +111,8 @@ const UploadQCProof = () => {
           sample_status: 'qc_uploaded',
           qc_video_url: publicUrl,
           qc_files: [...existingFiles, publicUrl],
-          qc_feedback: qcNotes
+          qc_feedback: qcNotes,
+          qc_uploaded_at: now // Track QC upload timestamp
         })
         .eq('id', selectedOrder);
 
