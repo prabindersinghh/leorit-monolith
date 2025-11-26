@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, Truck } from "lucide-react";
-import { canTransitionTo, getActionLabel, statusLabels, statusColors, OrderDetailedStatus } from "@/lib/orderStateMachine";
+import { canTransitionTo, getActionLabel, statusLabels, statusColors, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
 import { addDays, format } from "date-fns";
 
 const ManufacturerOrders = () => {
@@ -67,17 +67,19 @@ const ManufacturerOrders = () => {
     }
 
     try {
+      const now = new Date().toISOString();
       const { error } = await supabase
         .from('orders')
         .update({ 
           detailed_status: newStatus,
           status: 'accepted', // Backward compatibility
-          sample_status: 'not_started' // Backward compatibility
+          sample_status: 'not_started', // Backward compatibility
+          escrow_locked_timestamp: now // Lock escrow when manufacturer accepts
         })
         .eq('id', orderId);
 
       if (error) throw error;
-      toast.success("Order accepted!");
+      toast.success("Order accepted! Escrow locked.");
       fetchOrders();
     } catch (error) {
       console.error('Error accepting order:', error);
@@ -153,11 +155,13 @@ const ManufacturerOrders = () => {
     }
 
     try {
+      const now = new Date().toISOString();
       const { error } = await supabase
         .from('orders')
         .update({ 
           detailed_status: newStatus,
-          sample_status: 'in_production' // Backward compatibility
+          sample_status: 'in_production', // Backward compatibility
+          sample_production_started_at: now // Track sample production start time
         })
         .eq('id', orderId);
 
@@ -253,6 +257,8 @@ const ManufacturerOrders = () => {
       accessor: "id",
       cell: (value: string, row: any) => {
         const currentStatus = row.detailed_status as OrderDetailedStatus;
+        const quantity = row.quantity;
+        const isSample = isSampleOrder(quantity);
         
         return (
           <div className="flex gap-2 flex-wrap">
@@ -294,7 +300,8 @@ const ManufacturerOrders = () => {
                 {getActionLabel('qc_uploaded')}
               </Button>
             )}
-            {currentStatus === 'sample_approved_by_buyer' && (
+            {/* Only show bulk production button for non-sample orders */}
+            {currentStatus === 'sample_approved_by_buyer' && !isSample && (
               <Button
                 size="sm"
                 onClick={() => handleStartBulkProduction(value, currentStatus)}

@@ -148,8 +148,11 @@ export type Database = {
             | null
           dispatched_at: string | null
           escrow_amount: number | null
+          escrow_locked_timestamp: string | null
+          escrow_released_timestamp: string | null
           escrow_status: Database["public"]["Enums"]["escrow_status"] | null
           estimated_delivery_date: string | null
+          fake_payment_timestamp: string | null
           id: string
           manufacturer_id: string | null
           product_type: string
@@ -158,6 +161,8 @@ export type Database = {
           qc_video_url: string | null
           quantity: number
           rejection_reason: string | null
+          sample_approved_at: string | null
+          sample_production_started_at: string | null
           sample_status: string | null
           status: string
           total_amount: number | null
@@ -175,8 +180,11 @@ export type Database = {
             | null
           dispatched_at?: string | null
           escrow_amount?: number | null
+          escrow_locked_timestamp?: string | null
+          escrow_released_timestamp?: string | null
           escrow_status?: Database["public"]["Enums"]["escrow_status"] | null
           estimated_delivery_date?: string | null
+          fake_payment_timestamp?: string | null
           id?: string
           manufacturer_id?: string | null
           product_type: string
@@ -185,6 +193,8 @@ export type Database = {
           qc_video_url?: string | null
           quantity?: number
           rejection_reason?: string | null
+          sample_approved_at?: string | null
+          sample_production_started_at?: string | null
           sample_status?: string | null
           status?: string
           total_amount?: number | null
@@ -202,8 +212,11 @@ export type Database = {
             | null
           dispatched_at?: string | null
           escrow_amount?: number | null
+          escrow_locked_timestamp?: string | null
+          escrow_released_timestamp?: string | null
           escrow_status?: Database["public"]["Enums"]["escrow_status"] | null
           estimated_delivery_date?: string | null
+          fake_payment_timestamp?: string | null
           id?: string
           manufacturer_id?: string | null
           product_type?: string
@@ -212,6 +225,8 @@ export type Database = {
           qc_video_url?: string | null
           quantity?: number
           rejection_reason?: string | null
+          sample_approved_at?: string | null
+          sample_production_started_at?: string | null
           sample_status?: string | null
           status?: string
           total_amount?: number | null

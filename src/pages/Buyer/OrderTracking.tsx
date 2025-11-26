@@ -1,12 +1,14 @@
 import Sidebar from "@/components/Sidebar";
 import DataTable from "@/components/DataTable";
 import SampleQCReview from "@/components/SampleQCReview";
+import PaymentTimeline from "@/components/PaymentTimeline";
+import EscrowMoneyFlow from "@/components/EscrowMoneyFlow";
 import { Button } from "@/components/ui/button";
 import { Eye, Package, Clock, CheckCircle2, Truck, Send } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { canTransitionTo, statusLabels, statusColors, OrderDetailedStatus } from "@/lib/orderStateMachine";
+import { canTransitionTo, statusLabels, statusColors, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
 import { format, parseISO } from "date-fns";
 
 const OrderTracking = () => {
@@ -209,6 +211,42 @@ const OrderTracking = () => {
               <DataTable columns={columns} data={orders} />
             )}
           </div>
+
+          {/* Payment Timeline Section - Only for Sample Orders */}
+          {selectedOrder && (() => {
+            const order = orders.find(o => o.id === selectedOrder);
+            if (!order || !isSampleOrder(order.quantity)) return null;
+            
+            // Determine escrow flow stage
+            let escrowStage: "payment" | "locked" | "released" = "payment";
+            if (order.escrow_released_timestamp) {
+              escrowStage = "released";
+            } else if (order.escrow_locked_timestamp) {
+              escrowStage = "locked";
+            }
+
+            return (
+              <div className="mb-6">
+                <EscrowMoneyFlow 
+                  stage={escrowStage}
+                  amount={order.escrow_amount || 500}
+                  animated={false}
+                />
+                <div className="mt-6">
+                  <PaymentTimeline
+                    orderCreatedAt={order.created_at}
+                    fakePaymentTimestamp={order.fake_payment_timestamp}
+                    escrowLockedTimestamp={order.escrow_locked_timestamp}
+                    sampleProductionStartedAt={order.sample_production_started_at}
+                    qcUploadedAt={order.qc_video_url ? order.updated_at : null}
+                    sampleApprovedAt={order.sample_approved_at}
+                    escrowReleasedTimestamp={order.escrow_released_timestamp}
+                    escrowAmount={order.escrow_amount || 500}
+                  />
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Order Timeline Section */}
           {selectedOrder && (
