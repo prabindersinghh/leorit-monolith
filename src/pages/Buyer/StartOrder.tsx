@@ -639,11 +639,11 @@ const StartOrder = () => {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Price per piece:</span>
-                            <span className="font-medium text-foreground">₹25</span>
+                            <span className="font-medium text-foreground">₹380</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Bulk Cost:</span>
-                            <span className="font-bold text-foreground">₹{(bulkQuantity * 25).toLocaleString()}</span>
+                            <span className="font-bold text-foreground">₹{(bulkQuantity * 380).toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
@@ -662,7 +662,7 @@ const StartOrder = () => {
                   
                   {(() => {
                     const quantity = isSampleOnly ? 1 : bulkQuantity;
-                    const pricePerPiece = isSampleOnly ? 500 : 25;
+                    const pricePerPiece = isSampleOnly ? 500 : 380;
                     const orderCost = quantity * pricePerPiece;
                     const deliveryCost = calculateDeliveryCost({
                       productType,
@@ -680,7 +680,7 @@ const StartOrder = () => {
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Delivery Cost:</span>
-                          <span className="font-medium text-foreground">₹{deliveryCost}</span>
+                          <span className="font-medium text-foreground">₹{deliveryCost.toLocaleString()}</span>
                         </div>
                         <div className="pt-3 border-t border-border">
                           <div className="flex justify-between text-lg">
@@ -717,7 +717,7 @@ const StartOrder = () => {
                       }
 
                       const quantity = isSampleOnly ? 1 : bulkQuantity;
-                      const pricePerPiece = isSampleOnly ? 500 : 25; // ₹500 for sample-only, ₹25 for bulk
+                      const pricePerPiece = isSampleOnly ? 500 : 380; // ₹500 for sample-only, ₹380 for bulk
                       
                       // Calculate delivery cost
                       const deliveryCostResult = calculateDeliveryCost({
@@ -809,7 +809,7 @@ const StartOrder = () => {
                 >
                   {isProcessingPayment ? "Processing..." : `Place Order - ₹${(() => {
                     const quantity = isSampleOnly ? 1 : bulkQuantity;
-                    const pricePerPiece = isSampleOnly ? 500 : 25;
+                    const pricePerPiece = isSampleOnly ? 500 : 380;
                     const orderCost = quantity * pricePerPiece;
                     const deliveryCost = calculateDeliveryCost({ productType, quantity }).cost;
                     return (orderCost + deliveryCost).toLocaleString();

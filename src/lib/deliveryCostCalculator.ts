@@ -34,7 +34,24 @@ export const calculateDeliveryCost = ({
   buyerPincode,
   manufacturerPincode,
 }: DeliveryCostParams): DeliveryCostResult => {
-  // Get product weight (default to 0.25kg if not found)
+  // Fixed bulk delivery cost for orders with quantity > 1
+  const BULK_DELIVERY_COST = 1500;
+
+  // For bulk orders (quantity > 1), use fixed delivery cost
+  if (quantity > 1) {
+    const productWeight =
+      PRODUCT_WEIGHTS[productType.toLowerCase()] ||
+      PRODUCT_WEIGHTS["custom"];
+    const totalWeight = productWeight * quantity;
+
+    return {
+      weight: totalWeight,
+      cost: BULK_DELIVERY_COST,
+      slabs: 0, // Not applicable for bulk
+    };
+  }
+
+  // For sample orders (quantity === 1), use slab-based calculation
   const productWeight =
     PRODUCT_WEIGHTS[productType.toLowerCase()] ||
     PRODUCT_WEIGHTS["custom"];

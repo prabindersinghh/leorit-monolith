@@ -15,6 +15,8 @@ const DeliveryCostCalculator = ({ productType, quantity, pincode }: DeliveryCost
     buyerPincode: pincode,
   });
 
+  const isBulkOrder = quantity > 1;
+
   return (
     <Card>
       <CardHeader>
@@ -29,10 +31,12 @@ const DeliveryCostCalculator = ({ productType, quantity, pincode }: DeliveryCost
           <span className="text-muted-foreground">Quantity:</span>
           <span className="font-medium">{quantity} pcs</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Weight Slabs:</span>
-          <span className="font-medium">{slabs} slab{slabs > 1 ? 's' : ''}</span>
-        </div>
+        {!isBulkOrder && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Weight Slabs:</span>
+            <span className="font-medium">{slabs} slab{slabs > 1 ? 's' : ''}</span>
+          </div>
+        )}
         {pincode && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Delivery Pincode:</span>
@@ -44,7 +48,10 @@ const DeliveryCostCalculator = ({ productType, quantity, pincode }: DeliveryCost
           <span className="text-primary">{formatCost(cost)}</span>
         </div>
         <p className="text-xs text-muted-foreground">
-          * Slab-based pricing: ₹35 for first 0.5kg, ₹20 per additional 0.5kg slab
+          {isBulkOrder 
+            ? "* Fixed bulk delivery charge" 
+            : "* Slab-based pricing: ₹35 for first 0.5kg, ₹20 per additional 0.5kg slab"
+          }
         </p>
       </CardContent>
     </Card>
