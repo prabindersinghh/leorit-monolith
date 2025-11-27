@@ -37,6 +37,8 @@ const StartOrder = () => {
   const [isSampleOnly, setIsSampleOnly] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [shippingAddress, setShippingAddress] = useState<any>(null);
+  const [bulkQuantity, setBulkQuantity] = useState<number>(50);
+  const [bulkQuantityError, setBulkQuantityError] = useState<string>("");
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
@@ -487,8 +489,28 @@ const StartOrder = () => {
                   </div>
 
                   <div>
-                    <Label>Estimated Quantity</Label>
-                    <Input type="number" value="500" readOnly className="mt-1 bg-gray-50" />
+                    <Label>Bulk Quantity (1 - 1000)</Label>
+                    <Input 
+                      type="number" 
+                      value={bulkQuantity} 
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setBulkQuantity(val);
+                        if (val < 1) {
+                          setBulkQuantityError("Quantity must be at least 1");
+                        } else if (val > 1000) {
+                          setBulkQuantityError("Quantity cannot exceed 1000");
+                        } else {
+                          setBulkQuantityError("");
+                        }
+                      }}
+                      min={1}
+                      max={1000}
+                      className="mt-1" 
+                    />
+                    {bulkQuantityError && (
+                      <p className="text-sm text-red-500 mt-1">{bulkQuantityError}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -507,7 +529,7 @@ const StartOrder = () => {
                 {shippingAddress && (
                   <DeliveryCostCalculator
                     productType={productType}
-                    quantity={1}
+                    quantity={isSampleOnly ? 1 : bulkQuantity}
                     pincode={shippingAddress.pincode}
                   />
                 )}
@@ -576,27 +598,56 @@ const StartOrder = () => {
                     }`}
                   >
                     <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-semibold text-foreground mb-1">Order Bulk Order (MOQ 50+)</h4>
+                      <div className="w-full">
+                        <h4 className="font-semibold text-foreground mb-1">Order Bulk Order (1 - 1000 pieces)</h4>
                         <p className="text-sm text-muted-foreground mb-3">
-                          Get 1 sample for QC approval, then proceed to bulk production
+                          Order any quantity from 1 to 1000 pieces
                         </p>
+                        
+                        {!isSampleOnly && (
+                          <div className="mb-3">
+                            <Label className="text-sm">Bulk Quantity</Label>
+                            <Input 
+                              type="number" 
+                              value={bulkQuantity} 
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setBulkQuantity(val);
+                                if (val < 1) {
+                                  setBulkQuantityError("Quantity must be at least 1");
+                                } else if (val > 1000) {
+                                  setBulkQuantityError("Quantity cannot exceed 1000");
+                                } else {
+                                  setBulkQuantityError("");
+                                }
+                              }}
+                              min={1}
+                              max={1000}
+                              className="mt-1"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            {bulkQuantityError && (
+                              <p className="text-xs text-red-500 mt-1">{bulkQuantityError}</p>
+                            )}
+                          </div>
+                        )}
+                        
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Sample Quantity:</span>
-                            <span className="font-medium text-foreground">1 piece</span>
+                            <span className="text-muted-foreground">Bulk Quantity:</span>
+                            <span className="font-medium text-foreground">{bulkQuantity} pieces</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Sample Cost:</span>
-                            <span className="font-bold text-foreground">₹12,500</span>
+                            <span className="text-muted-foreground">Price per piece:</span>
+                            <span className="font-medium text-foreground">₹25</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Min Bulk Order:</span>
-                            <span className="font-medium text-foreground">50 pieces</span>
+                            <span className="text-muted-foreground">Bulk Cost:</span>
+                            <span className="font-bold text-foreground">₹{(bulkQuantity * 25).toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
                         !isSampleOnly ? "border-foreground bg-foreground" : "border-gray-300"
                       }`}>
                         {!isSampleOnly && <div className="w-3 h-3 rounded-full bg-background" />}
@@ -610,21 +661,22 @@ const StartOrder = () => {
                   <h3 className="font-semibold text-foreground mb-3">Order Summary</h3>
                   
                   {(() => {
-                    const quantity = 1; // Sample order
-                    const sampleCost = isSampleOnly ? 500 : 12500;
+                    const quantity = isSampleOnly ? 1 : bulkQuantity;
+                    const pricePerPiece = isSampleOnly ? 500 : 25;
+                    const orderCost = quantity * pricePerPiece;
                     const deliveryCost = calculateDeliveryCost({
                       productType,
                       quantity,
                     }).cost;
-                    const totalAmount = sampleCost + deliveryCost;
+                    const totalAmount = orderCost + deliveryCost;
 
                     return (
                       <>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">
-                            {isSampleOnly ? "Sample Cost:" : "Sample Cost (for bulk order):"}
+                            {isSampleOnly ? "Sample Cost:" : `Bulk Cost (${quantity} × ₹${pricePerPiece}):`}
                           </span>
-                          <span className="font-medium text-foreground">₹{sampleCost.toLocaleString()}</span>
+                          <span className="font-medium text-foreground">₹{orderCost.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Delivery Cost:</span>
@@ -658,8 +710,14 @@ const StartOrder = () => {
                         return;
                       }
 
-                      const quantity = 1; // Sample order
-                      const pricePerPiece = isSampleOnly ? 500 : 12500; // ₹500 for sample-only, ₹12,500 for full order sample
+                      // Validate bulk quantity
+                      if (!isSampleOnly && (bulkQuantity < 1 || bulkQuantity > 1000)) {
+                        toast.error("Please enter a valid bulk quantity (1-1000)");
+                        return;
+                      }
+
+                      const quantity = isSampleOnly ? 1 : bulkQuantity;
+                      const pricePerPiece = isSampleOnly ? 500 : 25; // ₹500 for sample-only, ₹25 for bulk
                       
                       // Calculate delivery cost
                       const deliveryCostResult = calculateDeliveryCost({
@@ -669,8 +727,8 @@ const StartOrder = () => {
                       const deliveryCost = deliveryCostResult.cost;
                       
                       // IMPORTANT: Escrow amount now includes delivery cost
-                      const sampleCost = quantity * pricePerPiece;
-                      const escrowAmount = sampleCost + deliveryCost;
+                      const orderCost = quantity * pricePerPiece;
+                      const escrowAmount = orderCost + deliveryCost;
                       const totalAmount = escrowAmount; // Total = escrow (which includes delivery)
 
                       // START: Fake Escrow Payment Simulation Layer
@@ -750,9 +808,11 @@ const StartOrder = () => {
                   }}
                 >
                   {isProcessingPayment ? "Processing..." : `Place Order - ₹${(() => {
-                    const sampleCost = isSampleOnly ? 500 : 12500;
-                    const deliveryCost = calculateDeliveryCost({ productType, quantity: 1 }).cost;
-                    return (sampleCost + deliveryCost).toLocaleString();
+                    const quantity = isSampleOnly ? 1 : bulkQuantity;
+                    const pricePerPiece = isSampleOnly ? 500 : 25;
+                    const orderCost = quantity * pricePerPiece;
+                    const deliveryCost = calculateDeliveryCost({ productType, quantity }).cost;
+                    return (orderCost + deliveryCost).toLocaleString();
                   })()}`}
                 </Button>
               </div>
