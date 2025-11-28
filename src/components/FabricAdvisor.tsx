@@ -51,7 +51,7 @@ const FabricAdvisor = ({ onRecommendFabric, onScrollToFabricSection }: FabricAdv
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Lightbulb className="w-5 h-5 text-primary" />
-                <CardTitle className="text-lg">Fabric Advisor</CardTitle>
+                <CardTitle className="text-lg">🧵 Leo — Fabric Advisor</CardTitle>
               </div>
               <ChevronDown
                 className={`w-5 h-5 text-muted-foreground transition-transform ${
