@@ -6,6 +6,9 @@ interface OrderCostBreakdownProps {
   deliveryCost?: number;
   totalAmount: number;
   title?: string;
+  quantity?: number;
+  unitPrice?: number;
+  fabricType?: string;
 }
 
 const OrderCostBreakdown = ({
@@ -13,7 +16,14 @@ const OrderCostBreakdown = ({
   deliveryCost,
   totalAmount,
   title = "Cost Breakdown",
+  quantity,
+  unitPrice,
+  fabricType,
 }: OrderCostBreakdownProps) => {
+  // Show detailed breakdown if we have quantity and unitPrice
+  const showDetailed = quantity && unitPrice;
+  const subtotal = showDetailed ? quantity * unitPrice : orderValue;
+
   return (
     <Card>
       <CardHeader>
@@ -23,10 +33,33 @@ const OrderCostBreakdown = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Order Value:</span>
-          <span className="font-semibold">₹{orderValue.toLocaleString()}</span>
-        </div>
+        {showDetailed ? (
+          <>
+            {fabricType && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Fabric:</span>
+                <span className="font-medium">{fabricType}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Unit Price:</span>
+              <span className="font-semibold">₹{unitPrice.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Quantity:</span>
+              <span className="font-semibold">{quantity} pieces</span>
+            </div>
+            <div className="flex justify-between pt-2 border-t">
+              <span className="text-muted-foreground">Subtotal:</span>
+              <span className="font-semibold">₹{subtotal.toLocaleString()}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Order Value:</span>
+            <span className="font-semibold">₹{orderValue.toLocaleString()}</span>
+          </div>
+        )}
         {deliveryCost && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Delivery Cost:</span>
