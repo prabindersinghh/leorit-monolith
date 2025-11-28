@@ -200,6 +200,9 @@ const OrderDetails = () => {
             orderValue={(order.escrow_amount || 0) - (order.delivery_cost || 0)}
             deliveryCost={order.delivery_cost || undefined}
             totalAmount={order.total_amount || order.escrow_amount || 0}
+            quantity={order.quantity}
+            unitPrice={order.fabric_unit_price || (order.quantity === 1 ? 500 : undefined)}
+            fabricType={order.fabric_type || undefined}
           />
 
           {order.tracking_id || order.dispatched_at ? (

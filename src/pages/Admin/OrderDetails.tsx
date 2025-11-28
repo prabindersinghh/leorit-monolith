@@ -210,6 +210,9 @@ const AdminOrderDetails = () => {
             deliveryCost={order.delivery_cost || undefined}
             totalAmount={order.total_amount || order.escrow_amount || 0}
             title="Financial Summary"
+            quantity={order.quantity}
+            unitPrice={order.fabric_unit_price || (order.quantity === 1 ? 500 : undefined)}
+            fabricType={order.fabric_type || undefined}
           />
 
           {order.tracking_id || order.dispatched_at ? (
