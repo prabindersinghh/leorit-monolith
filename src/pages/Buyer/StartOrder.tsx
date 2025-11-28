@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 import UploadBox from "@/components/UploadBox";
 import MockupViewer3D from "@/components/MockupViewer3D";
@@ -6,6 +6,7 @@ import DesignEditor from "@/components/DesignEditor";
 import NameCustomizer, { NameSettings } from "@/components/NameCustomizer";
 import ShippingAddressForm from "@/components/ShippingAddressForm";
 import DeliveryCostCalculator from "@/components/DeliveryCostCalculator";
+import FabricAdvisor from "@/components/FabricAdvisor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,20 @@ const StartOrder = () => {
   const [bulkQuantity, setBulkQuantity] = useState<number>(50);
   const [bulkQuantityError, setBulkQuantityError] = useState<string>("");
   const [selectedFabric, setSelectedFabric] = useState<FabricOption | null>(null);
+  
+  const fabricSectionRef = useRef<HTMLDivElement>(null);
+
+  const handleRecommendFabric = (fabricId: string) => {
+    const fabric = getFabricById(fabricId);
+    if (fabric) {
+      setSelectedFabric(fabric);
+      toast.success(`${fabric.label} selected`);
+    }
+  };
+
+  const handleScrollToFabricSection = () => {
+    fabricSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
@@ -474,7 +489,13 @@ const StartOrder = () => {
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Select Fabric & Specifications</h2>
                 
-                <div className="space-y-4">
+                {/* Fabric Advisor */}
+                <FabricAdvisor 
+                  onRecommendFabric={handleRecommendFabric}
+                  onScrollToFabricSection={handleScrollToFabricSection}
+                />
+                
+                <div className="space-y-4" ref={fabricSectionRef}>
                   <div>
                     <Label>Fabric / GSM (Select)</Label>
                     <Select 
