@@ -108,6 +108,18 @@ const OrderDetails = () => {
                   <span className="text-muted-foreground">Design Size:</span>
                   <span className="font-medium">{order.design_size}</span>
                 </div>
+                {order.fabric_type && (
+                  <>
+                    <div className="flex justify-between pt-2 border-t">
+                      <span className="text-muted-foreground">Fabric:</span>
+                      <span className="font-medium">{order.fabric_type}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Unit Price:</span>
+                      <span className="font-medium">₹{order.fabric_unit_price}</span>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 

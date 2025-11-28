@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OrderDetailedStatus } from "@/lib/orderStateMachine";
 import { calculateDeliveryCost } from "@/lib/deliveryCostCalculator";
+import { getFabricsForProduct, getDefaultFabric, getFabricById, FabricOption } from "@/lib/fabrics";
 
 const StartOrder = () => {
   const [step, setStep] = useState(1);
@@ -39,6 +40,7 @@ const StartOrder = () => {
   const [shippingAddress, setShippingAddress] = useState<any>(null);
   const [bulkQuantity, setBulkQuantity] = useState<number>(50);
   const [bulkQuantityError, setBulkQuantityError] = useState<string>("");
+  const [selectedFabric, setSelectedFabric] = useState<FabricOption | null>(null);
 
   const handleGenerateMockup = async () => {
     if (!designFile || !productType) {
@@ -237,7 +239,11 @@ const StartOrder = () => {
                   {["T-Shirts", "Hoodies", "Caps", "Bags", "Jackets", "Custom"].map((product) => (
                     <button
                       key={product}
-                      onClick={() => setProductType(product)}
+                      onClick={() => {
+                        setProductType(product);
+                        // Set default fabric for this product type
+                        setSelectedFabric(getDefaultFabric(product));
+                      }}
                       className={`p-6 border rounded-xl transition-all text-left ${
                         productType === product
                           ? "border-foreground bg-gray-50"
@@ -470,22 +476,33 @@ const StartOrder = () => {
                 
                 <div className="space-y-4">
                   <div>
-                    <Label>Fabric Type</Label>
-                    <Select>
+                    <Label>Fabric / GSM (Select)</Label>
+                    <Select 
+                      value={selectedFabric?.id || ''} 
+                      onValueChange={(value) => {
+                        const fabric = getFabricById(value);
+                        setSelectedFabric(fabric || null);
+                      }}
+                    >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select fabric" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cotton">100% Cotton</SelectItem>
-                        <SelectItem value="polyester">Polyester Blend</SelectItem>
-                        <SelectItem value="organic">Organic Cotton</SelectItem>
+                        {getFabricsForProduct(productType).map((fabric) => (
+                          <SelectItem key={fabric.id} value={fabric.id}>
+                            {fabric.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div>
-                    <Label>GSM (Fabric Weight)</Label>
-                    <Input type="number" placeholder="180" className="mt-1" />
+                    {selectedFabric && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Price per piece (bulk): ₹{selectedFabric.unit_price_bulk}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      * Quantity discounts may apply — platform uses static slabs.
+                    </p>
                   </div>
 
                   <div>
@@ -639,11 +656,11 @@ const StartOrder = () => {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Price per piece:</span>
-                            <span className="font-medium text-foreground">₹380</span>
+                            <span className="font-medium text-foreground">₹{selectedFabric?.unit_price_bulk || 380}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Bulk Cost:</span>
-                            <span className="font-bold text-foreground">₹{(bulkQuantity * 380).toLocaleString()}</span>
+                            <span className="font-bold text-foreground">₹{(bulkQuantity * (selectedFabric?.unit_price_bulk || 380)).toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
@@ -662,7 +679,8 @@ const StartOrder = () => {
                   
                   {(() => {
                     const quantity = isSampleOnly ? 1 : bulkQuantity;
-                    const pricePerPiece = isSampleOnly ? 500 : 380;
+                    // For bulk orders, use selected fabric price; for sample, use ₹500
+                    const pricePerPiece = isSampleOnly ? 500 : (selectedFabric?.unit_price_bulk || 380);
                     const orderCost = quantity * pricePerPiece;
                     const deliveryCost = calculateDeliveryCost({
                       productType,
@@ -717,7 +735,9 @@ const StartOrder = () => {
                       }
 
                       const quantity = isSampleOnly ? 1 : bulkQuantity;
-                      const pricePerPiece = isSampleOnly ? 500 : 380; // ₹500 for sample-only, ₹380 for bulk
+                      // For bulk orders, use selected fabric price or default fabric; for sample, use ₹500
+                      const fabric = isSampleOnly ? null : (selectedFabric || getDefaultFabric(productType));
+                      const pricePerPiece = isSampleOnly ? 500 : (fabric?.unit_price_bulk || 380);
                       
                       // Calculate delivery cost
                       const deliveryCostResult = calculateDeliveryCost({
@@ -772,7 +792,9 @@ const StartOrder = () => {
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
                         status: 'pending',
                         sample_status: 'not_started',
-                        fake_payment_timestamp: new Date().toISOString() // Record payment timestamp for UI
+                        fake_payment_timestamp: new Date().toISOString(), // Record payment timestamp for UI
+                        fabric_type: fabric?.label || null,
+                        fabric_unit_price: fabric?.unit_price_bulk || null
                       };
 
                       const { data: orderResponse, error } = await supabase
