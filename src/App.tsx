@@ -29,6 +29,7 @@ import VerificationPanel from "./pages/Admin/VerificationPanel";
 import DisputeCenter from "./pages/Admin/DisputeCenter";
 import Analytics from "./pages/Admin/Analytics";
 import AdminOrderDetails from "./pages/Admin/OrderDetails";
+import Manufacturers from "./pages/Admin/Manufacturers";
 
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
@@ -129,6 +130,11 @@ const App = () => (
           <Route path="/admin/order/:id" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <AdminOrderDetails />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/manufacturers" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Manufacturers />
             </ProtectedRoute>
           } />
 

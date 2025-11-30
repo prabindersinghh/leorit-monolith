@@ -61,36 +61,54 @@ export type Database = {
       manufacturer_verifications: {
         Row: {
           capacity: string
+          city: string | null
           company_name: string
+          country: string | null
           id: string
           location: string
+          notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          soft_onboarded: boolean | null
+          state: string | null
           status: string | null
           submitted_at: string | null
           user_id: string
+          verified: boolean | null
         }
         Insert: {
           capacity: string
+          city?: string | null
           company_name: string
+          country?: string | null
           id?: string
           location: string
+          notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          soft_onboarded?: boolean | null
+          state?: string | null
           status?: string | null
           submitted_at?: string | null
           user_id: string
+          verified?: boolean | null
         }
         Update: {
           capacity?: string
+          city?: string | null
           company_name?: string
+          country?: string | null
           id?: string
           location?: string
+          notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          soft_onboarded?: boolean | null
+          state?: string | null
           status?: string | null
           submitted_at?: string | null
           user_id?: string
+          verified?: boolean | null
         }
         Relationships: []
       }
