@@ -15,6 +15,7 @@ import { ArrowRight, Sparkles, Download, Edit, Link2, Type, Shield } from "lucid
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OrderDetailedStatus } from "@/lib/orderStateMachine";
+import { logOrderEvent } from "@/lib/orderEventLogger";
 import { calculateDeliveryCost } from "@/lib/deliveryCostCalculator";
 import { getFabricsForProduct, getDefaultFabric, getFabricById, FabricOption } from "@/lib/fabrics";
 
@@ -838,6 +839,13 @@ const StartOrder = () => {
                           ...shippingAddress
                         });
                       }
+
+                      // Log order event for analytics
+                      await logOrderEvent(
+                        orderResponse.id,
+                        isSampleOnly ? 'sample_created' : 'bulk_created',
+                        { quantity, productType, escrowAmount, fabricType: fabric?.label }
+                      );
                       
                       toast.success(
                         `Order placed! ₹${totalAmount.toLocaleString()} (incl. ₹${deliveryCost} delivery) transferred to escrow.`,

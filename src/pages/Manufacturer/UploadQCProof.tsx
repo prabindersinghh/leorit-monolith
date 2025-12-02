@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload, Video } from "lucide-react";
+import { logOrderEvent } from "@/lib/orderEventLogger";
 
 const UploadQCProof = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -118,6 +119,9 @@ const UploadQCProof = () => {
         .eq('id', selectedOrder);
 
       if (updateError) throw updateError;
+
+      // Log QC upload event for analytics
+      await logOrderEvent(selectedOrder, 'qc_uploaded', { videoUrl: publicUrl });
 
       // Get order details to notify buyer
       const { data: orderData } = await supabase

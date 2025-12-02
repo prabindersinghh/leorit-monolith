@@ -185,6 +185,38 @@ export type Database = {
           },
         ]
       }
+      order_events: {
+        Row: {
+          event_timestamp: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          order_id: string
+        }
+        Insert: {
+          event_timestamp?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          order_id: string
+        }
+        Update: {
+          event_timestamp?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_shipping_info: {
         Row: {
           address_line1: string
