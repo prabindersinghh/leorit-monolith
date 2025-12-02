@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, Truck } from "lucide-react";
 import { canTransitionTo, getActionLabel, statusLabels, statusColors, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
+import { logOrderEvent } from "@/lib/orderEventLogger";
 import { addDays, format } from "date-fns";
 
 const ManufacturerOrders = () => {
@@ -107,6 +108,10 @@ const ManufacturerOrders = () => {
         .eq('id', orderId);
 
       if (error) throw error;
+      
+      // Log manufacturer rejected event for analytics
+      await logOrderEvent(orderId, 'manufacturer_rejected', { status: newStatus });
+      
       toast.success("Order rejected");
       fetchOrders();
     } catch (error) {
@@ -139,6 +144,10 @@ const ManufacturerOrders = () => {
         .eq('id', orderId);
 
       if (error) throw error;
+      
+      // Log dispatched event for analytics
+      await logOrderEvent(orderId, 'dispatched', { estimatedDelivery: format(estimatedDelivery, 'yyyy-MM-dd') });
+      
       toast.success(`Order dispatched! Estimated delivery: ${format(estimatedDelivery, 'MMM dd, yyyy')}`);
       fetchOrders();
     } catch (error) {
@@ -167,6 +176,10 @@ const ManufacturerOrders = () => {
         .eq('id', orderId);
 
       if (error) throw error;
+      
+      // Log sample production started event for analytics
+      await logOrderEvent(orderId, 'sample_production_started', { status: newStatus });
+      
       toast.success("Sample production started!");
       fetchOrders();
     } catch (error) {
@@ -192,6 +205,10 @@ const ManufacturerOrders = () => {
         .eq('id', orderId);
 
       if (error) throw error;
+      
+      // Log bulk production started event for analytics
+      await logOrderEvent(orderId, 'bulk_production_started', { status: newStatus });
+      
       toast.success("Bulk production started!");
       fetchOrders();
     } catch (error) {

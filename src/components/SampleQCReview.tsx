@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { canTransitionTo, getActionLabel, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
+import { logOrderEvent } from "@/lib/orderEventLogger";
 
 interface SampleQCReviewProps {
   orderId: string;
@@ -68,6 +69,9 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
         .eq('id', orderId);
 
       if (approveError) throw approveError;
+
+      // Log QC approved event for analytics
+      await logOrderEvent(orderId, 'qc_approved', { isSample, escrowAmount: order.escrow_amount });
 
       // For sample orders, immediately transition to sample_completed and release escrow
       if (isSample) {
