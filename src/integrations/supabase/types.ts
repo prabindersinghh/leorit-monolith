@@ -237,6 +237,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          bulk_order_confirmed_at: string | null
           buyer_id: string
           concern_notes: string | null
           created_at: string
@@ -257,6 +258,7 @@ export type Database = {
           fabric_unit_price: number | null
           fake_payment_timestamp: string | null
           id: string
+          manufacturer_accept_time: string | null
           manufacturer_id: string | null
           product_type: string
           qc_feedback: string | null
@@ -266,8 +268,12 @@ export type Database = {
           quantity: number
           rejection_reason: string | null
           sample_approved_at: string | null
+          sample_order_placed_at: string | null
           sample_production_started_at: string | null
+          sample_qc_approved_at: string | null
+          sample_qc_uploaded_at: string | null
           sample_status: string | null
+          sample_to_bulk_conversion: boolean | null
           size_chart_url: string | null
           status: string
           total_amount: number | null
@@ -275,6 +281,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bulk_order_confirmed_at?: string | null
           buyer_id: string
           concern_notes?: string | null
           created_at?: string
@@ -295,6 +302,7 @@ export type Database = {
           fabric_unit_price?: number | null
           fake_payment_timestamp?: string | null
           id?: string
+          manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
           product_type: string
           qc_feedback?: string | null
@@ -304,8 +312,12 @@ export type Database = {
           quantity?: number
           rejection_reason?: string | null
           sample_approved_at?: string | null
+          sample_order_placed_at?: string | null
           sample_production_started_at?: string | null
+          sample_qc_approved_at?: string | null
+          sample_qc_uploaded_at?: string | null
           sample_status?: string | null
+          sample_to_bulk_conversion?: boolean | null
           size_chart_url?: string | null
           status?: string
           total_amount?: number | null
@@ -313,6 +325,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bulk_order_confirmed_at?: string | null
           buyer_id?: string
           concern_notes?: string | null
           created_at?: string
@@ -333,6 +346,7 @@ export type Database = {
           fabric_unit_price?: number | null
           fake_payment_timestamp?: string | null
           id?: string
+          manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
           product_type?: string
           qc_feedback?: string | null
@@ -342,8 +356,12 @@ export type Database = {
           quantity?: number
           rejection_reason?: string | null
           sample_approved_at?: string | null
+          sample_order_placed_at?: string | null
           sample_production_started_at?: string | null
+          sample_qc_approved_at?: string | null
+          sample_qc_uploaded_at?: string | null
           sample_status?: string | null
+          sample_to_bulk_conversion?: boolean | null
           size_chart_url?: string | null
           status?: string
           total_amount?: number | null

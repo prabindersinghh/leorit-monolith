@@ -800,6 +800,7 @@ const StartOrder = () => {
                       }
                       // END: Fallback Assignment Rule
 
+                      const now = new Date().toISOString();
                       const orderData: any = {
                         buyer_id: user.id,
                         manufacturer_id: assignedManufacturerId,
@@ -813,9 +814,13 @@ const StartOrder = () => {
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
                         status: 'pending',
                         sample_status: 'not_started',
-                        fake_payment_timestamp: new Date().toISOString(), // Record payment timestamp for UI
+                        fake_payment_timestamp: now, // Record payment timestamp for UI
                         fabric_type: fabric?.label || null,
-                        fabric_unit_price: fabric?.unit_price_bulk || null
+                        fabric_unit_price: fabric?.unit_price_bulk || null,
+                        // Analytics timestamps
+                        sample_order_placed_at: isSampleOnly ? now : null,
+                        bulk_order_confirmed_at: !isSampleOnly ? now : null,
+                        sample_to_bulk_conversion: !isSampleOnly
                       };
 
                       const { data: orderResponse, error } = await supabase
