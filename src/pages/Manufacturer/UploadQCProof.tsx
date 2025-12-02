@@ -112,7 +112,8 @@ const UploadQCProof = () => {
           qc_video_url: publicUrl,
           qc_files: [...existingFiles, publicUrl],
           qc_feedback: qcNotes,
-          qc_uploaded_at: now // Track QC upload timestamp
+          qc_uploaded_at: now, // Track QC upload timestamp
+          sample_qc_uploaded_at: now // Analytics timestamp for sample QC upload
         })
         .eq('id', selectedOrder);
 

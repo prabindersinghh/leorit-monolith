@@ -74,7 +74,8 @@ const ManufacturerOrders = () => {
           detailed_status: newStatus,
           status: 'accepted', // Backward compatibility
           sample_status: 'not_started', // Backward compatibility
-          escrow_locked_timestamp: now // Lock escrow when manufacturer accepts
+          escrow_locked_timestamp: now, // Lock escrow when manufacturer accepts
+          manufacturer_accept_time: now // Analytics timestamp for manufacturer acceptance
         })
         .eq('id', orderId);
 

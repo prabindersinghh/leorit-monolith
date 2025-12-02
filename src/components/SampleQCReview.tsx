@@ -62,7 +62,8 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
           detailed_status: 'sample_approved_by_buyer',
           sample_status: 'approved', // Backward compatibility
           qc_feedback: 'Approved by buyer',
-          sample_approved_at: now
+          sample_approved_at: now,
+          sample_qc_approved_at: now // Analytics timestamp for buyer QC approval
         })
         .eq('id', orderId);
 
