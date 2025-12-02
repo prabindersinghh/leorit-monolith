@@ -2,10 +2,22 @@ import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import DashboardCard from "@/components/DashboardCard";
 import DataTable from "@/components/DataTable";
-import { Users, Package, AlertCircle, TrendingUp } from "lucide-react";
+import { Users, Package, AlertCircle, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 const AdminDashboard = () => {
   const [metrics, setMetrics] = useState({
     totalBuyers: 0,
@@ -17,6 +29,35 @@ const AdminDashboard = () => {
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleForceLogoutBuyers = async () => {
+    setLoggingOut(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("You must be logged in to perform this action");
+        return;
+      }
+
+      const response = await supabase.functions.invoke("force-logout-buyers", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      toast.success(`All buyer sessions have been logged out successfully. (${response.data.count} buyers)`);
+    } catch (error: any) {
+      console.error("Error forcing logout:", error);
+      toast.error(error.message || "Failed to logout buyers");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   useEffect(() => {
     fetchAdminData();
@@ -181,9 +222,33 @@ const AdminDashboard = () => {
       
       <main className="flex-1 p-8 w-[calc(100%-16rem)] ml-64">
         <div className="max-w-full">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Platform overview and monitoring</p>
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
+              <p className="text-muted-foreground">Platform overview and monitoring</p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={loggingOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {loggingOut ? "Logging out..." : "Force Logout All Buyers"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Force Logout All Buyers</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure? This will log out ALL buyers from ALL devices. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleForceLogoutBuyers} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Yes, Logout All Buyers
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
