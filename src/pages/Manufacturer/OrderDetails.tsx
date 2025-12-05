@@ -178,7 +178,12 @@ const ManufacturerOrderDetails = () => {
                 <div className="flex justify-between pt-2 border-t">
                   <span className="text-muted-foreground">Expected Deadline:</span>
                   <span className="font-semibold text-primary">
-                    {order.quantity === 1 ? "3-5 days (Sample)" : "14-21 days (Bulk)"}
+                    {order.quantity === 1 
+                      ? "24-48 hours (Sample QC window)" 
+                      : order.expected_deadline 
+                        ? format(new Date(order.expected_deadline), "dd MMM yyyy")
+                        : "14-21 days (Bulk)"
+                    }
                   </span>
                 </div>
                 {order.estimated_delivery_date && (

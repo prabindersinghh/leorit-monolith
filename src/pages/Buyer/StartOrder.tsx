@@ -11,13 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Sparkles, Download, Edit, Link2, Type, Shield } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ArrowRight, Sparkles, Download, Edit, Link2, Type, Shield, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OrderDetailedStatus } from "@/lib/orderStateMachine";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 import { calculateDeliveryCost } from "@/lib/deliveryCostCalculator";
 import { getFabricsForProduct, getDefaultFabric, getFabricById, FabricOption } from "@/lib/fabrics";
+import { format, addDays } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const StartOrder = () => {
   const [step, setStep] = useState(1);
@@ -43,6 +47,7 @@ const StartOrder = () => {
   const [bulkQuantity, setBulkQuantity] = useState<number>(50);
   const [bulkQuantityError, setBulkQuantityError] = useState<string>("");
   const [selectedFabric, setSelectedFabric] = useState<FabricOption | null>(null);
+  const [expectedDeadline, setExpectedDeadline] = useState<Date | undefined>(undefined);
   
   const fabricSectionRef = useRef<HTMLDivElement>(null);
 
@@ -551,6 +556,41 @@ const StartOrder = () => {
                       <p className="text-sm text-red-500 mt-1">{bulkQuantityError}</p>
                     )}
                   </div>
+
+                  {/* Expected Deadline - Bulk Orders Only */}
+                  <div className="pt-4 border-t border-border">
+                    <Label>Bulk Order Deadline</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Manufacturer will see this after order acceptance
+                    </p>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !expectedDeadline && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {expectedDeadline ? format(expectedDeadline, "PPP") : "Select expected deadline"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={expectedDeadline}
+                          onSelect={setExpectedDeadline}
+                          disabled={(date) => date < addDays(new Date(), 7)}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Minimum 7 days from today for bulk orders
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -821,7 +861,9 @@ const StartOrder = () => {
                         // Analytics timestamps
                         sample_order_placed_at: isSampleOnly ? now : null,
                         bulk_order_confirmed_at: !isSampleOnly ? now : null,
-                        sample_to_bulk_conversion: !isSampleOnly
+                        sample_to_bulk_conversion: !isSampleOnly,
+                        // Expected deadline (only for bulk orders)
+                        expected_deadline: !isSampleOnly && expectedDeadline ? expectedDeadline.toISOString() : null
                       };
 
                       const { data: orderResponse, error } = await supabase
