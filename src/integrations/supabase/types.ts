@@ -289,6 +289,7 @@ export type Database = {
           escrow_released_timestamp: string | null
           escrow_status: Database["public"]["Enums"]["escrow_status"] | null
           estimated_delivery_date: string | null
+          expected_deadline: string | null
           fabric_type: string | null
           fabric_unit_price: number | null
           fake_payment_timestamp: string | null
@@ -338,6 +339,7 @@ export type Database = {
           escrow_released_timestamp?: string | null
           escrow_status?: Database["public"]["Enums"]["escrow_status"] | null
           estimated_delivery_date?: string | null
+          expected_deadline?: string | null
           fabric_type?: string | null
           fabric_unit_price?: number | null
           fake_payment_timestamp?: string | null
@@ -387,6 +389,7 @@ export type Database = {
           escrow_released_timestamp?: string | null
           escrow_status?: Database["public"]["Enums"]["escrow_status"] | null
           estimated_delivery_date?: string | null
+          expected_deadline?: string | null
           fabric_type?: string | null
           fabric_unit_price?: number | null
           fake_payment_timestamp?: string | null
