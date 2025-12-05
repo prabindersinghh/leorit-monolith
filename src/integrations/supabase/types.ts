@@ -269,9 +269,12 @@ export type Database = {
       }
       orders: {
         Row: {
+          back_design_url: string | null
+          back_mockup_image: string | null
           bulk_order_confirmed_at: string | null
           buyer_id: string
           concern_notes: string | null
+          corrected_csv_url: string | null
           created_at: string
           delivered_at: string | null
           delivery_cost: number | null
@@ -289,9 +292,11 @@ export type Database = {
           fabric_type: string | null
           fabric_unit_price: number | null
           fake_payment_timestamp: string | null
+          generated_preview: string | null
           id: string
           manufacturer_accept_time: string | null
           manufacturer_id: string | null
+          mockup_image: string | null
           product_type: string
           qc_feedback: string | null
           qc_files: string[] | null
@@ -313,9 +318,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          back_design_url?: string | null
+          back_mockup_image?: string | null
           bulk_order_confirmed_at?: string | null
           buyer_id: string
           concern_notes?: string | null
+          corrected_csv_url?: string | null
           created_at?: string
           delivered_at?: string | null
           delivery_cost?: number | null
@@ -333,9 +341,11 @@ export type Database = {
           fabric_type?: string | null
           fabric_unit_price?: number | null
           fake_payment_timestamp?: string | null
+          generated_preview?: string | null
           id?: string
           manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
+          mockup_image?: string | null
           product_type: string
           qc_feedback?: string | null
           qc_files?: string[] | null
@@ -357,9 +367,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          back_design_url?: string | null
+          back_mockup_image?: string | null
           bulk_order_confirmed_at?: string | null
           buyer_id?: string
           concern_notes?: string | null
+          corrected_csv_url?: string | null
           created_at?: string
           delivered_at?: string | null
           delivery_cost?: number | null
@@ -377,9 +390,11 @@ export type Database = {
           fabric_type?: string | null
           fabric_unit_price?: number | null
           fake_payment_timestamp?: string | null
+          generated_preview?: string | null
           id?: string
           manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
+          mockup_image?: string | null
           product_type?: string
           qc_feedback?: string | null
           qc_files?: string[] | null
