@@ -9,8 +9,9 @@ import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MapPin } from "lucide-react";
+import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 const ManufacturerOrderDetails = () => {
   const { id } = useParams();
@@ -83,6 +84,7 @@ const ManufacturerOrderDetails = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Order Information Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -96,12 +98,18 @@ const ManufacturerOrderDetails = () => {
                   <span className="font-mono text-xs">{order.id.slice(0, 8)}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-muted-foreground">Order Type:</span>
+                  <Badge variant={order.quantity === 1 ? "secondary" : "default"}>
+                    {order.quantity === 1 ? "Sample" : "Bulk"}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Product:</span>
                   <span className="font-medium">{order.product_type}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Quantity:</span>
-                  <span className="font-medium">{order.quantity}</span>
+                  <span className="font-medium">{order.quantity} pieces</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Design Size:</span>
@@ -136,6 +144,55 @@ const ManufacturerOrderDetails = () => {
               </CardContent>
             </Card>
 
+            {/* Timeline & Deadline Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Timeline & Deadlines
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Order Placed:</span>
+                  <span className="font-medium">
+                    {order.created_at ? format(new Date(order.created_at), "dd MMM yyyy, HH:mm") : "-"}
+                  </span>
+                </div>
+                {order.manufacturer_accept_time && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Accepted At:</span>
+                    <span className="font-medium">
+                      {format(new Date(order.manufacturer_accept_time), "dd MMM yyyy, HH:mm")}
+                    </span>
+                  </div>
+                )}
+                {order.sample_production_started_at && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Production Started:</span>
+                    <span className="font-medium">
+                      {format(new Date(order.sample_production_started_at), "dd MMM yyyy, HH:mm")}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-2 border-t">
+                  <span className="text-muted-foreground">Expected Deadline:</span>
+                  <span className="font-semibold text-primary">
+                    {order.quantity === 1 ? "3-5 days (Sample)" : "14-21 days (Bulk)"}
+                  </span>
+                </div>
+                {order.estimated_delivery_date && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Est. Delivery:</span>
+                    <span className="font-medium">
+                      {format(new Date(order.estimated_delivery_date), "dd MMM yyyy")}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Shipping Address Card */}
             {shippingInfo && (
               <Card>
                 <CardHeader>
@@ -158,56 +215,158 @@ const ManufacturerOrderDetails = () => {
                 </CardContent>
               </Card>
             )}
+
+            {/* Buyer Notes Card */}
+            {(order.concern_notes || order.rejection_reason || order.qc_feedback) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Buyer Notes & Requirements</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {order.concern_notes && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Special Requirements:</p>
+                      <p className="text-sm bg-muted p-2 rounded">{order.concern_notes}</p>
+                    </div>
+                  )}
+                  {order.qc_feedback && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">QC Feedback:</p>
+                      <p className="text-sm bg-muted p-2 rounded">{order.qc_feedback}</p>
+                    </div>
+                  )}
+                  {order.rejection_reason && (
+                    <div>
+                      <p className="text-sm font-medium text-destructive mb-1">Rejection Reason:</p>
+                      <p className="text-sm bg-destructive/10 text-destructive p-2 rounded">{order.rejection_reason}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
-          {order.design_file_url && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Design Files
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Front Design</p>
-                    <img
-                      src={order.design_file_url}
-                      alt="Front design"
-                      className="w-full h-48 object-contain border rounded"
-                    />
-                  </div>
+          {/* Production Files Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Image className="h-5 w-5" />
+                Production Files
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Design Images */}
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">Design Images</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {order.design_file_url && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Front Design</p>
+                      <img
+                        src={order.design_file_url}
+                        alt="Front design"
+                        className="w-full h-40 object-contain border rounded bg-muted/50"
+                      />
+                      <Button variant="outline" size="sm" className="w-full" asChild>
+                        <a href={order.design_file_url} download target="_blank" rel="noopener noreferrer">
+                          <Download className="w-3 h-3 mr-1" /> Download
+                        </a>
+                      </Button>
+                    </div>
+                  )}
                   {order.back_design_url && (
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2">Back Design</p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Back Design</p>
                       <img
                         src={order.back_design_url}
                         alt="Back design"
-                        className="w-full h-48 object-contain border rounded"
+                        className="w-full h-40 object-contain border rounded bg-muted/50"
                       />
+                      <Button variant="outline" size="sm" className="w-full" asChild>
+                        <a href={order.back_design_url} download target="_blank" rel="noopener noreferrer">
+                          <Download className="w-3 h-3 mr-1" /> Download
+                        </a>
+                      </Button>
+                    </div>
+                  )}
+                  {order.mockup_image && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Front Mockup</p>
+                      <img
+                        src={order.mockup_image}
+                        alt="Front mockup"
+                        className="w-full h-40 object-contain border rounded bg-muted/50"
+                      />
+                      <Button variant="outline" size="sm" className="w-full" asChild>
+                        <a href={order.mockup_image} download target="_blank" rel="noopener noreferrer">
+                          <Download className="w-3 h-3 mr-1" /> Download
+                        </a>
+                      </Button>
+                    </div>
+                  )}
+                  {order.back_mockup_image && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Back Mockup</p>
+                      <img
+                        src={order.back_mockup_image}
+                        alt="Back mockup"
+                        className="w-full h-40 object-contain border rounded bg-muted/50"
+                      />
+                      <Button variant="outline" size="sm" className="w-full" asChild>
+                        <a href={order.back_mockup_image} download target="_blank" rel="noopener noreferrer">
+                          <Download className="w-3 h-3 mr-1" /> Download
+                        </a>
+                      </Button>
+                    </div>
+                  )}
+                  {order.generated_preview && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Generated Preview</p>
+                      <img
+                        src={order.generated_preview}
+                        alt="Generated preview"
+                        className="w-full h-40 object-contain border rounded bg-muted/50"
+                      />
+                      <Button variant="outline" size="sm" className="w-full" asChild>
+                        <a href={order.generated_preview} download target="_blank" rel="noopener noreferrer">
+                          <Download className="w-3 h-3 mr-1" /> Download
+                        </a>
+                      </Button>
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                {!order.design_file_url && !order.back_design_url && (
+                  <p className="text-sm text-muted-foreground">No design files uploaded</p>
+                )}
+              </div>
 
-          {order.size_chart_url && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Size Chart</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button asChild variant="outline">
-                  <a href={order.size_chart_url} target="_blank" rel="noopener noreferrer">
-                    <FileText className="w-4 h-4 mr-2" />
-                    View Size Chart PDF
-                  </a>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+              {/* CSV & Size Chart */}
+              <div className="pt-4 border-t">
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">Documents</h4>
+                <div className="flex flex-wrap gap-3">
+                  {order.corrected_csv_url && (
+                    <Button variant="outline" asChild>
+                      <a href={order.corrected_csv_url} download target="_blank" rel="noopener noreferrer">
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        Download Name/Size CSV
+                      </a>
+                    </Button>
+                  )}
+                  {order.size_chart_url && (
+                    <Button variant="outline" asChild>
+                      <a href={order.size_chart_url} target="_blank" rel="noopener noreferrer">
+                        <FileText className="w-4 h-4 mr-2" />
+                        View Size Chart PDF
+                      </a>
+                    </Button>
+                  )}
+                  {!order.corrected_csv_url && !order.size_chart_url && (
+                    <p className="text-sm text-muted-foreground">No documents uploaded</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <OrderCostBreakdown
             orderValue={(order.escrow_amount || 0) - (order.delivery_cost || 0)}
