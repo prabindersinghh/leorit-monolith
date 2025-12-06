@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import DataTable from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CheckCircle, XCircle, Truck } from "lucide-react";
+import { CheckCircle, XCircle, Truck, Eye } from "lucide-react";
 import { canTransitionTo, getActionLabel, statusLabels, statusColors, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 import { addDays, format } from "date-fns";
 
 const ManufacturerOrders = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -222,7 +224,14 @@ const ManufacturerOrders = () => {
     {
       header: "Order ID",
       accessor: "id",
-      cell: (value: string) => <span className="font-mono text-xs">{value.slice(0, 8)}</span>
+      cell: (value: string) => (
+        <button
+          onClick={() => navigate(`/manufacturer/order/${value}`)}
+          className="font-mono text-xs text-primary hover:underline cursor-pointer"
+        >
+          {value.slice(0, 8)}
+        </button>
+      )
     },
     {
       header: "Product",
@@ -354,6 +363,14 @@ const ManufacturerOrders = () => {
                 Mark as Dispatched
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/manufacturer/order/${value}`)}
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              View
+            </Button>
           </div>
         );
       }
