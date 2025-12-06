@@ -287,21 +287,11 @@ const ManufacturerOrderDetails = () => {
                         <span className="font-medium">{buyerProfile.company_name}</span>
                       </div>
                     )}
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Email:</span>
-                      <span className="font-medium">{buyerProfile.email}</span>
-                    </div>
                     {shippingInfo && (
-                      <>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Contact Name:</span>
-                          <span className="font-medium">{shippingInfo.full_name}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Phone:</span>
-                          <span className="font-medium">{shippingInfo.phone}</span>
-                        </div>
-                      </>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Location:</span>
+                        <span className="font-medium">{shippingInfo.city}, {shippingInfo.state}</span>
+                      </div>
                     )}
                   </>
                 ) : (
