@@ -9,7 +9,7 @@ import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet } from "lucide-react";
+import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet, User, Clock, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -17,6 +17,7 @@ const ManufacturerOrderDetails = () => {
   const { id } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [shippingInfo, setShippingInfo] = useState<any>(null);
+  const [buyerProfile, setBuyerProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState("");
 
@@ -47,12 +48,60 @@ const ManufacturerOrderDetails = () => {
       .from("order_shipping_info")
       .select("*")
       .eq("order_id", id)
-      .single();
+      .maybeSingle();
+
+    // Fetch buyer profile
+    if (orderData?.buyer_id) {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", orderData.buyer_id)
+        .maybeSingle();
+      setBuyerProfile(profileData);
+    }
 
     setOrder(orderData);
     setShippingInfo(shippingData);
     setLoading(false);
   };
+
+  // Timeline Item Component
+  const TimelineItem = ({ 
+    label, 
+    timestamp, 
+    completed, 
+    isEstimate = false 
+  }: { 
+    label: string; 
+    timestamp?: string | null; 
+    completed: boolean;
+    isEstimate?: boolean;
+  }) => (
+    <div className="relative flex items-start gap-4 pl-8">
+      <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
+        completed 
+          ? 'bg-primary border-primary' 
+          : isEstimate 
+            ? 'bg-muted border-muted-foreground/50' 
+            : 'bg-background border-muted-foreground/30'
+      }`}>
+        {completed && <CheckCircle2 className="w-2 h-2 text-primary-foreground absolute -top-0.5 -left-0.5" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium ${completed ? 'text-foreground' : 'text-muted-foreground'}`}>
+          {label}
+        </p>
+        {timestamp && (
+          <p className="text-xs text-muted-foreground">
+            {format(new Date(timestamp), "dd MMM yyyy, HH:mm")}
+          </p>
+        )}
+        {!timestamp && !completed && !isEstimate && (
+          <p className="text-xs text-muted-foreground">Pending</p>
+        )}
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -221,11 +270,51 @@ const ManufacturerOrderDetails = () => {
               </Card>
             )}
 
+            {/* Buyer Information Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Buyer Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {buyerProfile ? (
+                  <>
+                    {buyerProfile.company_name && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Company:</span>
+                        <span className="font-medium">{buyerProfile.company_name}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Email:</span>
+                      <span className="font-medium">{buyerProfile.email}</span>
+                    </div>
+                    {shippingInfo && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Contact Name:</span>
+                          <span className="font-medium">{shippingInfo.full_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Phone:</span>
+                          <span className="font-medium">{shippingInfo.phone}</span>
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Buyer information not available</p>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Buyer Notes Card */}
             {(order.concern_notes || order.rejection_reason || order.qc_feedback) && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Buyer Notes & Requirements</CardTitle>
+                  <CardTitle>Buyer Requirements</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {order.concern_notes && (
@@ -250,6 +339,104 @@ const ManufacturerOrderDetails = () => {
               </Card>
             )}
           </div>
+
+          {/* Order Timeline Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Order Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="relative">
+                {/* Timeline line */}
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                
+                <div className="space-y-4">
+                  {/* Order Created */}
+                  <TimelineItem
+                    label="Order Created"
+                    timestamp={order.created_at}
+                    completed={!!order.created_at}
+                  />
+                  
+                  {/* Payment Made */}
+                  <TimelineItem
+                    label="Payment Received (Escrow)"
+                    timestamp={order.fake_payment_timestamp}
+                    completed={!!order.fake_payment_timestamp}
+                  />
+                  
+                  {/* Escrow Locked */}
+                  <TimelineItem
+                    label="Escrow Locked"
+                    timestamp={order.escrow_locked_timestamp}
+                    completed={!!order.escrow_locked_timestamp}
+                  />
+                  
+                  {/* Manufacturer Accepted */}
+                  <TimelineItem
+                    label="Accepted by Manufacturer"
+                    timestamp={order.manufacturer_accept_time}
+                    completed={!!order.manufacturer_accept_time}
+                  />
+                  
+                  {/* Production Started */}
+                  <TimelineItem
+                    label={order.quantity === 1 ? "Sample Production Started" : "Bulk Production Started"}
+                    timestamp={order.sample_production_started_at}
+                    completed={!!order.sample_production_started_at}
+                  />
+                  
+                  {/* QC Uploaded */}
+                  <TimelineItem
+                    label="QC Uploaded"
+                    timestamp={order.qc_uploaded_at || order.sample_qc_uploaded_at}
+                    completed={!!(order.qc_uploaded_at || order.sample_qc_uploaded_at)}
+                  />
+                  
+                  {/* Buyer Approved */}
+                  <TimelineItem
+                    label="Buyer Approved"
+                    timestamp={order.sample_approved_at || order.sample_qc_approved_at}
+                    completed={!!(order.sample_approved_at || order.sample_qc_approved_at)}
+                  />
+                  
+                  {/* Dispatched */}
+                  <TimelineItem
+                    label="Dispatched"
+                    timestamp={order.dispatched_at}
+                    completed={!!order.dispatched_at}
+                  />
+                  
+                  {/* Escrow Released */}
+                  <TimelineItem
+                    label="Escrow Released"
+                    timestamp={order.escrow_released_timestamp}
+                    completed={!!order.escrow_released_timestamp}
+                  />
+                  
+                  {/* Delivered */}
+                  <TimelineItem
+                    label="Delivered"
+                    timestamp={order.delivered_at}
+                    completed={!!order.delivered_at}
+                  />
+                  
+                  {/* Estimated Delivery */}
+                  {order.estimated_delivery_date && !order.delivered_at && (
+                    <TimelineItem
+                      label="Estimated Delivery"
+                      timestamp={order.estimated_delivery_date}
+                      completed={false}
+                      isEstimate
+                    />
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Production Files Section */}
           <Card>
