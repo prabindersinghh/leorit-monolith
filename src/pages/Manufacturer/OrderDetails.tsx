@@ -246,7 +246,7 @@ const ManufacturerOrderDetails = () => {
               </CardContent>
             </Card>
 
-            {/* Shipping Address Card */}
+            {/* Shipping Address Card - Phone hidden for manufacturer privacy */}
             {shippingInfo && (
               <Card>
                 <CardHeader>
@@ -257,7 +257,6 @@ const ManufacturerOrderDetails = () => {
                 </CardHeader>
                 <CardContent className="space-y-1">
                   <p className="font-medium">{shippingInfo.full_name}</p>
-                  <p className="text-sm text-muted-foreground">{shippingInfo.phone}</p>
                   <p className="text-sm">{shippingInfo.address_line1}</p>
                   {shippingInfo.address_line2 && (
                     <p className="text-sm">{shippingInfo.address_line2}</p>
@@ -270,18 +269,18 @@ const ManufacturerOrderDetails = () => {
               </Card>
             )}
 
-            {/* Buyer Information Card */}
+            {/* Buyer Organization Card - Contact details hidden for manufacturer privacy */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
-                  Buyer Information
+                  Buyer Organization
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {buyerProfile ? (
+                {buyerProfile?.company_name || shippingInfo ? (
                   <>
-                    {buyerProfile.company_name && (
+                    {buyerProfile?.company_name && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Company:</span>
                         <span className="font-medium">{buyerProfile.company_name}</span>
@@ -293,6 +292,9 @@ const ManufacturerOrderDetails = () => {
                         <span className="font-medium">{shippingInfo.city}, {shippingInfo.state}</span>
                       </div>
                     )}
+                    <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                      Buyer contact details are hidden for privacy.
+                    </p>
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">Buyer information not available</p>
