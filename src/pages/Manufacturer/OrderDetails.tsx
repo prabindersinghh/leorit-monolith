@@ -133,12 +133,12 @@ const ManufacturerOrderDetails = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Order Information Card */}
+            {/* Order Summary Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
-                  Order Information
+                  Order Summary
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -146,7 +146,7 @@ const ManufacturerOrderDetails = () => {
                   <span className="text-muted-foreground">Order ID:</span>
                   <span className="font-mono text-xs">{order.id.slice(0, 8)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Order Type:</span>
                   <Badge variant={order.quantity === 1 ? "secondary" : "default"}>
                     {order.quantity === 1 ? "Sample" : "Bulk"}
@@ -167,7 +167,7 @@ const ManufacturerOrderDetails = () => {
                 {order.fabric_type && (
                   <>
                     <div className="flex justify-between pt-2 border-t">
-                      <span className="text-muted-foreground">Fabric:</span>
+                      <span className="text-muted-foreground">Fabric / GSM:</span>
                       <span className="font-medium">{order.fabric_type}</span>
                     </div>
                     <div className="flex justify-between">
@@ -176,7 +176,17 @@ const ManufacturerOrderDetails = () => {
                     </div>
                   </>
                 )}
-                <div className="flex justify-between pt-2 border-t">
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <span className="text-muted-foreground">Escrow Status:</span>
+                  <Badge variant={
+                    order.escrow_status === 'fake_released' ? 'default' :
+                    order.escrow_status === 'fake_paid' ? 'secondary' : 'outline'
+                  }>
+                    {order.escrow_status === 'fake_released' ? 'Released' :
+                     order.escrow_status === 'fake_paid' ? 'In Escrow' : 'Pending'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Order Value:</span>
                   <span className="font-semibold">₹{order.escrow_amount?.toLocaleString() || '0'}</span>
                 </div>
@@ -186,58 +196,52 @@ const ManufacturerOrderDetails = () => {
                     <span className="font-semibold">₹{order.delivery_cost}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
+                <div className="flex justify-between pt-2 border-t">
                   <span className="text-muted-foreground">Total Amount:</span>
-                  <span className="font-bold text-lg">₹{order.total_amount?.toLocaleString() || '0'}</span>
+                  <span className="font-bold text-lg text-primary">₹{order.total_amount?.toLocaleString() || '0'}</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Timeline & Deadline Card */}
+            {/* Deadlines Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  Timeline & Deadlines
+                  Deadlines
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Order Placed:</span>
-                  <span className="font-medium">
-                    {order.created_at ? format(new Date(order.created_at), "dd MMM yyyy, HH:mm") : "-"}
-                  </span>
-                </div>
-                {order.manufacturer_accept_time && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Accepted At:</span>
-                    <span className="font-medium">
-                      {format(new Date(order.manufacturer_accept_time), "dd MMM yyyy, HH:mm")}
-                    </span>
+              <CardContent className="space-y-3">
+                {order.quantity === 1 ? (
+                  <div className="bg-muted/50 rounded-lg p-4 text-center">
+                    <p className="text-sm text-muted-foreground">Sample Order</p>
+                    <p className="font-medium mt-1">Standard sample timeline applies</p>
+                    <p className="text-xs text-muted-foreground mt-1">24-48 hours QC window</p>
+                  </div>
+                ) : order.expected_deadline ? (
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-primary mb-2">
+                      <Calendar className="h-4 w-4" />
+                      <span className="text-xs font-medium uppercase tracking-wide">Buyer Requested Deadline</span>
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {format(new Date(order.expected_deadline), "dd MMM yyyy")}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Expected Completion Date
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-muted/50 rounded-lg p-4 text-center">
+                    <p className="text-sm text-muted-foreground">Bulk Order</p>
+                    <p className="font-medium mt-1">Deadline not specified</p>
+                    <p className="text-xs text-muted-foreground mt-1">Standard turnaround applies (14-21 days)</p>
                   </div>
                 )}
-                {order.sample_production_started_at && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Production Started:</span>
-                    <span className="font-medium">
-                      {format(new Date(order.sample_production_started_at), "dd MMM yyyy, HH:mm")}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between pt-2 border-t">
-                  <span className="text-muted-foreground">Expected Deadline:</span>
-                  <span className="font-semibold text-primary">
-                    {order.quantity === 1 
-                      ? "24-48 hours (Sample QC window)" 
-                      : order.expected_deadline 
-                        ? format(new Date(order.expected_deadline), "dd MMM yyyy")
-                        : "14-21 days (Bulk)"
-                    }
-                  </span>
-                </div>
+                
                 {order.estimated_delivery_date && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Est. Delivery:</span>
+                  <div className="flex justify-between items-center pt-3 border-t">
+                    <span className="text-muted-foreground">Est. Delivery to Buyer:</span>
                     <span className="font-medium">
                       {format(new Date(order.estimated_delivery_date), "dd MMM yyyy")}
                     </span>
@@ -302,34 +306,41 @@ const ManufacturerOrderDetails = () => {
               </CardContent>
             </Card>
 
-            {/* Buyer Notes Card */}
-            {(order.concern_notes || order.rejection_reason || order.qc_feedback) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Buyer Requirements</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {order.concern_notes && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Special Requirements:</p>
-                      <p className="text-sm bg-muted p-2 rounded">{order.concern_notes}</p>
-                    </div>
-                  )}
-                  {order.qc_feedback && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">QC Feedback:</p>
-                      <p className="text-sm bg-muted p-2 rounded">{order.qc_feedback}</p>
-                    </div>
-                  )}
-                  {order.rejection_reason && (
-                    <div>
-                      <p className="text-sm font-medium text-destructive mb-1">Rejection Reason:</p>
-                      <p className="text-sm bg-destructive/10 text-destructive p-2 rounded">{order.rejection_reason}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            {/* Buyer Requirements Card - Always visible */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Buyer Requirements
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {order.concern_notes ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Special Instructions:</p>
+                    <p className="text-sm bg-muted p-3 rounded">{order.concern_notes}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No special instructions provided</p>
+                )}
+                
+                {order.qc_feedback && (
+                  <div className="pt-2 border-t">
+                    <p className="text-sm font-medium text-muted-foreground mb-1">QC Feedback from Buyer:</p>
+                    <p className="text-sm bg-muted p-3 rounded">{order.qc_feedback}</p>
+                  </div>
+                )}
+                
+                {order.rejection_reason && (
+                  <div className="pt-2 border-t">
+                    <p className="text-sm font-medium text-destructive mb-1">⚠️ Rejection Reason:</p>
+                    <p className="text-sm bg-destructive/10 text-destructive p-3 rounded border border-destructive/20">
+                      {order.rejection_reason}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Order Timeline Section */}
