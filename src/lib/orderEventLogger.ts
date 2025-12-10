@@ -13,7 +13,9 @@ export type OrderEventType =
   | 'concern_raised'
   | 'bulk_production_started'
   | 'dispatched'
-  | 'delivered';
+  | 'delivered'
+  | 'mockup_generated'
+  | 'back_mockup_generated';
 
 /**
  * Logs an order event to the order_events table for analytics.

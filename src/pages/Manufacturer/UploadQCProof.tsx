@@ -120,8 +120,11 @@ const UploadQCProof = () => {
 
       if (updateError) throw updateError;
 
-      // Log QC upload event for analytics
-      await logOrderEvent(selectedOrder, 'qc_uploaded', { videoUrl: publicUrl });
+      // Log QC upload event for analytics with evidence metadata
+      await logOrderEvent(selectedOrder, 'qc_uploaded', { 
+        url: publicUrl, 
+        uploaded_by: 'manufacturer' 
+      });
 
       // Get order details to notify buyer
       const { data: orderData } = await supabase
