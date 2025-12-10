@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import DashboardCard from "@/components/DashboardCard";
-import { Package, TrendingUp, Clock, Users, Truck, RefreshCw } from "lucide-react";
+import { Package, TrendingUp, Clock, Users, Truck, RefreshCw, Factory, CheckCircle, UserPlus, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -25,6 +25,23 @@ interface OrderEvent {
   metadata: any;
 }
 
+interface ManufacturerVerification {
+  id: string;
+  company_name: string;
+  city: string | null;
+  state: string | null;
+  soft_onboarded: boolean | null;
+  verified: boolean | null;
+  user_id: string;
+}
+
+interface ManufacturerStats {
+  total: number;
+  softOnboarded: number;
+  verified: number;
+  activeManufacturerEmail: string;
+}
+
 const Analytics = () => {
   const [analytics, setAnalytics] = useState<Analytics>({
     totalSamples: 0,
@@ -36,10 +53,18 @@ const Analytics = () => {
     repeatBuyerCount: 0,
   });
   const [recentEvents, setRecentEvents] = useState<OrderEvent[]>([]);
+  const [manufacturerStats, setManufacturerStats] = useState<ManufacturerStats>({
+    total: 0,
+    softOnboarded: 0,
+    verified: 0,
+    activeManufacturerEmail: "singhprabindersingh@gmail.com",
+  });
+  const [softOnboardedList, setSoftOnboardedList] = useState<ManufacturerVerification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchAnalytics();
+    fetchManufacturerStats();
   }, []);
 
   const fetchAnalytics = async () => {
@@ -158,6 +183,32 @@ const Analytics = () => {
     }
   };
 
+  const fetchManufacturerStats = async () => {
+    try {
+      // Fetch all manufacturer verifications
+      const { data: manufacturers } = await supabase
+        .from("manufacturer_verifications")
+        .select("*");
+
+      const total = manufacturers?.length || 0;
+      const softOnboarded = manufacturers?.filter(m => m.soft_onboarded === true).length || 0;
+      const verified = manufacturers?.filter(m => m.verified === true).length || 0;
+
+      setManufacturerStats({
+        total,
+        softOnboarded,
+        verified,
+        activeManufacturerEmail: "singhprabindersingh@gmail.com",
+      });
+
+      // Filter soft-onboarded manufacturers for the list
+      const softOnboardedManufacturers = manufacturers?.filter(m => m.soft_onboarded === true) || [];
+      setSoftOnboardedList(softOnboardedManufacturers);
+    } catch (error) {
+      console.error("Error fetching manufacturer stats:", error);
+    }
+  };
+
   const getEventBadgeColor = (eventType: string) => {
     const colors: Record<string, string> = {
       sample_created: "bg-blue-100 text-blue-700",
@@ -170,6 +221,8 @@ const Analytics = () => {
       bulk_production_started: "bg-cyan-100 text-cyan-700",
       dispatched: "bg-orange-100 text-orange-700",
       delivered: "bg-teal-100 text-teal-700",
+      mockup_generated: "bg-pink-100 text-pink-700",
+      back_mockup_generated: "bg-fuchsia-100 text-fuchsia-700",
     };
     return colors[eventType] || "bg-gray-100 text-gray-700";
   };
@@ -279,6 +332,77 @@ const Analytics = () => {
                 <p className="text-sm text-muted-foreground mt-1">From dispatch to delivery</p>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Manufacturers Summary */}
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-foreground mb-4">Manufacturers Summary</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <DashboardCard
+                title="Total Manufacturers"
+                value={manufacturerStats.total}
+                icon={Factory}
+                description="All registered"
+              />
+              <DashboardCard
+                title="Soft-Onboarded"
+                value={manufacturerStats.softOnboarded}
+                icon={UserPlus}
+                description="Ready for orders"
+              />
+              <DashboardCard
+                title="Verified"
+                value={manufacturerStats.verified}
+                icon={CheckCircle}
+                description="Fully verified"
+              />
+              <Card className="border-2 border-primary bg-primary/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Star className="h-5 w-5 text-primary" />
+                    Active Manufacturer
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {manufacturerStats.activeManufacturerEmail}
+                  </p>
+                  <Badge className="mt-2 bg-primary text-primary-foreground">Currently Routing</Badge>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Soft-Onboarded List */}
+            {softOnboardedList.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Soft-Onboarded Manufacturers</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Manufacturers ready for future order assignment
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                    {softOnboardedList.map((manufacturer) => (
+                      <div
+                        key={manufacturer.id}
+                        className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border"
+                      >
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium text-foreground">
+                            {manufacturer.company_name}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {[manufacturer.city, manufacturer.state].filter(Boolean).join(", ") || "Location not specified"}
+                          </span>
+                        </div>
+                        <Badge className="bg-amber-100 text-amber-700">Soft-Onboarded</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Order Events Timeline */}
