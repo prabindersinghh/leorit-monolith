@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import DashboardCard from "@/components/DashboardCard";
 import DataTable from "@/components/DataTable";
-import { Users, Package, AlertCircle, LogOut } from "lucide-react";
+import { Users, Package, AlertCircle, LogOut, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+
 const AdminDashboard = () => {
   const [metrics, setMetrics] = useState({
     totalBuyers: 0,
@@ -28,6 +29,7 @@ const AdminDashboard = () => {
     rejectedOrders: 0
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [repeatBuyerIds, setRepeatBuyerIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -103,6 +105,24 @@ const AdminDashboard = () => {
         .limit(10);
 
       setRecentOrders(recent || []);
+
+      // Compute repeat buyer IDs (buyers with >= 2 bulk orders)
+      const { data: allBulkOrders } = await supabase
+        .from('orders')
+        .select('buyer_id')
+        .gt('quantity', 1);
+
+      const buyerBulkCounts: Record<string, number> = {};
+      allBulkOrders?.forEach((order) => {
+        buyerBulkCounts[order.buyer_id] = (buyerBulkCounts[order.buyer_id] || 0) + 1;
+      });
+
+      const repeatBuyers = new Set(
+        Object.entries(buyerBulkCounts)
+          .filter(([_, count]) => count >= 2)
+          .map(([buyerId]) => buyerId)
+      );
+      setRepeatBuyerIds(repeatBuyers);
     } catch (error) {
       console.error('Error fetching admin data:', error);
     } finally {
@@ -141,7 +161,17 @@ const AdminDashboard = () => {
     {
       header: "Order ID",
       accessor: "id",
-      cell: (value: string) => <span className="font-mono text-xs">{value.slice(0, 8)}</span>
+      cell: (value: string, row: any) => (
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs">{value.slice(0, 8)}</span>
+          {repeatBuyerIds.has(row.buyer_id) && (
+            <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0 flex items-center gap-0.5">
+              <RefreshCw className="h-2.5 w-2.5" />
+              Repeat
+            </Badge>
+          )}
+        </div>
+      )
     },
     {
       header: "Product",
