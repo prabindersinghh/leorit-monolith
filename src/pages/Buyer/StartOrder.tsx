@@ -888,6 +888,14 @@ const StartOrder = () => {
                         isSampleOnly ? 'sample_created' : 'bulk_created',
                         { quantity, productType, escrowAmount, fabricType: fabric?.label }
                       );
+
+                      // Log mockup generation events for evidence tracking (if mockups were generated)
+                      if (mockupImage) {
+                        await logOrderEvent(orderResponse.id, 'mockup_generated', { url: mockupImage });
+                      }
+                      if (backMockupImage) {
+                        await logOrderEvent(orderResponse.id, 'back_mockup_generated', { url: backMockupImage });
+                      }
                       
                       toast.success(
                         `Order placed! ₹${totalAmount.toLocaleString()} (incl. ₹${deliveryCost} delivery) transferred to escrow.`,
