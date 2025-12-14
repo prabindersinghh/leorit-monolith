@@ -12,8 +12,11 @@ const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [role, setRole] = useState<"buyer" | "manufacturer" | "admin">("buyer");
   const [loading, setLoading] = useState(false);
+
+  // SECURITY: Only buyer role is allowed via signup
+  // Admin and manufacturer roles must be set manually in database
+  const role = "buyer";
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,32 +52,13 @@ const Signup = () => {
         <div className="text-center mb-8">
           <img src={logo} alt="Leorit.ai" className="w-20 h-20 object-contain mx-auto mb-6" />
           <h1 className="text-3xl font-bold text-foreground mb-2">Leorit.ai</h1>
-          <p className="text-muted-foreground">Create your account</p>
+          <p className="text-muted-foreground">Create your buyer account</p>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-8 shadow-xl">
           <h2 className="text-2xl font-bold text-foreground mb-6">Sign Up</h2>
           
           <form onSubmit={handleSignup} className="space-y-5">
-            <div>
-              <Label className="text-foreground mb-2 block">Account Type</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["buyer", "manufacturer", "admin"] as const).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    className={`px-4 py-2 rounded-lg border transition-all capitalize text-sm font-medium ${
-                      role === r
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-background text-foreground border-border hover:border-gray-400"
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <div>
               <Label htmlFor="company" className="text-foreground">Company Name</Label>
