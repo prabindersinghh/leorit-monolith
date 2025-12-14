@@ -7,6 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import logo from "@/assets/leorit-logo.png";
 
+// Hardcoded allowed emails for privileged roles
+const ALLOWED_ADMIN_EMAIL = "prabhsingh@leorit.ai";
+const ALLOWED_MANUFACTURER_EMAIL = "singhprabindersingh@gmail.com";
+
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -34,6 +38,22 @@ const Login = () => {
           .single();
 
         const userRole = roleData?.role || 'buyer';
+        const userEmail = data.user.email;
+        
+        // SECURITY: Validate privileged role access by email
+        if (userRole === "admin" && userEmail !== ALLOWED_ADMIN_EMAIL) {
+          await supabase.auth.signOut();
+          toast.error("Admin access restricted");
+          setLoading(false);
+          return;
+        }
+        
+        if (userRole === "manufacturer" && userEmail !== ALLOWED_MANUFACTURER_EMAIL) {
+          await supabase.auth.signOut();
+          toast.error("Manufacturer access restricted");
+          setLoading(false);
+          return;
+        }
         
         toast.success("Login successful!");
         
