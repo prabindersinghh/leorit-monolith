@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
 import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
+import OrderEvidenceView from "@/components/OrderEvidenceView";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,6 +174,13 @@ const AdminOrderDetails = () => {
               <Badge>{order.detailed_status || order.status}</Badge>
             </div>
           </div>
+
+          {/* Evidence Bundle - YC Ready */}
+          <OrderEvidenceView 
+            order={order} 
+            manufacturerInfo={manufacturerInfo}
+            manufacturerVerification={manufacturerVerification}
+          />
 
           {/* Row 1: Order Core + Order Intent/Type */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
