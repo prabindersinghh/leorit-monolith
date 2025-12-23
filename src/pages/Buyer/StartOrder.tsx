@@ -826,25 +826,24 @@ const StartOrder = () => {
                       });
                       // END: Fake Escrow Payment Simulation Layer
 
-                      // Initialize manufacturer_id - can be set by other logic in the future
-                      let assignedManufacturerId = null;
-
-                      // Existing assignment logic can go here
-                      // For example, if you have manufacturer selection or verification logic
-                      // assignedManufacturerId = selectedManufacturer?.id;
-
-                      // START: Fallback Assignment Rule (only activates when needed)
-                      if (!assignedManufacturerId) {
-                        // Fallback to fixed manufacturer if no assignment was made
-                        const FALLBACK_MANUFACTURER_ID = '81bf98d4-352b-4296-a577-81fb3973c6c2';
-                        assignedManufacturerId = FALLBACK_MANUFACTURER_ID;
-                      }
-                      // END: Fallback Assignment Rule
+                      // =====================================================
+                      // MANAGED MANUFACTURING MODEL - No buyer choice
+                      // Orders are auto-assigned to the platform's verified manufacturer
+                      // Buyer CANNOT select, compare, or bid on manufacturers
+                      // =====================================================
+                      
+                      // Platform-managed manufacturer assignment (single verified manufacturer)
+                      const MANAGED_MANUFACTURER_ID = '81bf98d4-352b-4296-a577-81fb3973c6c2';
+                      const assignedManufacturerId = MANAGED_MANUFACTURER_ID;
+                      const assignedAt = new Date().toISOString();
+                      
+                      // END: Managed Manufacturing Assignment
 
                       const now = new Date().toISOString();
                       const orderData: any = {
                         buyer_id: user.id,
                         manufacturer_id: assignedManufacturerId,
+                        assigned_at: assignedAt, // Persist assignment timestamp
                         product_type: productType,
                         design_size: designSize,
                         quantity: quantity,
