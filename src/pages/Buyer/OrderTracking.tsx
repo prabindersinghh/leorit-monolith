@@ -9,6 +9,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { canTransitionTo, statusLabels, statusColors, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
+import { logOrderEvent } from "@/lib/orderEventLogger";
+import { PAYMENT_CONSTANTS } from "@/lib/orderStatusConstants";
 import { format, parseISO } from "date-fns";
 
 const OrderTracking = () => {
@@ -61,48 +63,126 @@ const OrderTracking = () => {
     }
   };
 
-  const confirmDelivery = async (orderId: string, currentStatus: OrderDetailedStatus, escrowAmount: number, orderIntent?: string) => {
+  const confirmDelivery = async (orderId: string, currentStatus: OrderDetailedStatus, order: any) => {
     // Transition through delivered to completed
     if (!canTransitionTo(currentStatus, 'delivered')) {
       toast.error("Invalid state transition");
       return;
     }
 
+    const orderIntent = order.order_intent;
+    const totalOrderValue = order.total_order_value || order.escrow_amount || 0;
+    const upfrontAmount = order.upfront_payable_amount || order.escrow_amount || 0;
+
     try {
-      const now = new Date();
+      const now = new Date().toISOString();
       
       // First update to delivered
       const { error: deliveredError } = await supabase
         .from('orders')
         .update({ 
           detailed_status: 'delivered',
-          delivered_at: now.toISOString(),
+          delivered_at: now,
           delivery_status: 'delivered'
         })
         .eq('id', orderId);
 
       if (deliveredError) throw deliveredError;
+      
+      // Log delivery event
+      await logOrderEvent(orderId, 'delivered', { 
+        orderIntent, 
+        deliveredAt: now 
+      });
 
-      // Then immediately update to completed and release escrow
-      // This applies to all intents once delivery is confirmed
+      // =====================================================
+      // PAYMENT RELEASE ENFORCEMENT
+      // Remaining 45% can ONLY be released if:
+      // 1. Bulk QC is approved (for bulk orders)
+      // 2. Delivery is confirmed (we just did this)
+      // =====================================================
+      
+      let canReleaseRemainingPayment = false;
+      let releaseReason = '';
+      
+      if (orderIntent === 'sample_only') {
+        // Sample-only: No remaining payment - upfront was already released at sample approval
+        canReleaseRemainingPayment = false;
+        releaseReason = 'sample_only_no_remaining';
+      } else if (orderIntent === 'sample_then_bulk' || orderIntent === 'direct_bulk') {
+        // Bulk orders: Check if bulk QC was approved
+        // Bulk QC is considered approved if detailed_status reached 'dispatched' 
+        // (which means it passed through bulk production)
+        const bulkQCApproved = currentStatus === 'dispatched' && order.sample_approved_at;
+        
+        if (bulkQCApproved) {
+          canReleaseRemainingPayment = true;
+          releaseReason = 'bulk_qc_approved_and_delivered';
+        } else {
+          canReleaseRemainingPayment = false;
+          releaseReason = 'bulk_qc_not_approved';
+        }
+      } else {
+        // Legacy orders without intent - use existing behavior
+        canReleaseRemainingPayment = true;
+        releaseReason = 'legacy_order';
+      }
+
+      // Calculate remaining amount (45% of total)
+      const remainingAmount = Math.round(totalOrderValue * PAYMENT_CONSTANTS.REMAINING_PAYMENT_RATIO);
+
+      // Update to completed and handle escrow release
+      const updateData: any = {
+        detailed_status: 'completed',
+        status: 'completed',
+        sample_status: 'delivered',
+        bulk_status: orderIntent === 'sample_only' ? 'not_started' : 'completed',
+        escrow_status: canReleaseRemainingPayment ? 'fake_released' : 'partial_released',
+        escrow_released_timestamp: now
+      };
+
       const { error: completedError } = await supabase
         .from('orders')
-        .update({ 
-          detailed_status: 'completed',
-          status: 'completed', // Backward compatibility
-          sample_status: 'delivered', // Backward compatibility
-          bulk_status: orderIntent === 'sample_only' ? 'not_started' : 'completed', // sample_only never had bulk
-          escrow_status: 'fake_released',
-          escrow_released_timestamp: now.toISOString()
-        })
+        .update(updateData)
         .eq('id', orderId);
 
       if (completedError) throw completedError;
+
+      // Log payment release events
+      if (canReleaseRemainingPayment) {
+        await logOrderEvent(orderId, 'remaining_payment_released', {
+          amount: remainingAmount,
+          reason: releaseReason,
+          totalOrderValue,
+          upfrontAmount,
+          remainingAmount
+        });
+        
+        await logOrderEvent(orderId, 'full_payment_released', {
+          totalOrderValue,
+          upfrontAmount,
+          remainingAmount,
+          orderIntent
+        });
+        
+        toast.success(
+          `Order completed! Full payment ₹${totalOrderValue.toLocaleString()} released to manufacturer.`,
+          { duration: 5000 }
+        );
+      } else {
+        // Log that remaining payment was NOT released
+        await logOrderEvent(orderId, 'delivered', {
+          remainingPaymentHeld: true,
+          reason: releaseReason,
+          heldAmount: remainingAmount
+        });
+        
+        toast.success(
+          `Order delivered! Upfront payment ₹${upfrontAmount.toLocaleString()} released.`,
+          { duration: 5000 }
+        );
+      }
       
-      toast.success(
-        `Order completed! ₹${escrowAmount.toLocaleString()} escrow released to manufacturer.`,
-        { duration: 5000 }
-      );
       fetchOrders();
     } catch (error) {
       console.error('Error confirming delivery:', error);
@@ -202,7 +282,7 @@ const OrderTracking = () => {
             {currentStatus === 'dispatched' && (
               <Button 
                 size="sm"
-                onClick={() => confirmDelivery(value, currentStatus, row.escrow_amount, row.order_intent)}
+                onClick={() => confirmDelivery(value, currentStatus, row)}
                 className="bg-green-600 hover:bg-green-700 text-white font-semibold"
               >
                 <Package className="w-4 h-4 mr-2" />
