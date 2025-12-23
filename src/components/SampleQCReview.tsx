@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { canTransitionTo, getActionLabel, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
+import { canTransitionTo, getActionLabel, OrderDetailedStatus, isSampleOrder, canStartBulkProduction } from "@/lib/orderStateMachine";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 
 interface SampleQCReviewProps {
@@ -96,6 +96,24 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
         toast.success(`Sample order completed! ₹${order.escrow_amount} released from Escrow → Manufacturer Wallet`, { duration: 5000 });
       } else if (orderIntent === 'sample_then_bulk' || orderIntent === 'direct_bulk') {
         // Bulk intent flow: Sample approved, unlock bulk production
+        // INVARIANT ENFORCEMENT: Verify bulk production prerequisites
+        const bulkCheck = canStartBulkProduction({
+          detailed_status: 'sample_approved_by_buyer',
+          qc_uploaded_at: order.qc_uploaded_at,
+          qc_files: order.qc_files,
+          sample_approved_at: now, // We just set this
+          order_intent: orderIntent
+        });
+        
+        if (!bulkCheck.allowed) {
+          // This should never happen in normal flow, but enforce the invariant
+          console.error('Bulk production blocked:', bulkCheck.reason);
+          toast.error(bulkCheck.reason || 'Cannot start bulk production');
+          fetchOrder();
+          onStatusChange?.();
+          return;
+        }
+        
         // Sample specs are now locked (sample_approved_at timestamp serves as lock indicator)
         const { error: bulkUnlockError } = await supabase
           .from('orders')
@@ -109,7 +127,7 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
           
         if (bulkUnlockError) throw bulkUnlockError;
         
-        await logOrderEvent(orderId, 'bulk_unlocked', { orderIntent, sampleSpecsLocked: true });
+        await logOrderEvent(orderId, 'bulk_unlocked', { orderIntent, sampleSpecsLocked: true, bulkInvariantVerified: true });
         toast.success("Sample approved! Bulk production has been unlocked. Sample specifications are now locked.", { duration: 5000 });
       } else {
         // Fallback for legacy orders without order_intent - use quantity-based logic
