@@ -322,7 +322,14 @@ const ManufacturerOrderDetails = () => {
                   Buyer Information
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
+                {/* Buyer Purpose Badge - TASK E */}
+                {order.buyer_purpose && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Order Purpose:</span>
+                    <BuyerPurposeBadge purpose={order.buyer_purpose} />
+                  </div>
+                )}
                 {/* Buyer Type - Always show if available */}
                 {order.buyer_type && (
                   <div className="flex justify-between items-center">
@@ -330,6 +337,13 @@ const ManufacturerOrderDetails = () => {
                     <Badge variant="outline" className="capitalize">
                       {order.buyer_type}
                     </Badge>
+                  </div>
+                )}
+                {/* Selected Color - Show if available */}
+                {order.selected_color && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Selected Color:</span>
+                    <span className="font-medium capitalize">{order.selected_color.replace('_', ' ')}</span>
                   </div>
                 )}
                 {buyerProfile?.company_name && (
@@ -359,12 +373,23 @@ const ManufacturerOrderDetails = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                {/* Buyer Notes - TASK E: Manufacturing instructions */}
+                {order.buyer_notes && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-primary mb-2">
+                      <MessageSquare className="h-4 w-4" />
+                      <p className="text-sm font-medium">Manufacturing Instructions:</p>
+                    </div>
+                    <p className="text-sm text-foreground">{order.buyer_notes}</p>
+                  </div>
+                )}
+                
                 {order.concern_notes ? (
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-1">Special Instructions:</p>
                     <p className="text-sm bg-muted p-3 rounded">{order.concern_notes}</p>
                   </div>
-                ) : (
+                ) : !order.buyer_notes && (
                   <p className="text-sm text-muted-foreground italic">No special instructions provided</p>
                 )}
                 
