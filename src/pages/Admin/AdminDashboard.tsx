@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import DashboardCard from "@/components/DashboardCard";
 import DataTable from "@/components/DataTable";
-import { Users, Package, AlertCircle, LogOut, RefreshCw } from "lucide-react";
+import { Users, Package, AlertCircle, LogOut, RefreshCw, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -157,6 +158,8 @@ const AdminDashboard = () => {
     }
   ];
 
+  const navigate = useNavigate();
+
   const orderColumns = [
     {
       header: "Order ID",
@@ -174,67 +177,92 @@ const AdminDashboard = () => {
       )
     },
     {
+      header: "Intent",
+      accessor: "order_intent",
+      cell: (value: string) => (
+        <Badge variant={
+          value === 'sample_only' ? 'secondary' :
+          value === 'direct_bulk' ? 'default' : 'outline'
+        } className="text-xs">
+          {value === 'sample_only' ? 'Sample' :
+           value === 'direct_bulk' ? 'Bulk' :
+           value === 'sample_then_bulk' ? 'S→B' : '—'}
+        </Badge>
+      )
+    },
+    {
       header: "Product",
       accessor: "product_type",
     },
     {
-      header: "Quantity",
+      header: "Qty",
       accessor: "quantity",
     },
     {
-      header: "Status",
-      accessor: "status",
+      header: "Detailed Status",
+      accessor: "detailed_status",
       cell: (value: string) => {
         const statusColors: Record<string, string> = {
-          'pending': 'bg-yellow-100 text-yellow-700',
-          'accepted': 'bg-blue-100 text-blue-700',
-          'rejected': 'bg-red-100 text-red-700',
-        };
-        return (
-          <Badge className={statusColors[value] || 'bg-gray-100 text-gray-700'}>
-            {value}
-          </Badge>
-        );
-      }
-    },
-    {
-      header: "Sample Status",
-      accessor: "sample_status",
-      cell: (value: string) => {
-        const statusColors: Record<string, string> = {
-          'not_started': 'bg-gray-100 text-gray-700',
-          'in_production': 'bg-blue-100 text-blue-700',
+          'created': 'bg-gray-100 text-gray-700',
+          'submitted_to_manufacturer': 'bg-blue-100 text-blue-700',
+          'accepted_by_manufacturer': 'bg-green-100 text-green-700',
+          'sample_in_production': 'bg-purple-100 text-purple-700',
           'qc_uploaded': 'bg-yellow-100 text-yellow-700',
-          'approved': 'bg-green-100 text-green-700',
-          'rejected': 'bg-red-100 text-red-700',
+          'sample_approved_by_buyer': 'bg-green-100 text-green-700',
+          'sample_rejected_by_buyer': 'bg-red-100 text-red-700',
+          'bulk_in_production': 'bg-indigo-100 text-indigo-700',
+          'dispatched': 'bg-blue-100 text-blue-700',
+          'delivered': 'bg-teal-100 text-teal-700',
+          'completed': 'bg-green-100 text-green-700',
         };
         return (
           <Badge className={statusColors[value] || 'bg-gray-100 text-gray-700'}>
-            {value?.replace('_', ' ') || 'Not Started'}
+            {value?.replace(/_/g, ' ') || 'pending'}
           </Badge>
         );
       }
     },
     {
-      header: "Total Amount",
+      header: "Escrow",
+      accessor: "escrow_status",
+      cell: (value: string) => (
+        <Badge variant={
+          value === 'fake_released' ? 'default' :
+          value === 'fake_paid' ? 'secondary' : 'outline'
+        } className="text-xs">
+          {value === 'fake_released' ? 'Released' :
+           value === 'fake_paid' ? 'Locked' :
+           value === 'partial_released' ? 'Partial' : 'Pending'}
+        </Badge>
+      )
+    },
+    {
+      header: "Total",
       accessor: "total_amount",
-      cell: (value: number, row: any) => (
-        <div className="space-y-1">
-          <div className="font-bold text-foreground">
-            {value ? `₹${value.toLocaleString()}` : 'N/A'}
-          </div>
-          {row.delivery_cost && (
-            <div className="text-xs text-muted-foreground">
-              (incl. ₹{row.delivery_cost} delivery)
-            </div>
-          )}
-        </div>
+      cell: (value: number) => (
+        <span className="font-semibold">
+          {value ? `₹${value.toLocaleString()}` : 'N/A'}
+        </span>
       )
     },
     {
       header: "Created",
       accessor: "created_at",
       cell: (value: string) => new Date(value).toLocaleDateString()
+    },
+    {
+      header: "Actions",
+      accessor: "id",
+      cell: (value: string) => (
+        <Button 
+          variant="ghost" 
+          size="sm"
+          onClick={() => navigate(`/admin/orders/${value}`)}
+          title="View Full Details"
+        >
+          <Eye className="w-4 h-4" />
+        </Button>
+      )
     }
   ];
 

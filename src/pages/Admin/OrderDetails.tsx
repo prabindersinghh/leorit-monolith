@@ -174,14 +174,14 @@ const AdminOrderDetails = () => {
             </div>
           </div>
 
-          {/* Row 1: Order Summary + Escrow Status */}
+          {/* Row 1: Order Core + Order Intent/Type */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Order Summary Card */}
+            {/* Order Core Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
-                  Order Summary
+                  Order Core
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -190,11 +190,29 @@ const AdminOrderDetails = () => {
                   <span className="font-mono text-xs">{order.id}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Order Type:</span>
-                  <Badge variant={order.quantity === 1 ? "secondary" : "default"}>
-                    {order.quantity === 1 ? "Sample" : "Bulk"}
+                  <span className="text-muted-foreground">Buyer Type:</span>
+                  <Badge variant="outline" className="capitalize">
+                    {order.buyer_type || 'Not Set'}
                   </Badge>
                 </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Order Intent:</span>
+                  <Badge variant={
+                    order.order_intent === 'sample_only' ? 'secondary' :
+                    order.order_intent === 'direct_bulk' ? 'default' :
+                    order.order_intent === 'sample_then_bulk' ? 'outline' : 'outline'
+                  }>
+                    {order.order_intent === 'sample_only' ? 'Sample Only' :
+                     order.order_intent === 'direct_bulk' ? 'Direct Bulk' :
+                     order.order_intent === 'sample_then_bulk' ? 'Sample → Bulk' : 'Legacy'}
+                  </Badge>
+                </div>
+                {order.product_category && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Product Category:</span>
+                    <span className="font-medium">{order.product_category}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Product:</span>
                   <span className="font-medium">{order.product_type}</span>
@@ -219,59 +237,150 @@ const AdminOrderDetails = () => {
                     </div>
                   </>
                 )}
-                <div className="flex justify-between pt-2 border-t">
-                  <span className="text-muted-foreground">Delivery Cost:</span>
-                  <span className="font-semibold">₹{order.delivery_cost || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Amount:</span>
-                  <span className="font-bold text-lg text-primary">₹{order.total_amount?.toLocaleString() || '0'}</span>
-                </div>
+                {order.expected_deadline && (
+                  <div className="flex justify-between pt-2 border-t">
+                    <span className="text-muted-foreground">Expected Deadline:</span>
+                    <span className="font-medium text-primary">
+                      {format(new Date(order.expected_deadline), "dd MMM yyyy")}
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Escrow Status Card */}
+            {/* Workflow State Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Escrow Status
+                  <Clock className="h-5 w-5" />
+                  Workflow State
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Status:</span>
+                  <span className="text-muted-foreground">Sample Status:</span>
+                  <Badge variant={
+                    order.sample_status === 'approved' ? 'default' :
+                    order.sample_status === 'rejected' ? 'destructive' :
+                    order.sample_status === 'in_production' ? 'secondary' : 'outline'
+                  }>
+                    {order.sample_status?.replace(/_/g, ' ') || 'not started'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Bulk Status:</span>
+                  <Badge variant={
+                    order.bulk_status === 'completed' ? 'default' :
+                    order.bulk_status === 'in_production' ? 'secondary' : 'outline'
+                  }>
+                    {order.bulk_status?.replace(/_/g, ' ') || 'not started'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">QC Status:</span>
+                  <Badge variant={
+                    order.qc_status === 'approved' ? 'default' :
+                    order.qc_status === 'rejected' ? 'destructive' :
+                    order.qc_status === 'uploaded' ? 'secondary' : 'outline'
+                  }>
+                    {order.qc_status?.replace(/_/g, ' ') || 'pending'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Delivery Status:</span>
+                  <Badge variant={
+                    order.delivery_status === 'delivered' ? 'default' :
+                    order.delivery_status === 'dispatched' ? 'secondary' : 'outline'
+                  }>
+                    {order.delivery_status?.replace(/_/g, ' ') || 'pending'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <span className="text-muted-foreground">Payment Status:</span>
+                  <Badge variant={
+                    order.payment_status === 'released' ? 'default' :
+                    order.payment_status === 'escrow_locked' ? 'secondary' : 'outline'
+                  }>
+                    {order.payment_status?.replace(/_/g, ' ') || 'pending'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Escrow Status:</span>
                   <Badge variant={
                     order.escrow_status === 'fake_released' ? 'default' :
                     order.escrow_status === 'fake_paid' ? 'secondary' : 'outline'
                   }>
                     {order.escrow_status === 'fake_released' ? 'Released' :
-                     order.escrow_status === 'fake_paid' ? 'In Escrow' : 'Pending'}
+                     order.escrow_status === 'fake_paid' ? 'In Escrow' :
+                     order.escrow_status === 'partial_released' ? 'Partial Release' : 'Pending'}
                   </Badge>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Escrow Amount:</span>
-                  <span className="font-semibold">₹{order.escrow_amount?.toLocaleString() || '0'}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Detailed Status:</span>
+                  <Badge>{order.detailed_status || order.status}</Badge>
                 </div>
-                <div className="pt-2 border-t space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Payment Received:</span>
-                    <span>{order.fake_payment_timestamp 
-                      ? format(new Date(order.fake_payment_timestamp), "dd MMM yyyy, HH:mm") 
-                      : "—"}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Escrow Locked:</span>
-                    <span>{order.escrow_locked_timestamp 
-                      ? format(new Date(order.escrow_locked_timestamp), "dd MMM yyyy, HH:mm") 
-                      : "—"}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Escrow Released:</span>
-                    <span>{order.escrow_released_timestamp 
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Row 2: Financial Summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Payment Breakdown Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Payment Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Order Value:</span>
+                  <span className="font-bold text-lg">₹{(order.total_order_value || order.total_amount || 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Upfront (55%):</span>
+                  <span className="font-semibold text-primary">₹{(order.upfront_payable_amount || order.escrow_amount || 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Remaining (45%):</span>
+                  <span className="font-medium">₹{Math.round((order.total_order_value || order.total_amount || 0) * 0.45).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t">
+                  <span className="text-muted-foreground">Delivery Cost:</span>
+                  <span className="font-medium">₹{order.delivery_cost || 0}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Escrow Timeline Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Escrow Timeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Payment Received:</span>
+                  <span>{order.fake_payment_timestamp 
+                    ? format(new Date(order.fake_payment_timestamp), "dd MMM yyyy, HH:mm") 
+                    : "—"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Escrow Locked:</span>
+                  <span>{order.escrow_locked_timestamp 
+                    ? format(new Date(order.escrow_locked_timestamp), "dd MMM yyyy, HH:mm") 
+                    : "—"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Escrow Released:</span>
+                  <span className={order.escrow_released_timestamp ? "text-green-600 font-medium" : ""}>
+                    {order.escrow_released_timestamp 
                       ? format(new Date(order.escrow_released_timestamp), "dd MMM yyyy, HH:mm") 
-                      : "—"}</span>
-                  </div>
+                      : "—"}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -412,14 +521,25 @@ const AdminOrderDetails = () => {
                         </div>
                       </>
                     )}
-                    {order.manufacturer_accept_time && (
-                      <div className="flex justify-between pt-2 border-t">
-                        <span className="text-muted-foreground">Assigned At:</span>
-                        <span className="font-medium">
-                          {format(new Date(order.manufacturer_accept_time), "dd MMM yyyy, HH:mm")}
-                        </span>
-                      </div>
-                    )}
+                    {/* Assignment Timestamps */}
+                    <div className="pt-2 border-t space-y-2">
+                      {order.assigned_at && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Platform Assigned:</span>
+                          <span className="font-medium">
+                            {format(new Date(order.assigned_at), "dd MMM yyyy, HH:mm")}
+                          </span>
+                        </div>
+                      )}
+                      {order.manufacturer_accept_time && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Manufacturer Accepted:</span>
+                          <span className="font-medium">
+                            {format(new Date(order.manufacturer_accept_time), "dd MMM yyyy, HH:mm")}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -526,9 +646,16 @@ const AdminOrderDetails = () => {
                   />
                   
                   <TimelineItem
-                    label="Payment Received (Escrow)"
+                    label="Payment Received (Upfront 55%)"
                     timestamp={order.fake_payment_timestamp}
                     completed={!!order.fake_payment_timestamp}
+                    actor="System"
+                  />
+                  
+                  <TimelineItem
+                    label="Platform Assigned Manufacturer"
+                    timestamp={order.assigned_at}
+                    completed={!!order.assigned_at}
                     actor="System"
                   />
                   
@@ -547,32 +674,44 @@ const AdminOrderDetails = () => {
                   />
                   
                   <TimelineItem
-                    label={order.quantity === 1 ? "Sample Production Started" : "Bulk Production Started"}
+                    label="Sample Production Started"
                     timestamp={order.sample_production_started_at}
                     completed={!!order.sample_production_started_at}
                     actor="Manufacturer"
                   />
                   
                   <TimelineItem
-                    label="QC Uploaded"
+                    label="Sample QC Uploaded"
                     timestamp={order.qc_uploaded_at || order.sample_qc_uploaded_at}
                     completed={!!(order.qc_uploaded_at || order.sample_qc_uploaded_at)}
                     actor="Manufacturer"
                   />
                   
                   <TimelineItem
-                    label="Buyer Approved"
+                    label="Sample Approved by Buyer"
                     timestamp={order.sample_approved_at || order.sample_qc_approved_at}
                     completed={!!(order.sample_approved_at || order.sample_qc_approved_at)}
                     actor="Buyer"
                   />
                   
-                  <TimelineItem
-                    label="Escrow Released"
-                    timestamp={order.escrow_released_timestamp}
-                    completed={!!order.escrow_released_timestamp}
-                    actor="System"
-                  />
+                  {/* Bulk-specific timeline events */}
+                  {(order.order_intent === 'direct_bulk' || order.order_intent === 'sample_then_bulk' || order.quantity > 1) && (
+                    <>
+                      <TimelineItem
+                        label="Bulk Production Started"
+                        timestamp={order.bulk_order_confirmed_at}
+                        completed={!!order.bulk_order_confirmed_at || order.bulk_status === 'in_production' || order.bulk_status === 'completed'}
+                        actor="Manufacturer"
+                      />
+                      
+                      <TimelineItem
+                        label="Bulk QC Completed"
+                        timestamp={order.bulk_status === 'completed' || !!order.dispatched_at ? order.dispatched_at : null}
+                        completed={order.bulk_status === 'completed' || !!order.dispatched_at}
+                        actor="Manufacturer"
+                      />
+                    </>
+                  )}
                   
                   <TimelineItem
                     label="Dispatched"
@@ -585,6 +724,13 @@ const AdminOrderDetails = () => {
                     label="Delivered"
                     timestamp={order.delivered_at}
                     completed={!!order.delivered_at}
+                    actor="Buyer Confirmed"
+                  />
+                  
+                  <TimelineItem
+                    label="Escrow Released (Full)"
+                    timestamp={order.escrow_released_timestamp}
+                    completed={!!order.escrow_released_timestamp}
                     actor="System"
                   />
                   
