@@ -3,6 +3,21 @@
  * Use these constants instead of hardcoded strings to prevent inconsistent state values.
  */
 
+// ============================================
+// Order Intent Constants
+// ============================================
+// Defines the buyer's intent when placing an order.
+// - sample_only: Order ends after sample confirmation
+// - sample_then_bulk: Bulk unlocked ONLY after sample approval
+// - direct_bulk: Sample is mandatory but bulk intent is already set
+
+export const ORDER_INTENT = {
+  SAMPLE_ONLY: 'sample_only',
+  SAMPLE_THEN_BULK: 'sample_then_bulk',
+  DIRECT_BULK: 'direct_bulk',
+} as const;
+
+export type OrderIntent = typeof ORDER_INTENT[keyof typeof ORDER_INTENT];
 // Sample Status Values
 export const SAMPLE_STATUS = {
   NOT_STARTED: 'not_started',

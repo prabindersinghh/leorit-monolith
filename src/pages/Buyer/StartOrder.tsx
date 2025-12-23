@@ -862,7 +862,10 @@ const StartOrder = () => {
                         bulk_order_confirmed_at: !isSampleOnly ? now : null,
                         sample_to_bulk_conversion: !isSampleOnly,
                         // Expected deadline (only for bulk orders)
-                        expected_deadline: !isSampleOnly && expectedDeadline ? expectedDeadline.toISOString() : null
+                        expected_deadline: !isSampleOnly && expectedDeadline ? expectedDeadline.toISOString() : null,
+                        // Order intent - explicitly defines the order flow
+                        // sample_only: ends after sample, sample_then_bulk: bulk after approval, direct_bulk: bulk intent set upfront
+                        order_intent: isSampleOnly ? 'sample_only' : 'direct_bulk'
                       };
 
                       const { data: orderResponse, error } = await supabase
