@@ -269,15 +269,19 @@ export type Database = {
       }
       orders: {
         Row: {
+          assigned_at: string | null
           back_design_url: string | null
           back_mockup_image: string | null
           bulk_order_confirmed_at: string | null
+          bulk_status: string | null
           buyer_id: string
+          buyer_type: Database["public"]["Enums"]["buyer_type"] | null
           concern_notes: string | null
           corrected_csv_url: string | null
           created_at: string
           delivered_at: string | null
           delivery_cost: number | null
+          delivery_status: string | null
           design_file_url: string | null
           design_size: string
           detailed_status:
@@ -298,9 +302,13 @@ export type Database = {
           manufacturer_accept_time: string | null
           manufacturer_id: string | null
           mockup_image: string | null
+          packed_at: string | null
+          payment_status: string | null
+          product_category: string | null
           product_type: string
           qc_feedback: string | null
           qc_files: string[] | null
+          qc_status: string | null
           qc_uploaded_at: string | null
           qc_video_url: string | null
           quantity: number
@@ -310,6 +318,7 @@ export type Database = {
           sample_production_started_at: string | null
           sample_qc_approved_at: string | null
           sample_qc_uploaded_at: string | null
+          sample_required: boolean | null
           sample_status: string | null
           sample_to_bulk_conversion: boolean | null
           size_chart_url: string | null
@@ -319,15 +328,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_at?: string | null
           back_design_url?: string | null
           back_mockup_image?: string | null
           bulk_order_confirmed_at?: string | null
+          bulk_status?: string | null
           buyer_id: string
+          buyer_type?: Database["public"]["Enums"]["buyer_type"] | null
           concern_notes?: string | null
           corrected_csv_url?: string | null
           created_at?: string
           delivered_at?: string | null
           delivery_cost?: number | null
+          delivery_status?: string | null
           design_file_url?: string | null
           design_size: string
           detailed_status?:
@@ -348,9 +361,13 @@ export type Database = {
           manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
           mockup_image?: string | null
+          packed_at?: string | null
+          payment_status?: string | null
+          product_category?: string | null
           product_type: string
           qc_feedback?: string | null
           qc_files?: string[] | null
+          qc_status?: string | null
           qc_uploaded_at?: string | null
           qc_video_url?: string | null
           quantity?: number
@@ -360,6 +377,7 @@ export type Database = {
           sample_production_started_at?: string | null
           sample_qc_approved_at?: string | null
           sample_qc_uploaded_at?: string | null
+          sample_required?: boolean | null
           sample_status?: string | null
           sample_to_bulk_conversion?: boolean | null
           size_chart_url?: string | null
@@ -369,15 +387,19 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_at?: string | null
           back_design_url?: string | null
           back_mockup_image?: string | null
           bulk_order_confirmed_at?: string | null
+          bulk_status?: string | null
           buyer_id?: string
+          buyer_type?: Database["public"]["Enums"]["buyer_type"] | null
           concern_notes?: string | null
           corrected_csv_url?: string | null
           created_at?: string
           delivered_at?: string | null
           delivery_cost?: number | null
+          delivery_status?: string | null
           design_file_url?: string | null
           design_size?: string
           detailed_status?:
@@ -398,9 +420,13 @@ export type Database = {
           manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
           mockup_image?: string | null
+          packed_at?: string | null
+          payment_status?: string | null
+          product_category?: string | null
           product_type?: string
           qc_feedback?: string | null
           qc_files?: string[] | null
+          qc_status?: string | null
           qc_uploaded_at?: string | null
           qc_video_url?: string | null
           quantity?: number
@@ -410,6 +436,7 @@ export type Database = {
           sample_production_started_at?: string | null
           sample_qc_approved_at?: string | null
           sample_qc_uploaded_at?: string | null
+          sample_required?: boolean | null
           sample_status?: string | null
           sample_to_bulk_conversion?: boolean | null
           size_chart_url?: string | null
@@ -535,6 +562,7 @@ export type Database = {
     }
     Enums: {
       app_role: "buyer" | "manufacturer" | "admin"
+      buyer_type: "campus" | "brand" | "fabric"
       escrow_status: "pending" | "fake_paid" | "fake_released"
       order_detailed_status:
         | "created"
@@ -678,6 +706,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["buyer", "manufacturer", "admin"],
+      buyer_type: ["campus", "brand", "fabric"],
       escrow_status: ["pending", "fake_paid", "fake_released"],
       order_detailed_status: [
         "created",
