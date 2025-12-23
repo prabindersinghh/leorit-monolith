@@ -61,7 +61,7 @@ const OrderTracking = () => {
     }
   };
 
-  const confirmDelivery = async (orderId: string, currentStatus: OrderDetailedStatus, escrowAmount: number) => {
+  const confirmDelivery = async (orderId: string, currentStatus: OrderDetailedStatus, escrowAmount: number, orderIntent?: string) => {
     // Transition through delivered to completed
     if (!canTransitionTo(currentStatus, 'delivered')) {
       toast.error("Invalid state transition");
@@ -76,20 +76,24 @@ const OrderTracking = () => {
         .from('orders')
         .update({ 
           detailed_status: 'delivered',
-          delivered_at: now.toISOString()
+          delivered_at: now.toISOString(),
+          delivery_status: 'delivered'
         })
         .eq('id', orderId);
 
       if (deliveredError) throw deliveredError;
 
       // Then immediately update to completed and release escrow
+      // This applies to all intents once delivery is confirmed
       const { error: completedError } = await supabase
         .from('orders')
         .update({ 
           detailed_status: 'completed',
           status: 'completed', // Backward compatibility
           sample_status: 'delivered', // Backward compatibility
-          escrow_status: 'fake_released'
+          bulk_status: orderIntent === 'sample_only' ? 'not_started' : 'completed', // sample_only never had bulk
+          escrow_status: 'fake_released',
+          escrow_released_timestamp: now.toISOString()
         })
         .eq('id', orderId);
 
@@ -198,7 +202,7 @@ const OrderTracking = () => {
             {currentStatus === 'dispatched' && (
               <Button 
                 size="sm"
-                onClick={() => confirmDelivery(value, currentStatus, row.escrow_amount)}
+                onClick={() => confirmDelivery(value, currentStatus, row.escrow_amount, row.order_intent)}
                 className="bg-green-600 hover:bg-green-700 text-white font-semibold"
               >
                 <Package className="w-4 h-4 mr-2" />

@@ -15,7 +15,9 @@ export type OrderEventType =
   | 'dispatched'
   | 'delivered'
   | 'mockup_generated'
-  | 'back_mockup_generated';
+  | 'back_mockup_generated'
+  | 'sample_completed'  // Sample-only order completed
+  | 'bulk_unlocked';    // Bulk production unlocked after sample approval
 
 /**
  * Logs an order event to the order_events table for analytics.

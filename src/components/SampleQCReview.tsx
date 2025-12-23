@@ -44,6 +44,7 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   const handleApprove = async () => {
     const currentStatus = order.detailed_status as OrderDetailedStatus;
     const isSample = isSampleOrder(order.quantity);
+    const orderIntent = order.order_intent; // 'sample_only', 'sample_then_bulk', 'direct_bulk'
     
     // First transition to sample_approved_by_buyer
     const newStatus: OrderDetailedStatus = 'sample_approved_by_buyer';
@@ -71,23 +72,62 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
       if (approveError) throw approveError;
 
       // Log QC approved event for analytics
-      await logOrderEvent(orderId, 'qc_approved', { isSample, escrowAmount: order.escrow_amount });
+      await logOrderEvent(orderId, 'qc_approved', { isSample, escrowAmount: order.escrow_amount, orderIntent });
 
-      // For sample orders, immediately transition to sample_completed and release escrow
-      if (isSample) {
+      // Determine next action based on order_intent
+      // sample_only: Order ends here - complete and release escrow
+      // sample_then_bulk OR direct_bulk: Unlock bulk production, keep sample specs locked
+      
+      if (orderIntent === 'sample_only' || (isSample && !orderIntent)) {
+        // Sample-only flow: Complete the order and release escrow
         const { error: completeError } = await supabase
           .from('orders')
           .update({
             detailed_status: 'sample_completed',
+            status: 'completed', // Backward compatibility
             escrow_status: 'fake_released',
             escrow_released_timestamp: now
           })
           .eq('id', orderId);
           
         if (completeError) throw completeError;
-        toast.success(`Sample approved! ₹${order.escrow_amount} released from Escrow → Manufacturer Wallet`, { duration: 5000 });
+        
+        await logOrderEvent(orderId, 'sample_completed', { orderIntent, escrowReleased: true });
+        toast.success(`Sample order completed! ₹${order.escrow_amount} released from Escrow → Manufacturer Wallet`, { duration: 5000 });
+      } else if (orderIntent === 'sample_then_bulk' || orderIntent === 'direct_bulk') {
+        // Bulk intent flow: Sample approved, unlock bulk production
+        // Sample specs are now locked (sample_approved_at timestamp serves as lock indicator)
+        const { error: bulkUnlockError } = await supabase
+          .from('orders')
+          .update({
+            detailed_status: 'bulk_in_production',
+            bulk_status: 'in_production',
+            // Note: Sample specs (design, fabric, size chart) are now immutable
+            // sample_approved_at serves as the lock timestamp
+          })
+          .eq('id', orderId);
+          
+        if (bulkUnlockError) throw bulkUnlockError;
+        
+        await logOrderEvent(orderId, 'bulk_unlocked', { orderIntent, sampleSpecsLocked: true });
+        toast.success("Sample approved! Bulk production has been unlocked. Sample specifications are now locked.", { duration: 5000 });
       } else {
-        toast.success("Sample approved! You can now proceed to bulk production.");
+        // Fallback for legacy orders without order_intent - use quantity-based logic
+        if (isSample) {
+          const { error: completeError } = await supabase
+            .from('orders')
+            .update({
+              detailed_status: 'sample_completed',
+              escrow_status: 'fake_released',
+              escrow_released_timestamp: now
+            })
+            .eq('id', orderId);
+            
+          if (completeError) throw completeError;
+          toast.success(`Sample approved! ₹${order.escrow_amount} released from Escrow → Manufacturer Wallet`, { duration: 5000 });
+        } else {
+          toast.success("Sample approved! You can now proceed to bulk production.");
+        }
       }
       
       fetchOrder();
