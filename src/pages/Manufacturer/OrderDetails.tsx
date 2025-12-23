@@ -250,7 +250,7 @@ const ManufacturerOrderDetails = () => {
               </CardContent>
             </Card>
 
-            {/* Shipping Address Card - Phone hidden for manufacturer privacy */}
+            {/* Shipping Address Card - Personal identifiers hidden for manufacturer privacy */}
             {shippingInfo && (
               <Card>
                 <CardHeader>
@@ -260,7 +260,7 @@ const ManufacturerOrderDetails = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
-                  <p className="font-medium">{shippingInfo.full_name}</p>
+                  {/* Name, email, phone hidden for buyer privacy */}
                   <p className="text-sm">{shippingInfo.address_line1}</p>
                   {shippingInfo.address_line2 && (
                     <p className="text-sm">{shippingInfo.address_line2}</p>
@@ -269,40 +269,46 @@ const ManufacturerOrderDetails = () => {
                     {shippingInfo.city}, {shippingInfo.state} - {shippingInfo.pincode}
                   </p>
                   <p className="text-sm">{shippingInfo.country}</p>
+                  <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                    Recipient details hidden for privacy
+                  </p>
                 </CardContent>
               </Card>
             )}
 
-            {/* Buyer Organization Card - Contact details hidden for manufacturer privacy */}
+            {/* Buyer Type Card - Contact details hidden for manufacturer privacy */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
-                  Buyer Organization
+                  Buyer Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {buyerProfile?.company_name || shippingInfo ? (
-                  <>
-                    {buyerProfile?.company_name && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Company:</span>
-                        <span className="font-medium">{buyerProfile.company_name}</span>
-                      </div>
-                    )}
-                    {shippingInfo && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Location:</span>
-                        <span className="font-medium">{shippingInfo.city}, {shippingInfo.state}</span>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-                      Buyer contact details are hidden for privacy.
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Buyer information not available</p>
+                {/* Buyer Type - Always show if available */}
+                {order.buyer_type && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Buyer Type:</span>
+                    <Badge variant="outline" className="capitalize">
+                      {order.buyer_type}
+                    </Badge>
+                  </div>
                 )}
+                {buyerProfile?.company_name && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Organization:</span>
+                    <span className="font-medium">{buyerProfile.company_name}</span>
+                  </div>
+                )}
+                {shippingInfo && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Delivery Region:</span>
+                    <span className="font-medium">{shippingInfo.city}, {shippingInfo.state}</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                  Buyer email, phone, and personal identifiers are hidden for privacy.
+                </p>
               </CardContent>
             </Card>
 
