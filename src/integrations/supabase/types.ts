@@ -278,6 +278,8 @@ export type Database = {
           bulk_qc_video_url: string | null
           bulk_status: string | null
           buyer_id: string
+          buyer_notes: string | null
+          buyer_purpose: Database["public"]["Enums"]["buyer_purpose"] | null
           buyer_type: Database["public"]["Enums"]["buyer_type"] | null
           concern_notes: string | null
           corrected_csv_url: string | null
@@ -327,6 +329,7 @@ export type Database = {
           sample_required: boolean | null
           sample_status: string | null
           sample_to_bulk_conversion: boolean | null
+          selected_color: string | null
           size_chart_url: string | null
           status: string
           total_amount: number | null
@@ -345,6 +348,8 @@ export type Database = {
           bulk_qc_video_url?: string | null
           bulk_status?: string | null
           buyer_id: string
+          buyer_notes?: string | null
+          buyer_purpose?: Database["public"]["Enums"]["buyer_purpose"] | null
           buyer_type?: Database["public"]["Enums"]["buyer_type"] | null
           concern_notes?: string | null
           corrected_csv_url?: string | null
@@ -394,6 +399,7 @@ export type Database = {
           sample_required?: boolean | null
           sample_status?: string | null
           sample_to_bulk_conversion?: boolean | null
+          selected_color?: string | null
           size_chart_url?: string | null
           status?: string
           total_amount?: number | null
@@ -412,6 +418,8 @@ export type Database = {
           bulk_qc_video_url?: string | null
           bulk_status?: string | null
           buyer_id?: string
+          buyer_notes?: string | null
+          buyer_purpose?: Database["public"]["Enums"]["buyer_purpose"] | null
           buyer_type?: Database["public"]["Enums"]["buyer_type"] | null
           concern_notes?: string | null
           corrected_csv_url?: string | null
@@ -461,6 +469,7 @@ export type Database = {
           sample_required?: boolean | null
           sample_status?: string | null
           sample_to_bulk_conversion?: boolean | null
+          selected_color?: string | null
           size_chart_url?: string | null
           status?: string
           total_amount?: number | null
@@ -586,6 +595,7 @@ export type Database = {
     }
     Enums: {
       app_role: "buyer" | "manufacturer" | "admin"
+      buyer_purpose: "merch_bulk" | "blank_apparel" | "fabric_only"
       buyer_type: "campus" | "brand" | "fabric"
       escrow_status: "pending" | "fake_paid" | "fake_released"
       order_detailed_status:
@@ -732,6 +742,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["buyer", "manufacturer", "admin"],
+      buyer_purpose: ["merch_bulk", "blank_apparel", "fabric_only"],
       buyer_type: ["campus", "brand", "fabric"],
       escrow_status: ["pending", "fake_paid", "fake_released"],
       order_detailed_status: [

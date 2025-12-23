@@ -7,6 +7,9 @@ import NameCustomizer, { NameSettings } from "@/components/NameCustomizer";
 import ShippingAddressForm from "@/components/ShippingAddressForm";
 import DeliveryCostCalculator from "@/components/DeliveryCostCalculator";
 import FabricAdvisor from "@/components/FabricAdvisor";
+import BuyerPurposeSelector, { BuyerPurpose } from "@/components/BuyerPurposeSelector";
+import ColorSelector from "@/components/ColorSelector";
+import BuyerNotesInput from "@/components/BuyerNotesInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +27,9 @@ import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const StartOrder = () => {
-  const [step, setStep] = useState(1);
+  // Step 0 is the new buyer purpose selector
+  const [step, setStep] = useState(0);
+  const [buyerPurpose, setBuyerPurpose] = useState<BuyerPurpose | null>(null);
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [backDesignFile, setBackDesignFile] = useState<File | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -48,8 +53,96 @@ const StartOrder = () => {
   const [bulkQuantityError, setBulkQuantityError] = useState<string>("");
   const [selectedFabric, setSelectedFabric] = useState<FabricOption | null>(null);
   const [expectedDeadline, setExpectedDeadline] = useState<Date | undefined>(undefined);
+  const [selectedColor, setSelectedColor] = useState<string>("");
+  const [buyerNotes, setBuyerNotes] = useState<string>("");
   
   const fabricSectionRef = useRef<HTMLDivElement>(null);
+
+  // Flow routing helpers based on buyer_purpose
+  const shouldSkipDesign = buyerPurpose === "blank_apparel" || buyerPurpose === "fabric_only";
+  const shouldSkipProduct = buyerPurpose === "fabric_only";
+  const shouldSkipCSV = buyerPurpose === "fabric_only";
+  const needsColorSelection = buyerPurpose === "blank_apparel" || buyerPurpose === "fabric_only";
+
+  // Get step labels based on buyer purpose
+  const getStepLabels = () => {
+    if (buyerPurpose === "fabric_only") {
+      return ["Purpose", "Fabric", "Shipping", "Payment"];
+    }
+    if (buyerPurpose === "blank_apparel") {
+      return ["Purpose", "Product", "CSV Data", "Fabric", "Shipping", "Payment"];
+    }
+    return ["Purpose", "Product", "Design", "CSV Data", "Fabric", "Shipping", "Payment"];
+  };
+
+  // Get the actual step number for internal logic
+  const getInternalStep = (displayStep: number): number => {
+    if (buyerPurpose === "fabric_only") {
+      // Purpose(0) -> Fabric(4) -> Shipping(5) -> Payment(6)
+      const mapping: Record<number, number> = { 0: 0, 1: 4, 2: 5, 3: 6 };
+      return mapping[displayStep] ?? displayStep;
+    }
+    if (buyerPurpose === "blank_apparel") {
+      // Purpose(0) -> Product(1) -> CSV(3) -> Fabric(4) -> Shipping(5) -> Payment(6)
+      // Skip design step (2)
+      const mapping: Record<number, number> = { 0: 0, 1: 1, 2: 3, 3: 4, 4: 5, 5: 6 };
+      return mapping[displayStep] ?? displayStep;
+    }
+    // merch_bulk: all steps
+    return displayStep;
+  };
+
+  // Get display step from internal step
+  const getDisplayStep = (internalStep: number): number => {
+    if (buyerPurpose === "fabric_only") {
+      const mapping: Record<number, number> = { 0: 0, 4: 1, 5: 2, 6: 3 };
+      return mapping[internalStep] ?? internalStep;
+    }
+    if (buyerPurpose === "blank_apparel") {
+      const mapping: Record<number, number> = { 0: 0, 1: 1, 3: 2, 4: 3, 5: 4, 6: 5 };
+      return mapping[internalStep] ?? internalStep;
+    }
+    return internalStep;
+  };
+
+  const getTotalSteps = () => getStepLabels().length;
+  
+  const handleNextStep = () => {
+    const currentInternal = getInternalStep(step);
+    let nextInternal = currentInternal + 1;
+    
+    // Skip design step for blank_apparel
+    if (buyerPurpose === "blank_apparel" && nextInternal === 2) {
+      nextInternal = 3; // Skip to CSV
+    }
+    
+    // For fabric_only, jump from purpose to fabric
+    if (buyerPurpose === "fabric_only" && currentInternal === 0) {
+      nextInternal = 4; // Jump to fabric
+    }
+    
+    setStep(getDisplayStep(nextInternal));
+  };
+
+  const handlePrevStep = () => {
+    const currentInternal = getInternalStep(step);
+    let prevInternal = currentInternal - 1;
+    
+    // Skip design step for blank_apparel going back
+    if (buyerPurpose === "blank_apparel" && prevInternal === 2) {
+      prevInternal = 1; // Skip back to product
+    }
+    
+    // For fabric_only, jump from fabric back to purpose
+    if (buyerPurpose === "fabric_only" && currentInternal === 4) {
+      prevInternal = 0; // Jump back to purpose
+    }
+    
+    setStep(getDisplayStep(prevInternal));
+  };
+
+  // Determine what internal step we're on for rendering
+  const internalStep = getInternalStep(step);
 
   const handleRecommendFabric = (fabricId: string) => {
     const fabric = getFabricById(fabricId);
@@ -228,34 +321,59 @@ const StartOrder = () => {
           {/* Progress Bar */}
           <div className="mb-12">
             <div className="flex items-center justify-between mb-4">
-              {[1, 2, 3, 4, 5, 6].map((s) => (
-                <div key={s} className="flex items-center">
+              {getStepLabels().map((_, index) => (
+                <div key={index} className="flex items-center">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
-                    s === step ? "bg-foreground text-background" :
-                    s < step ? "bg-gray-300 text-foreground" :
+                    index === step ? "bg-foreground text-background" :
+                    index < step ? "bg-gray-300 text-foreground" :
                     "bg-gray-100 text-gray-400"
                   }`}>
-                    {s}
+                    {index + 1}
                   </div>
-                  {s < 6 && <div className={`w-16 h-1 mx-2 ${s < step ? "bg-gray-300" : "bg-gray-100"}`} />}
+                  {index < getTotalSteps() - 1 && <div className={`w-16 h-1 mx-2 ${index < step ? "bg-gray-300" : "bg-gray-100"}`} />}
                 </div>
               ))}
             </div>
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Product</span>
-              <span>Design</span>
-              <span>CSV Data</span>
-              <span>Fabric</span>
-              <span>Shipping</span>
-              <span>Payment</span>
+              {getStepLabels().map((label, index) => (
+                <span key={index}>{label}</span>
+              ))}
             </div>
           </div>
 
           {/* Step Content */}
           <div className="bg-card border border-border rounded-xl p-8">
-          {step === 1 && (
+          
+          {/* Step 0: Buyer Purpose Selection */}
+          {internalStep === 0 && (
+            <BuyerPurposeSelector
+              selectedPurpose={buyerPurpose}
+              onSelect={(purpose) => {
+                setBuyerPurpose(purpose);
+                // Reset product type for fabric_only
+                if (purpose === "fabric_only") {
+                  setProductType("Fabric");
+                }
+              }}
+            />
+          )}
+
+          {/* Step 1: Product Selection */}
+          {internalStep === 1 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Select Product Type</h2>
+                
+                {/* Color selection for blank_apparel */}
+                {buyerPurpose === "blank_apparel" && (
+                  <div className="mb-6">
+                    <ColorSelector
+                      selectedColor={selectedColor}
+                      onColorSelect={setSelectedColor}
+                      required={true}
+                    />
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-2 gap-4">
                   {["T-Shirts", "Hoodies", "Caps", "Bags", "Jackets", "Custom"].map((product) => (
                     <button
@@ -277,10 +395,16 @@ const StartOrder = () => {
                   ))}
                 </div>
                 
+                {buyerPurpose === "blank_apparel" && !selectedColor && (
+                  <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+                    Please select a color for your blank apparel order
+                  </p>
+                )}
               </div>
             )}
 
-            {step === 2 && (
+            {/* Step 2: Design Upload (skipped for blank_apparel and fabric_only) */}
+            {internalStep === 2 && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-foreground">Upload Design</h2>
@@ -372,7 +496,8 @@ const StartOrder = () => {
               </div>
             )}
 
-            {step === 3 && (
+            {/* Step 3: CSV Upload */}
+            {internalStep === 3 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Upload Order CSV</h2>
                 
@@ -491,15 +616,29 @@ const StartOrder = () => {
               </div>
             )}
 
-            {step === 4 && (
+            {/* Step 4: Fabric Selection */}
+            {internalStep === 4 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Select Fabric & Specifications</h2>
                 
-                {/* Fabric Advisor */}
-                <FabricAdvisor 
-                  onRecommendFabric={handleRecommendFabric}
-                  onScrollToFabricSection={handleScrollToFabricSection}
-                />
+                {/* Color selection for fabric_only */}
+                {buyerPurpose === "fabric_only" && (
+                  <div className="mb-6">
+                    <ColorSelector
+                      selectedColor={selectedColor}
+                      onColorSelect={setSelectedColor}
+                      required={true}
+                    />
+                  </div>
+                )}
+                
+                {/* Fabric Advisor - only for apparel orders */}
+                {buyerPurpose !== "fabric_only" && (
+                  <FabricAdvisor 
+                    onRecommendFabric={handleRecommendFabric}
+                    onScrollToFabricSection={handleScrollToFabricSection}
+                  />
+                )}
                 
                 <div className="space-y-4" ref={fabricSectionRef}>
                   <div>
@@ -515,7 +654,7 @@ const StartOrder = () => {
                         <SelectValue placeholder="Select fabric" />
                       </SelectTrigger>
                       <SelectContent>
-                        {getFabricsForProduct(productType).map((fabric) => (
+                        {getFabricsForProduct(buyerPurpose === "fabric_only" ? "Fabric" : productType).map((fabric) => (
                           <SelectItem key={fabric.id} value={fabric.id}>
                             {fabric.label}
                           </SelectItem>
@@ -533,7 +672,7 @@ const StartOrder = () => {
                   </div>
 
                   <div>
-                    <Label>Bulk Quantity (1 - 1000)</Label>
+                    <Label>{buyerPurpose === "fabric_only" ? "Quantity (meters/kg)" : "Bulk Quantity (1 - 1000)"}</Label>
                     <Input 
                       type="number" 
                       value={bulkQuantity} 
@@ -559,7 +698,7 @@ const StartOrder = () => {
 
                   {/* Expected Deadline - Bulk Orders Only */}
                   <div className="pt-4 border-t border-border">
-                    <Label>Bulk Order Deadline</Label>
+                    <Label>{buyerPurpose === "fabric_only" ? "Expected Delivery Deadline" : "Bulk Order Deadline"}</Label>
                     <p className="text-xs text-muted-foreground mb-2">
                       Manufacturer will see this after order acceptance
                     </p>
@@ -592,22 +731,29 @@ const StartOrder = () => {
                     </p>
                   </div>
                 </div>
+                
+                {(buyerPurpose === "fabric_only" || buyerPurpose === "blank_apparel") && !selectedColor && (
+                  <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+                    Please select a color to continue
+                  </p>
+                )}
               </div>
             )}
 
-            {step === 5 && (
+            {/* Step 5: Shipping */}
+            {internalStep === 5 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Shipping Address</h2>
                 <ShippingAddressForm
                   onSubmit={(address) => {
                     setShippingAddress(address);
-                    setStep(6);
+                    handleNextStep();
                   }}
-                  onBack={() => setStep(4)}
+                  onBack={handlePrevStep}
                 />
                 {shippingAddress && (
                   <DeliveryCostCalculator
-                    productType={productType}
+                    productType={buyerPurpose === "fabric_only" ? "Fabric" : productType}
                     quantity={isSampleOnly ? 1 : bulkQuantity}
                     pincode={shippingAddress.pincode}
                   />
@@ -615,7 +761,8 @@ const StartOrder = () => {
               </div>
             )}
 
-            {step === 6 && (
+            {/* Step 6: Payment */}
+            {internalStep === 6 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Payment & Escrow</h2>
                 
@@ -624,128 +771,138 @@ const StartOrder = () => {
                   <div>
                     <h3 className="font-semibold text-blue-900 mb-1">Protected Payment</h3>
                     <p className="text-sm text-blue-700">
-                      Your payment is held securely in escrow and only released to the manufacturer after you approve the sample QC.
+                      Your payment is held securely in escrow and only released to the manufacturer after you approve the QC.
                     </p>
                   </div>
                 </div>
 
-                {/* Checkout Options */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Select Order Type</h3>
-                  
-                  {/* Option 1: Sample Only */}
-                  <button
-                    onClick={() => setIsSampleOnly(true)}
-                    className={`w-full p-6 border-2 rounded-xl transition-all text-left ${
-                      isSampleOnly
-                        ? "border-foreground bg-gray-50"
-                        : "border-border hover:border-foreground hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-semibold text-foreground mb-1">Order Sample Only (1 unit)</h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Test the quality before committing to bulk order
-                        </p>
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Sample Quantity:</span>
-                            <span className="font-medium text-foreground">1 piece</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Sample Cost:</span>
-                            <span className="font-bold text-foreground">₹500</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        isSampleOnly ? "border-foreground bg-foreground" : "border-gray-300"
-                      }`}>
-                        {isSampleOnly && <div className="w-3 h-3 rounded-full bg-background" />}
-                      </div>
-                    </div>
-                  </button>
+                {/* Buyer Notes Input - TASK D */}
+                <BuyerNotesInput
+                  notes={buyerNotes}
+                  onChange={setBuyerNotes}
+                />
 
-                  {/* Option 2: Bulk Order */}
-                  <button
-                    onClick={() => setIsSampleOnly(false)}
-                    className={`w-full p-6 border-2 rounded-xl transition-all text-left ${
-                      !isSampleOnly
-                        ? "border-foreground bg-gray-50"
-                        : "border-border hover:border-foreground hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="w-full">
-                        <h4 className="font-semibold text-foreground mb-1">Order Bulk Order (1 - 1000 pieces)</h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Order any quantity from 1 to 1000 pieces
-                        </p>
-                        
-                        {!isSampleOnly && (
-                          <div className="mb-3">
-                            <Label className="text-sm">Bulk Quantity</Label>
-                            <Input 
-                              type="number" 
-                              value={bulkQuantity} 
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0;
-                                setBulkQuantity(val);
-                                if (val < 1) {
-                                  setBulkQuantityError("Quantity must be at least 1");
-                                } else if (val > 1000) {
-                                  setBulkQuantityError("Quantity cannot exceed 1000");
-                                } else {
-                                  setBulkQuantityError("");
-                                }
-                              }}
-                              min={1}
-                              max={1000}
-                              className="mt-1"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            {bulkQuantityError && (
-                              <p className="text-xs text-red-500 mt-1">{bulkQuantityError}</p>
-                            )}
-                          </div>
-                        )}
-                        
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Bulk Quantity:</span>
-                            <span className="font-medium text-foreground">{bulkQuantity} pieces</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Price per piece:</span>
-                            <span className="font-medium text-foreground">₹{selectedFabric?.unit_price_bulk || 380}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Bulk Cost:</span>
-                            <span className="font-bold text-foreground">₹{(bulkQuantity * (selectedFabric?.unit_price_bulk || 380)).toLocaleString()}</span>
+                {/* Checkout Options - Only for apparel orders */}
+                {buyerPurpose !== "fabric_only" && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-foreground">Select Order Type</h3>
+                    
+                    {/* Option 1: Sample Only */}
+                    <button
+                      onClick={() => setIsSampleOnly(true)}
+                      className={`w-full p-6 border-2 rounded-xl transition-all text-left ${
+                        isSampleOnly
+                          ? "border-foreground bg-gray-50"
+                          : "border-border hover:border-foreground hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-semibold text-foreground mb-1">Order Sample Only (1 unit)</h4>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Test the quality before committing to bulk order
+                          </p>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Sample Quantity:</span>
+                              <span className="font-medium text-foreground">1 piece</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Sample Cost:</span>
+                              <span className="font-bold text-foreground">₹500</span>
+                            </div>
                           </div>
                         </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          isSampleOnly ? "border-foreground bg-foreground" : "border-gray-300"
+                        }`}>
+                          {isSampleOnly && <div className="w-3 h-3 rounded-full bg-background" />}
+                        </div>
                       </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
-                        !isSampleOnly ? "border-foreground bg-foreground" : "border-gray-300"
-                      }`}>
-                        {!isSampleOnly && <div className="w-3 h-3 rounded-full bg-background" />}
+                    </button>
+
+                    {/* Option 2: Bulk Order */}
+                    <button
+                      onClick={() => setIsSampleOnly(false)}
+                      className={`w-full p-6 border-2 rounded-xl transition-all text-left ${
+                        !isSampleOnly
+                          ? "border-foreground bg-gray-50"
+                          : "border-border hover:border-foreground hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="w-full">
+                          <h4 className="font-semibold text-foreground mb-1">Order Bulk Order (1 - 1000 pieces)</h4>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Order any quantity from 1 to 1000 pieces
+                          </p>
+                          
+                          {!isSampleOnly && (
+                            <div className="mb-3">
+                              <Label className="text-sm">Bulk Quantity</Label>
+                              <Input 
+                                type="number" 
+                                value={bulkQuantity} 
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  setBulkQuantity(val);
+                                  if (val < 1) {
+                                    setBulkQuantityError("Quantity must be at least 1");
+                                  } else if (val > 1000) {
+                                    setBulkQuantityError("Quantity cannot exceed 1000");
+                                  } else {
+                                    setBulkQuantityError("");
+                                  }
+                                }}
+                                min={1}
+                                max={1000}
+                                className="mt-1"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              {bulkQuantityError && (
+                                <p className="text-xs text-red-500 mt-1">{bulkQuantityError}</p>
+                              )}
+                            </div>
+                          )}
+                          
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Bulk Quantity:</span>
+                              <span className="font-medium text-foreground">{bulkQuantity} pieces</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Price per piece:</span>
+                              <span className="font-medium text-foreground">₹{selectedFabric?.unit_price_bulk || 380}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Bulk Cost:</span>
+                              <span className="font-bold text-foreground">₹{(bulkQuantity * (selectedFabric?.unit_price_bulk || 380)).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
+                          !isSampleOnly ? "border-foreground bg-foreground" : "border-gray-300"
+                        }`}>
+                          {!isSampleOnly && <div className="w-3 h-3 rounded-full bg-background" />}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                </div>
+                    </button>
+                  </div>
+                )}
                 
                 {/* Cost Breakdown */}
                 <div className="p-6 bg-gray-50 rounded-xl border border-border space-y-3">
                   <h3 className="font-semibold text-foreground mb-3">Order Summary</h3>
                   
                   {(() => {
-                    const quantity = isSampleOnly ? 1 : bulkQuantity;
+                    const quantity = (buyerPurpose === "fabric_only" || !isSampleOnly) ? bulkQuantity : 1;
                     // For bulk orders, use selected fabric price; for sample, use ₹500
-                    const pricePerPiece = isSampleOnly ? 500 : (selectedFabric?.unit_price_bulk || 380);
+                    const pricePerPiece = (buyerPurpose === "fabric_only" || !isSampleOnly) 
+                      ? (selectedFabric?.unit_price_bulk || 380) 
+                      : 500;
                     const orderCost = quantity * pricePerPiece;
                     const deliveryCost = calculateDeliveryCost({
-                      productType,
+                      productType: buyerPurpose === "fabric_only" ? "Fabric" : productType,
                       quantity,
                     }).cost;
                     const totalAmount = orderCost + deliveryCost;
@@ -754,7 +911,9 @@ const StartOrder = () => {
                       <>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">
-                            {isSampleOnly ? "Sample Cost:" : `Bulk Cost (${quantity} × ₹${pricePerPiece}):`}
+                            {(buyerPurpose === "fabric_only" || !isSampleOnly) 
+                              ? `${buyerPurpose === "fabric_only" ? "Fabric" : "Bulk"} Cost (${quantity} × ₹${pricePerPiece}):` 
+                              : "Sample Cost:"}
                           </span>
                           <span className="font-medium text-foreground">₹{orderCost.toLocaleString()}</span>
                         </div>
@@ -850,38 +1009,38 @@ const StartOrder = () => {
                       // END: Managed Manufacturing Assignment
 
                       const now = new Date().toISOString();
+                      const effectiveProductType = buyerPurpose === "fabric_only" ? "Fabric" : productType;
+                      const effectiveQuantity = (buyerPurpose === "fabric_only" || !isSampleOnly) ? bulkQuantity : 1;
+                      
                       const orderData: any = {
                         buyer_id: user.id,
                         manufacturer_id: assignedManufacturerId,
-                        assigned_at: assignedAt, // Persist assignment timestamp
-                        product_type: productType,
+                        assigned_at: assignedAt,
+                        product_type: effectiveProductType,
                         design_size: designSize,
-                        quantity: quantity,
-                        // Payment breakdown
-                        total_order_value: totalOrderValue, // Full cost (sample + bulk + delivery)
-                        upfront_payable_amount: upfrontPayableAmount, // 55% of total - paid initially
-                        escrow_amount: escrowAmount, // Upfront amount locked in escrow
+                        quantity: effectiveQuantity,
+                        total_order_value: totalOrderValue,
+                        upfront_payable_amount: upfrontPayableAmount,
+                        escrow_amount: escrowAmount,
                         delivery_cost: deliveryCost,
-                        total_amount: totalAmount, // Full order value for display
+                        total_amount: totalAmount,
                         escrow_status: 'fake_paid',
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
                         status: 'pending',
                         sample_status: 'not_started',
-                        fake_payment_timestamp: now, // Record payment timestamp for UI
+                        fake_payment_timestamp: now,
                         fabric_type: fabric?.label || null,
                         fabric_unit_price: fabric?.unit_price_bulk || null,
-                        // Analytics timestamps
-                        sample_order_placed_at: isSampleOnly ? now : null,
-                        bulk_order_confirmed_at: !isSampleOnly ? now : null,
-                        sample_to_bulk_conversion: !isSampleOnly,
-                        // Expected deadline (only for bulk orders)
-                        expected_deadline: !isSampleOnly && expectedDeadline ? expectedDeadline.toISOString() : null,
-                        // Order intent - explicitly defines the order flow
-                        // sample_only: ends after sample, sample_then_bulk: bulk after approval, direct_bulk: bulk intent set upfront
-                        order_intent: isSampleOnly ? 'sample_only' : 'direct_bulk',
-                        // Order mode - explicit enforcement of QC rules (ADD-ONLY field)
-                        // Persisted alongside order_intent for clear semantics
-                        order_mode: isSampleOnly ? 'sample_only' : 'direct_bulk'
+                        sample_order_placed_at: (buyerPurpose !== "fabric_only" && isSampleOnly) ? now : null,
+                        bulk_order_confirmed_at: (buyerPurpose === "fabric_only" || !isSampleOnly) ? now : null,
+                        sample_to_bulk_conversion: buyerPurpose !== "fabric_only" && !isSampleOnly,
+                        expected_deadline: expectedDeadline ? expectedDeadline.toISOString() : null,
+                        order_intent: (buyerPurpose === "fabric_only" || !isSampleOnly) ? 'direct_bulk' : 'sample_only',
+                        order_mode: (buyerPurpose === "fabric_only" || !isSampleOnly) ? 'direct_bulk' : 'sample_only',
+                        // NEW FIELDS - buyer_purpose, buyer_notes, selected_color
+                        buyer_purpose: buyerPurpose || 'merch_bulk',
+                        buyer_notes: buyerNotes || null,
+                        selected_color: selectedColor || null,
                       };
 
                       const { data: orderResponse, error } = await supabase
@@ -943,18 +1102,23 @@ const StartOrder = () => {
             )}
 
             <div className="flex justify-between mt-8 pt-6 border-t border-border">
-              {step > 1 && (
+              {step > 0 && internalStep !== 6 && (
                 <Button
                   variant="outline"
-                  onClick={() => setStep(step - 1)}
+                  onClick={handlePrevStep}
                 >
                   Previous
                 </Button>
               )}
-              {step < 5 && (
+              {internalStep !== 5 && internalStep !== 6 && buyerPurpose && (
                 <Button
                   className="ml-auto bg-foreground text-background hover:bg-gray-800"
-                  onClick={() => setStep(step + 1)}
+                  onClick={handleNextStep}
+                  disabled={
+                    (internalStep === 1 && !productType) ||
+                    (internalStep === 1 && buyerPurpose === "blank_apparel" && !selectedColor) ||
+                    (internalStep === 4 && needsColorSelection && !selectedColor)
+                  }
                 >
                   Next <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
