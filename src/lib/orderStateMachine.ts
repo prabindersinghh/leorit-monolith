@@ -98,6 +98,50 @@ export function isTerminalStatus(status: OrderDetailedStatus): boolean {
 }
 
 /**
+ * BULK PRODUCTION INVARIANT ENFORCEMENT
+ * Bulk production can NEVER start unless:
+ * 1. Sample QC video is uploaded (qc_uploaded_at is set OR qc_files has content)
+ * 2. Buyer explicitly approves the sample (sample_approved_at is set)
+ * 
+ * This applies to ALL order intents including "direct_bulk"
+ */
+export function canStartBulkProduction(order: {
+  detailed_status?: string;
+  qc_uploaded_at?: string | null;
+  qc_files?: string[] | null;
+  sample_approved_at?: string | null;
+  order_intent?: string | null;
+}): { allowed: boolean; reason?: string } {
+  // Check 1: Current status must allow transition to bulk_in_production
+  const currentStatus = order.detailed_status as OrderDetailedStatus;
+  if (!canTransitionTo(currentStatus, 'bulk_in_production')) {
+    return { 
+      allowed: false, 
+      reason: `Cannot transition from ${currentStatus} to bulk production` 
+    };
+  }
+
+  // Check 2: QC video must be uploaded
+  const hasQCUploaded = !!(order.qc_uploaded_at || (order.qc_files && order.qc_files.length > 0));
+  if (!hasQCUploaded) {
+    return { 
+      allowed: false, 
+      reason: 'Sample QC video must be uploaded before bulk production can start' 
+    };
+  }
+
+  // Check 3: Buyer must have explicitly approved the sample
+  if (!order.sample_approved_at) {
+    return { 
+      allowed: false, 
+      reason: 'Buyer must approve the sample before bulk production can start' 
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
  * Get the appropriate action label for transitioning to a state
  */
 export function getActionLabel(targetStatus: OrderDetailedStatus): string {
