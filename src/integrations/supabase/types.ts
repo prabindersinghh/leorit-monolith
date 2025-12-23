@@ -325,8 +325,10 @@ export type Database = {
           size_chart_url: string | null
           status: string
           total_amount: number | null
+          total_order_value: number | null
           tracking_id: string | null
           updated_at: string
+          upfront_payable_amount: number | null
         }
         Insert: {
           assigned_at?: string | null
@@ -385,8 +387,10 @@ export type Database = {
           size_chart_url?: string | null
           status?: string
           total_amount?: number | null
+          total_order_value?: number | null
           tracking_id?: string | null
           updated_at?: string
+          upfront_payable_amount?: number | null
         }
         Update: {
           assigned_at?: string | null
@@ -445,8 +449,10 @@ export type Database = {
           size_chart_url?: string | null
           status?: string
           total_amount?: number | null
+          total_order_value?: number | null
           tracking_id?: string | null
           updated_at?: string
+          upfront_payable_amount?: number | null
         }
         Relationships: []
       }

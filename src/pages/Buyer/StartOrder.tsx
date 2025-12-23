@@ -808,10 +808,20 @@ const StartOrder = () => {
                       });
                       const deliveryCost = deliveryCostResult.cost;
                       
-                      // IMPORTANT: Escrow amount now includes delivery cost
+                      // Calculate order values
                       const orderCost = quantity * pricePerPiece;
-                      const escrowAmount = orderCost + deliveryCost;
-                      const totalAmount = escrowAmount; // Total = escrow (which includes delivery)
+                      
+                      // PAYMENT BREAKDOWN (Add-only logic)
+                      // total_order_value: Full cost (sample + bulk + delivery)
+                      // upfront_payable_amount: 55% of total - what buyer pays initially
+                      // Remaining 45% is locked and released after delivery
+                      const totalOrderValue = orderCost + deliveryCost;
+                      const upfrontPayableAmount = Math.round(totalOrderValue * 0.55);
+                      
+                      // For escrow, we lock the upfront amount initially
+                      // The remaining amount will be collected/released at later stages
+                      const escrowAmount = upfrontPayableAmount;
+                      const totalAmount = totalOrderValue; // Buyer sees full cost
 
                       // START: Fake Escrow Payment Simulation Layer
                       setIsProcessingPayment(true);
@@ -847,9 +857,12 @@ const StartOrder = () => {
                         product_type: productType,
                         design_size: designSize,
                         quantity: quantity,
-                        escrow_amount: escrowAmount, // Now includes delivery cost
+                        // Payment breakdown
+                        total_order_value: totalOrderValue, // Full cost (sample + bulk + delivery)
+                        upfront_payable_amount: upfrontPayableAmount, // 55% of total - paid initially
+                        escrow_amount: escrowAmount, // Upfront amount locked in escrow
                         delivery_cost: deliveryCost,
-                        total_amount: totalAmount, // Same as escrow_amount
+                        total_amount: totalAmount, // Full order value for display
                         escrow_status: 'fake_paid',
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
                         status: 'pending',

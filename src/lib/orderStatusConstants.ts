@@ -18,6 +18,19 @@ export const ORDER_INTENT = {
 } as const;
 
 export type OrderIntent = typeof ORDER_INTENT[keyof typeof ORDER_INTENT];
+
+// ============================================
+// Payment Constants
+// ============================================
+// Defines payment split ratios for order lifecycle
+// upfront_payable_amount = UPFRONT_PAYMENT_RATIO * total_order_value
+// remaining = (1 - UPFRONT_PAYMENT_RATIO) * total_order_value (released later)
+
+export const PAYMENT_CONSTANTS = {
+  UPFRONT_PAYMENT_RATIO: 0.55, // 55% paid upfront
+  REMAINING_PAYMENT_RATIO: 0.45, // 45% released after delivery
+} as const;
+
 // Sample Status Values
 export const SAMPLE_STATUS = {
   NOT_STARTED: 'not_started',
