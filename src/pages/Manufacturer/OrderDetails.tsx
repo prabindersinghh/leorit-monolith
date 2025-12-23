@@ -10,10 +10,11 @@ import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet, User, Clock, CheckCircle2, Circle } from "lucide-react";
+import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet, User, Clock, CheckCircle2, Circle, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { getOrderMode, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
+import BuyerPurposeBadge from "@/components/BuyerPurposeBadge";
 
 const ManufacturerOrderDetails = () => {
   const { id } = useParams();
