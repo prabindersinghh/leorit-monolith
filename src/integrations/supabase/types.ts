@@ -302,6 +302,7 @@ export type Database = {
           manufacturer_accept_time: string | null
           manufacturer_id: string | null
           mockup_image: string | null
+          order_intent: Database["public"]["Enums"]["order_intent"] | null
           packed_at: string | null
           payment_status: string | null
           product_category: string | null
@@ -361,6 +362,7 @@ export type Database = {
           manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
           mockup_image?: string | null
+          order_intent?: Database["public"]["Enums"]["order_intent"] | null
           packed_at?: string | null
           payment_status?: string | null
           product_category?: string | null
@@ -420,6 +422,7 @@ export type Database = {
           manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
           mockup_image?: string | null
+          order_intent?: Database["public"]["Enums"]["order_intent"] | null
           packed_at?: string | null
           payment_status?: string | null
           product_category?: string | null
@@ -578,6 +581,7 @@ export type Database = {
         | "delivered"
         | "completed"
         | "sample_completed"
+      order_intent: "sample_only" | "sample_then_bulk" | "direct_bulk"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -723,6 +727,7 @@ export const Constants = {
         "completed",
         "sample_completed",
       ],
+      order_intent: ["sample_only", "sample_then_bulk", "direct_bulk"],
     },
   },
 } as const
