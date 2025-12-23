@@ -3,12 +3,14 @@ import DataTable from "@/components/DataTable";
 import SampleQCReview from "@/components/SampleQCReview";
 import PaymentTimeline from "@/components/PaymentTimeline";
 import EscrowMoneyFlow from "@/components/EscrowMoneyFlow";
+import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
 import { Button } from "@/components/ui/button";
 import { Eye, Package, Clock, CheckCircle2, Truck, Send } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { canTransitionTo, statusLabels, statusColors, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
+import { getOrderMode } from "@/lib/orderModeUtils";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 import { PAYMENT_CONSTANTS } from "@/lib/orderStatusConstants";
 import { format, parseISO } from "date-fns";
@@ -70,7 +72,8 @@ const OrderTracking = () => {
       return;
     }
 
-    const orderIntent = order.order_intent;
+    const orderMode = getOrderMode(order); // Use order_mode for explicit enforcement
+    const orderIntent = order.order_intent; // Backward compatibility
     const totalOrderValue = order.total_order_value || order.escrow_amount || 0;
     const upfrontAmount = order.upfront_payable_amount || order.escrow_amount || 0;
 
@@ -96,7 +99,7 @@ const OrderTracking = () => {
       });
 
       // =====================================================
-      // PAYMENT RELEASE ENFORCEMENT
+      // PAYMENT RELEASE ENFORCEMENT (order_mode aware)
       // Remaining 45% can ONLY be released if:
       // 1. Bulk QC is approved (for bulk orders)
       // 2. Delivery is confirmed (we just did this)
@@ -105,11 +108,11 @@ const OrderTracking = () => {
       let canReleaseRemainingPayment = false;
       let releaseReason = '';
       
-      if (orderIntent === 'sample_only') {
+      if (orderMode === 'sample_only') {
         // Sample-only: No remaining payment - upfront was already released at sample approval
         canReleaseRemainingPayment = false;
         releaseReason = 'sample_only_no_remaining';
-      } else if (orderIntent === 'sample_then_bulk' || orderIntent === 'direct_bulk') {
+      } else if (orderMode === 'sample_then_bulk' || orderMode === 'direct_bulk') {
         // Bulk orders: Check if bulk QC was approved
         // Bulk QC is considered approved if detailed_status reached 'dispatched' 
         // (which means it passed through bulk production)
@@ -123,7 +126,7 @@ const OrderTracking = () => {
           releaseReason = 'bulk_qc_not_approved';
         }
       } else {
-        // Legacy orders without intent - use existing behavior
+        // Legacy orders without order_mode - use existing behavior
         canReleaseRemainingPayment = true;
         releaseReason = 'legacy_order';
       }
@@ -136,7 +139,7 @@ const OrderTracking = () => {
         detailed_status: 'completed',
         status: 'completed',
         sample_status: 'delivered',
-        bulk_status: orderIntent === 'sample_only' ? 'not_started' : 'completed',
+        bulk_status: orderMode === 'sample_only' ? 'not_started' : 'completed',
         escrow_status: canReleaseRemainingPayment ? 'fake_released' : 'partial_released',
         escrow_released_timestamp: now
       };
@@ -162,6 +165,7 @@ const OrderTracking = () => {
           totalOrderValue,
           upfrontAmount,
           remainingAmount,
+          orderMode,
           orderIntent
         });
         
@@ -405,24 +409,30 @@ const OrderTracking = () => {
                 ].filter(event => event.show);
 
                 return (
-                  <div className="space-y-4">
-                    {timelineEvents.map((event, index) => {
-                      const Icon = event.icon;
-                      return (
-                        <div key={index} className="flex items-start gap-4">
-                          <div className={`flex-shrink-0 w-10 h-10 rounded-full ${event.bgColor} flex items-center justify-center`}>
-                            <Icon className={`w-5 h-5 ${event.color}`} />
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium text-foreground">{event.label}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {format(parseISO(event.timestamp), 'MMM dd, yyyy - hh:mm a')}
+                  <>
+                    {/* Order Mode Info Banner - shows buyer what type of order this is */}
+                    <div className="mb-4">
+                      <OrderModeInfoBanner order={order} />
+                    </div>
+                    <div className="space-y-4">
+                      {timelineEvents.map((event, index) => {
+                        const Icon = event.icon;
+                        return (
+                          <div key={index} className="flex items-start gap-4">
+                            <div className={`flex-shrink-0 w-10 h-10 rounded-full ${event.bgColor} flex items-center justify-center`}>
+                              <Icon className={`w-5 h-5 ${event.color}`} />
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-foreground">{event.label}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {format(parseISO(event.timestamp), 'MMM dd, yyyy - hh:mm a')}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 );
               })()}
             </div>

@@ -6,12 +6,14 @@ import OrderChat from "@/components/OrderChat";
 import TrackingIdInput from "@/components/TrackingIdInput";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
 import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
+import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet, User, Clock, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { getOrderMode, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
 
 const ManufacturerOrderDetails = () => {
   const { id } = useParams();
@@ -131,6 +133,41 @@ const ManufacturerOrderDetails = () => {
             <h1 className="text-3xl font-bold">Order Details</h1>
             <Badge>{order.status}</Badge>
           </div>
+
+          {/* Order Mode Info Banner - Manufacturer sees order mode context */}
+          <OrderModeInfoBanner order={order}/>
+          
+          {/* Order Mode specific guidance for manufacturer */}
+          {(() => {
+            const orderMode = getOrderMode(order);
+            const qcUploadType = getManufacturerQCUploadType(order);
+            
+            if (orderMode === 'sample_only' && qcUploadType === 'none') {
+              return (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+                  <strong>Sample-only order:</strong> Only sample QC is required. No bulk production actions available.
+                </div>
+              );
+            }
+            
+            if (orderMode === 'direct_bulk' && order.detailed_status === 'sample_in_production') {
+              return (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm">
+                  <strong>Direct bulk order:</strong> Sample QC is optional and informational. Bulk production continues regardless of sample approval.
+                </div>
+              );
+            }
+            
+            if (orderMode === 'sample_then_bulk' && qcUploadType === 'bulk') {
+              return (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                  <strong>Bulk production unlocked:</strong> Sample was approved. Please upload bulk QC video when ready.
+                </div>
+              );
+            }
+            
+            return null;
+          })()}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Order Summary Card */}

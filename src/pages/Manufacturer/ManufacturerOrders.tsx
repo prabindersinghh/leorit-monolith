@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, Truck, Eye } from "lucide-react";
 import { canTransitionTo, getActionLabel, statusLabels, statusColors, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
+import { getOrderMode, shouldShowStartBulkButton, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 import { addDays, format } from "date-fns";
 
@@ -300,8 +301,9 @@ const ManufacturerOrders = () => {
       accessor: "id",
       cell: (value: string, row: any) => {
         const currentStatus = row.detailed_status as OrderDetailedStatus;
-        const quantity = row.quantity;
-        const isSample = isSampleOrder(quantity);
+        const orderMode = getOrderMode(row);
+        const qcUploadType = getManufacturerQCUploadType(row);
+        const showBulkButton = shouldShowStartBulkButton(row);
         
         return (
           <div className="flex gap-2 flex-wrap">
@@ -334,17 +336,28 @@ const ManufacturerOrders = () => {
                 {getActionLabel('sample_in_production')}
               </Button>
             )}
-            {currentStatus === 'sample_in_production' && (
+            {/* QC Upload - order_mode aware */}
+            {currentStatus === 'sample_in_production' && qcUploadType === 'sample' && (
               <Button
                 size="sm"
                 onClick={() => window.location.href = '/manufacturer/qc'}
                 className="bg-foreground text-background hover:bg-foreground/90"
               >
-                {getActionLabel('qc_uploaded')}
+                {orderMode === 'sample_only' ? 'Upload Sample QC' : getActionLabel('qc_uploaded')}
               </Button>
             )}
-            {/* Only show bulk production button for non-sample orders */}
-            {currentStatus === 'sample_approved_by_buyer' && !isSample && (
+            {/* Bulk QC Upload - for bulk_in_production status */}
+            {currentStatus === 'bulk_in_production' && qcUploadType === 'bulk' && (
+              <Button
+                size="sm"
+                onClick={() => window.location.href = '/manufacturer/qc'}
+                className="bg-foreground text-background hover:bg-foreground/90"
+              >
+                Upload Bulk QC
+              </Button>
+            )}
+            {/* Start Bulk Production - only for sample_then_bulk after sample approval */}
+            {showBulkButton && currentStatus === 'sample_approved_by_buyer' && (
               <Button
                 size="sm"
                 onClick={() => handleStartBulkProduction(value, currentStatus)}
@@ -353,6 +366,7 @@ const ManufacturerOrders = () => {
                 {getActionLabel('bulk_in_production')}
               </Button>
             )}
+            {/* Dispatch - for bulk orders */}
             {currentStatus === 'bulk_in_production' && (
               <Button
                 size="sm"

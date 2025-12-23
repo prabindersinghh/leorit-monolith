@@ -7,6 +7,7 @@ import EscrowMoneyFlow from "@/components/EscrowMoneyFlow";
 import OrderChat from "@/components/OrderChat";
 import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
+import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,9 @@ const OrderDetails = () => {
             <h1 className="text-3xl font-bold">Order Details</h1>
             <Badge>{order.status}</Badge>
           </div>
+
+          {/* Order Mode Info Banner - ADD-ONLY informational text */}
+          <OrderModeInfoBanner order={order} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
