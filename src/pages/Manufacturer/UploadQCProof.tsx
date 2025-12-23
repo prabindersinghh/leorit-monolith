@@ -6,8 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, Video } from "lucide-react";
+import { Upload, Video, Info } from "lucide-react";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { getOrderMode, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
 
 const UploadQCProof = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -193,14 +194,53 @@ const UploadQCProof = () => {
                       <SelectValue placeholder="Choose an order..." />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border z-50">
-                      {orders.map((order) => (
-                        <SelectItem key={order.id} value={order.id}>
-                          Order {order.id.slice(0, 8)} - {order.product_type} (Qty: {order.quantity})
-                        </SelectItem>
-                      ))}
+                      {orders.map((order) => {
+                        const orderMode = getOrderMode(order);
+                        const qcType = getManufacturerQCUploadType(order);
+                        const modeLabel = orderMode === 'sample_only' ? '(Sample Only)' : 
+                                         orderMode === 'direct_bulk' ? '(Direct Bulk)' : 
+                                         '(Sample → Bulk)';
+                        return (
+                          <SelectItem key={order.id} value={order.id}>
+                            Order {order.id.slice(0, 8)} - {order.product_type} (Qty: {order.quantity}) {modeLabel}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Order mode-specific guidance */}
+                {selectedOrder && (() => {
+                  const selectedOrderData = orders.find(o => o.id === selectedOrder);
+                  if (!selectedOrderData) return null;
+                  
+                  const orderMode = getOrderMode(selectedOrderData);
+                  const qcType = getManufacturerQCUploadType(selectedOrderData);
+                  
+                  return (
+                    <div className="p-3 rounded-lg border flex items-start gap-2 text-sm bg-muted/50">
+                      <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <div>
+                        {orderMode === 'sample_only' && (
+                          <p><strong>Sample-only order:</strong> Upload the sample QC video. This order ends after buyer approval - no bulk production.</p>
+                        )}
+                        {orderMode === 'sample_then_bulk' && qcType === 'sample' && (
+                          <p><strong>Sample → Bulk order:</strong> Upload sample QC video. After buyer approval, you'll upload a separate bulk QC video.</p>
+                        )}
+                        {orderMode === 'sample_then_bulk' && qcType === 'bulk' && (
+                          <p><strong>Bulk QC required:</strong> Sample was approved. Now upload the bulk production QC video.</p>
+                        )}
+                        {orderMode === 'direct_bulk' && qcType === 'sample' && (
+                          <p><strong>Direct bulk order:</strong> Sample QC is optional and informational. Bulk production continues regardless.</p>
+                        )}
+                        {orderMode === 'direct_bulk' && qcType === 'bulk' && (
+                          <p><strong>Bulk QC required:</strong> Upload the bulk production QC video. This is mandatory for order completion.</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div>
                   <Label className="text-foreground">QC Video</Label>

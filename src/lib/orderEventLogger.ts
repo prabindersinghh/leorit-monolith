@@ -16,12 +16,14 @@ export type OrderEventType =
   | 'delivered'
   | 'mockup_generated'
   | 'back_mockup_generated'
-  | 'sample_completed'           // Sample-only order completed
-  | 'bulk_unlocked'              // Bulk production unlocked after sample approval
-  | 'upfront_payment_locked'     // 55% upfront payment locked in escrow
-  | 'upfront_payment_released'   // 55% released after sample approval (sample-only) or partial release
-  | 'remaining_payment_released' // 45% released after bulk QC + delivery confirmed
-  | 'full_payment_released';     // Full payment released (order completed)
+  | 'sample_completed'                // Sample-only order completed
+  | 'bulk_unlocked'                   // Bulk production unlocked after sample approval
+  | 'sample_approved_bulk_unlocked'   // Sample approved, bulk production unlocked (sample_then_bulk flow)
+  | 'direct_bulk_sample_approved'     // Sample approved in direct_bulk flow (informational only)
+  | 'upfront_payment_locked'          // 55% upfront payment locked in escrow
+  | 'upfront_payment_released'        // 55% released after sample approval (sample-only) or partial release
+  | 'remaining_payment_released'      // 45% released after bulk QC + delivery confirmed
+  | 'full_payment_released';          // Full payment released (order completed)
 
 /**
  * Logs an order event to the order_events table for analytics.

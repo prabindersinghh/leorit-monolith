@@ -878,7 +878,10 @@ const StartOrder = () => {
                         expected_deadline: !isSampleOnly && expectedDeadline ? expectedDeadline.toISOString() : null,
                         // Order intent - explicitly defines the order flow
                         // sample_only: ends after sample, sample_then_bulk: bulk after approval, direct_bulk: bulk intent set upfront
-                        order_intent: isSampleOnly ? 'sample_only' : 'direct_bulk'
+                        order_intent: isSampleOnly ? 'sample_only' : 'direct_bulk',
+                        // Order mode - explicit enforcement of QC rules (ADD-ONLY field)
+                        // Persisted alongside order_intent for clear semantics
+                        order_mode: isSampleOnly ? 'sample_only' : 'direct_bulk'
                       };
 
                       const { data: orderResponse, error } = await supabase

@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { canTransitionTo, getActionLabel, OrderDetailedStatus, isSampleOrder, canStartBulkProduction } from "@/lib/orderStateMachine";
+import { getOrderMode, shouldShowStartBulkButton, isBulkQCRequired } from "@/lib/orderModeUtils";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 
 interface SampleQCReviewProps {
@@ -44,7 +45,8 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   const handleApprove = async () => {
     const currentStatus = order.detailed_status as OrderDetailedStatus;
     const isSample = isSampleOrder(order.quantity);
-    const orderIntent = order.order_intent; // 'sample_only', 'sample_then_bulk', 'direct_bulk'
+    const orderMode = getOrderMode(order); // Use order_mode for explicit enforcement
+    const orderIntent = order.order_intent; // Backward compatibility
     
     // First transition to sample_approved_by_buyer
     const newStatus: OrderDetailedStatus = 'sample_approved_by_buyer';
@@ -72,14 +74,16 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
       if (approveError) throw approveError;
 
       // Log QC approved event for analytics
-      await logOrderEvent(orderId, 'qc_approved', { isSample, escrowAmount: order.escrow_amount, orderIntent });
+      await logOrderEvent(orderId, 'qc_approved', { isSample, escrowAmount: order.escrow_amount, orderIntent, orderMode });
 
-      // Determine next action based on order_intent
+      // Determine next action based on order_mode (with fallback to order_intent)
       // sample_only: Order ends here - complete and release escrow
-      // sample_then_bulk OR direct_bulk: Unlock bulk production, keep sample specs locked
+      // sample_then_bulk: Unlock bulk production, wait for manufacturer to start
+      // direct_bulk: Bulk already in progress, this is just informational approval
       
-      if (orderIntent === 'sample_only' || (isSample && !orderIntent)) {
+      if (orderMode === 'sample_only') {
         // Sample-only flow: Complete the order and release escrow
+        // NEVER show "Start Bulk Production" - order ends here
         const { error: completeError } = await supabase
           .from('orders')
           .update({
@@ -92,21 +96,21 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
           
         if (completeError) throw completeError;
         
-        await logOrderEvent(orderId, 'sample_completed', { orderIntent, escrowReleased: true });
+        await logOrderEvent(orderId, 'sample_completed', { orderMode, escrowReleased: true });
         toast.success(`Sample order completed! ₹${order.escrow_amount} released from Escrow → Manufacturer Wallet`, { duration: 5000 });
-      } else if (orderIntent === 'sample_then_bulk' || orderIntent === 'direct_bulk') {
-        // Bulk intent flow: Sample approved, unlock bulk production
+      } else if (orderMode === 'sample_then_bulk') {
+        // Sample then bulk flow: Sample approved, unlock bulk production
+        // Manufacturer must click "Start Bulk Production" next
         // INVARIANT ENFORCEMENT: Verify bulk production prerequisites
         const bulkCheck = canStartBulkProduction({
           detailed_status: 'sample_approved_by_buyer',
           qc_uploaded_at: order.qc_uploaded_at,
           qc_files: order.qc_files,
-          sample_approved_at: now, // We just set this
+          sample_approved_at: now,
           order_intent: orderIntent
         });
         
         if (!bulkCheck.allowed) {
-          // This should never happen in normal flow, but enforce the invariant
           console.error('Bulk production blocked:', bulkCheck.reason);
           toast.error(bulkCheck.reason || 'Cannot start bulk production');
           fetchOrder();
@@ -114,23 +118,27 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
           return;
         }
         
-        // Sample specs are now locked (sample_approved_at timestamp serves as lock indicator)
-        const { error: bulkUnlockError } = await supabase
+        // Stay at sample_approved_by_buyer - manufacturer needs to explicitly start bulk
+        await logOrderEvent(orderId, 'sample_approved_bulk_unlocked', { orderMode, sampleSpecsLocked: true });
+        toast.success("Sample approved! Bulk production is now unlocked. Waiting for manufacturer to start.", { duration: 5000 });
+      } else if (orderMode === 'direct_bulk') {
+        // Direct bulk flow: Bulk production already started
+        // Sample approval is informational only, does NOT block bulk
+        // Transition to bulk_in_production if not already there
+        const { error: bulkError } = await supabase
           .from('orders')
           .update({
             detailed_status: 'bulk_in_production',
             bulk_status: 'in_production',
-            // Note: Sample specs (design, fabric, size chart) are now immutable
-            // sample_approved_at serves as the lock timestamp
           })
           .eq('id', orderId);
           
-        if (bulkUnlockError) throw bulkUnlockError;
+        if (bulkError) throw bulkError;
         
-        await logOrderEvent(orderId, 'bulk_unlocked', { orderIntent, sampleSpecsLocked: true, bulkInvariantVerified: true });
-        toast.success("Sample approved! Bulk production has been unlocked. Sample specifications are now locked.", { duration: 5000 });
+        await logOrderEvent(orderId, 'direct_bulk_sample_approved', { orderMode, bulkContinues: true });
+        toast.success("Sample approved! Bulk production continues. Sample was for reference only.", { duration: 5000 });
       } else {
-        // Fallback for legacy orders without order_intent - use quantity-based logic
+        // Fallback for legacy orders without order_mode - use quantity-based logic
         if (isSample) {
           const { error: completeError } = await supabase
             .from('orders')
