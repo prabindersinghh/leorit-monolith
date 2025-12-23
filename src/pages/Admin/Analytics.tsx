@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import DashboardCard from "@/components/DashboardCard";
+import ManufacturerPerformanceMetrics from "@/components/ManufacturerPerformanceMetrics";
 import { Package, TrendingUp, Clock, Users, Truck, RefreshCw, Factory, CheckCircle, UserPlus, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -332,6 +333,12 @@ const Analytics = () => {
                 <p className="text-sm text-muted-foreground mt-1">From dispatch to delivery</p>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Manufacturer Performance Metrics */}
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-foreground mb-4">Manufacturer Performance Metrics</h2>
+            <ManufacturerPerformanceMetrics showSummary />
           </div>
 
           {/* Manufacturers Summary */}
