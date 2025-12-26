@@ -443,6 +443,23 @@ const StartOrder = () => {
                   onFileSelect={setBackDesignFile}
                 />
 
+                {/* Design Help Shortcut */}
+                <div className="p-3 bg-muted/50 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground">
+                    Need help with a complex design or unsure about placement?{" "}
+                    <a 
+                      href="mailto:leoritaiofficial@gmail.com?subject=Design Help Request"
+                      className="text-primary hover:underline font-medium"
+                    >
+                      Talk to Leorit directly
+                    </a>
+                    {" "}— we'll help you get it right.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    WhatsApp: +91 6239712653
+                  </p>
+                </div>
+
                 {designFile && (
                   <>
                     <Button 
@@ -466,6 +483,11 @@ const StartOrder = () => {
                             Edit Design Position
                           </Button>
                         </div>
+
+                        {/* Mockup Disclaimer */}
+                        <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                          <span className="font-medium">Note:</span> Mockup previews are indicative for placement and scale. Final production output is governed by approved samples and QC.
+                        </p>
                         
                         <MockupViewer3D 
                           frontDesign={mockupImage}
