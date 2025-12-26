@@ -33,7 +33,13 @@ export type OrderEventType =
   | 'pickup_scheduled'                // Admin scheduled pickup with courier
   | 'courier_assigned'                // Admin assigned courier + tracking ID
   | 'in_transit'                      // Order is in transit
-  | 'order_delivered';                // Order delivered to buyer
+  | 'order_delivered'                 // Order delivered to buyer
+  // Payment state machine events
+  | 'payment_initiated'               // Payment process started
+  | 'payment_held'                    // Payment captured and held in escrow
+  | 'payment_releasable'              // All conditions met for release
+  | 'payment_released'                // Payment released to manufacturer
+  | 'payment_refunded';               // Payment refunded to buyer (admin only)
 
 /**
  * Logs an order event to the order_events table for analytics.
