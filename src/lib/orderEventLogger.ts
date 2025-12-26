@@ -26,7 +26,14 @@ export type OrderEventType =
   | 'full_payment_released'           // Full payment released (order completed)
   | 'bulk_qc_uploaded'                // Bulk QC video uploaded by manufacturer
   | 'bulk_qc_approved'                // Bulk QC approved by buyer
-  | 'bulk_qc_rejected';               // Bulk QC rejected by buyer (reason required)
+  | 'bulk_qc_rejected'                // Bulk QC rejected by buyer (reason required)
+  // Delivery state machine events
+  | 'order_packed'                    // Manufacturer marked order as packed
+  | 'packaging_video_uploaded'        // Manufacturer uploaded packaging video
+  | 'pickup_scheduled'                // Admin scheduled pickup with courier
+  | 'courier_assigned'                // Admin assigned courier + tracking ID
+  | 'in_transit'                      // Order is in transit
+  | 'order_delivered';                // Order delivered to buyer
 
 /**
  * Logs an order event to the order_events table for analytics.
