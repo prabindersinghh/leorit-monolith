@@ -47,6 +47,7 @@ import {
 import Sidebar from "@/components/Sidebar";
 import BuyerPurposeBadge from "@/components/BuyerPurposeBadge";
 import CommandCenterActions from "@/components/CommandCenterActions";
+import EvidenceSummary from "@/components/EvidenceSummary";
 import { format } from "date-fns";
 
 interface Order {
@@ -436,135 +437,12 @@ const CommandCenter = () => {
                   </Card>
                 )}
 
-                {/* QC Videos */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Video className="h-4 w-4" />
-                      QC Videos
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <p className="text-xs font-medium mb-1">Sample QC Video</p>
-                      {selectedOrder.sample_qc_video_url ? (
-                        <a
-                          href={selectedOrder.sample_qc_video_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline flex items-center gap-1"
-                        >
-                          <Video className="h-3 w-3" />
-                          View Video
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">Not uploaded</p>
-                      )}
-                      {selectedOrder.sample_qc_uploaded_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Uploaded: {formatTimestamp(selectedOrder.sample_qc_uploaded_at)}
-                        </p>
-                      )}
-                    </div>
-                    <Separator />
-                    <div>
-                      <p className="text-xs font-medium mb-1">Bulk QC Video</p>
-                      {selectedOrder.bulk_qc_video_url ? (
-                        <a
-                          href={selectedOrder.bulk_qc_video_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline flex items-center gap-1"
-                        >
-                          <Video className="h-3 w-3" />
-                          View Video
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">Not uploaded</p>
-                      )}
-                      {selectedOrder.bulk_qc_uploaded_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Uploaded: {formatTimestamp(selectedOrder.bulk_qc_uploaded_at)}
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Packaging / Carton Video */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Package className="h-4 w-4" />
-                      Packaging Proof
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {selectedOrder.packaging_video_url ? (
-                      <div>
-                        <a
-                          href={selectedOrder.packaging_video_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline flex items-center gap-1"
-                        >
-                          <Video className="h-3 w-3" />
-                          View Packaging Video
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                        {selectedOrder.packed_at && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Packed: {formatTimestamp(selectedOrder.packed_at)}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Not uploaded</p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Delivery Info */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Truck className="h-4 w-4" />
-                      Delivery Status
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Status:</span>
-                      <Badge variant="outline">{selectedOrder.delivery_status || 'NOT_STARTED'}</Badge>
-                    </div>
-                    {selectedOrder.courier_name && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Courier:</span>
-                        <span>{selectedOrder.courier_name}</span>
-                      </div>
-                    )}
-                    {selectedOrder.tracking_id && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tracking ID:</span>
-                        <span className="font-mono">{selectedOrder.tracking_id}</span>
-                      </div>
-                    )}
-                    {selectedOrder.dispatched_at && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Dispatched:</span>
-                        <span>{formatTimestamp(selectedOrder.dispatched_at)}</span>
-                      </div>
-                    )}
-                    {selectedOrder.delivered_at && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Delivered:</span>
-                        <span>{formatTimestamp(selectedOrder.delivered_at)}</span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                {/* Evidence Summary - YC Ready */}
+                <EvidenceSummary
+                  order={selectedOrder}
+                  manufacturerName={manufacturers[selectedOrder.manufacturer_id || '']}
+                  orderEvents={orderEvents}
+                />
 
                 {/* Order Timeline */}
                 <Card>
