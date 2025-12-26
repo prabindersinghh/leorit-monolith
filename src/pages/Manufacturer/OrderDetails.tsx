@@ -10,7 +10,7 @@ import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet, User, Clock, CheckCircle2, Circle, MessageSquare } from "lucide-react";
+import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet, User, Clock, CheckCircle2, Circle, MessageSquare, Video, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { getOrderMode, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
@@ -169,6 +169,77 @@ const ManufacturerOrderDetails = () => {
             
             return null;
           })()}
+
+          {/* Production Specifications Card - Key details for manufacturing */}
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-primary">
+                <Package className="h-5 w-5" />
+                Production Specifications
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {/* Order Purpose */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Purpose</p>
+                  <div className="font-medium">
+                    {order.buyer_purpose ? (
+                      <BuyerPurposeBadge purpose={order.buyer_purpose} />
+                    ) : (
+                      <span className="text-muted-foreground">Not set</span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Product Type */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Product</p>
+                  <p className="font-medium">{order.product_type}</p>
+                </div>
+                
+                {/* Fabric / GSM */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Fabric / GSM</p>
+                  <p className="font-medium">{order.fabric_type || 'Not specified'}</p>
+                </div>
+                
+                {/* Color */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Color</p>
+                  <div className="flex items-center gap-2">
+                    <Palette className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium capitalize">
+                      {order.selected_color?.replace('_', ' ') || 'Not specified'}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Quantity */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Quantity</p>
+                  <p className="font-bold text-lg">{order.quantity} pcs</p>
+                </div>
+                
+                {/* Design Size */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Design Size</p>
+                  <p className="font-medium">{order.design_size}</p>
+                </div>
+              </div>
+              
+              {/* Buyer Notes - Manufacturing Instructions */}
+              {order.buyer_notes && (
+                <div className="mt-4 pt-4 border-t border-primary/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium text-primary">Manufacturing Instructions</p>
+                  </div>
+                  <p className="text-sm bg-background/80 p-3 rounded border">{order.buyer_notes}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Order Summary Card */}
@@ -629,6 +700,63 @@ const ManufacturerOrderDetails = () => {
                   )}
                 </div>
               </div>
+
+              {/* QC Videos Section */}
+              {(order.sample_qc_video_url || order.bulk_qc_video_url || order.qc_video_url) && (
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                    <Video className="w-4 h-4" />
+                    QC Videos
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {order.sample_qc_video_url && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">Sample QC Video</p>
+                        <video
+                          src={order.sample_qc_video_url}
+                          controls
+                          className="w-full h-48 rounded border bg-muted/50"
+                        />
+                        <Button variant="outline" size="sm" className="w-full" asChild>
+                          <a href={order.sample_qc_video_url} target="_blank" rel="noopener noreferrer">
+                            <Download className="w-3 h-3 mr-1" /> Open in New Tab
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                    {order.bulk_qc_video_url && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">Bulk QC Video</p>
+                        <video
+                          src={order.bulk_qc_video_url}
+                          controls
+                          className="w-full h-48 rounded border bg-muted/50"
+                        />
+                        <Button variant="outline" size="sm" className="w-full" asChild>
+                          <a href={order.bulk_qc_video_url} target="_blank" rel="noopener noreferrer">
+                            <Download className="w-3 h-3 mr-1" /> Open in New Tab
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                    {order.qc_video_url && !order.sample_qc_video_url && !order.bulk_qc_video_url && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">QC Video</p>
+                        <video
+                          src={order.qc_video_url}
+                          controls
+                          className="w-full h-48 rounded border bg-muted/50"
+                        />
+                        <Button variant="outline" size="sm" className="w-full" asChild>
+                          <a href={order.qc_video_url} target="_blank" rel="noopener noreferrer">
+                            <Download className="w-3 h-3 mr-1" /> Open in New Tab
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
