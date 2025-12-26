@@ -177,78 +177,105 @@ const AdminDashboard = () => {
       )
     },
     {
-      header: "Intent",
-      accessor: "order_intent",
-      cell: (value: string) => (
-        <Badge variant={
-          value === 'sample_only' ? 'secondary' :
-          value === 'direct_bulk' ? 'default' : 'outline'
-        } className="text-xs">
-          {value === 'sample_only' ? 'Sample' :
-           value === 'direct_bulk' ? 'Bulk' :
-           value === 'sample_then_bulk' ? 'S→B' : '—'}
-        </Badge>
-      )
-    },
-    {
-      header: "Product",
-      accessor: "product_type",
-    },
-    {
-      header: "Qty",
-      accessor: "quantity",
-    },
-    {
-      header: "Detailed Status",
-      accessor: "detailed_status",
+      header: "Order State",
+      accessor: "order_state",
       cell: (value: string) => {
-        const statusColors: Record<string, string> = {
-          'created': 'bg-gray-100 text-gray-700',
-          'submitted_to_manufacturer': 'bg-blue-100 text-blue-700',
-          'accepted_by_manufacturer': 'bg-green-100 text-green-700',
-          'sample_in_production': 'bg-purple-100 text-purple-700',
-          'qc_uploaded': 'bg-yellow-100 text-yellow-700',
-          'sample_approved_by_buyer': 'bg-green-100 text-green-700',
-          'sample_rejected_by_buyer': 'bg-red-100 text-red-700',
-          'bulk_in_production': 'bg-indigo-100 text-indigo-700',
-          'dispatched': 'bg-blue-100 text-blue-700',
-          'delivered': 'bg-teal-100 text-teal-700',
-          'completed': 'bg-green-100 text-green-700',
+        const stateColors: Record<string, string> = {
+          'DRAFT': 'bg-gray-100 text-gray-700',
+          'SUBMITTED': 'bg-blue-100 text-blue-700',
+          'MANUFACTURER_ASSIGNED': 'bg-indigo-100 text-indigo-700',
+          'SAMPLE_IN_PROGRESS': 'bg-purple-100 text-purple-700',
+          'SAMPLE_QC_UPLOADED': 'bg-yellow-100 text-yellow-700',
+          'SAMPLE_APPROVED': 'bg-green-100 text-green-700',
+          'BULK_UNLOCKED': 'bg-teal-100 text-teal-700',
+          'BULK_IN_PRODUCTION': 'bg-orange-100 text-orange-700',
+          'BULK_QC_UPLOADED': 'bg-amber-100 text-amber-700',
+          'READY_FOR_DISPATCH': 'bg-cyan-100 text-cyan-700',
+          'DISPATCHED': 'bg-sky-100 text-sky-700',
+          'DELIVERED': 'bg-emerald-100 text-emerald-700',
+          'COMPLETED': 'bg-green-100 text-green-700',
         };
         return (
-          <Badge className={statusColors[value] || 'bg-gray-100 text-gray-700'}>
-            {value?.replace(/_/g, ' ') || 'pending'}
+          <Badge className={stateColors[value] || 'bg-gray-100 text-gray-700'}>
+            {value?.replace(/_/g, ' ') || 'N/A'}
           </Badge>
         );
       }
     },
     {
-      header: "Escrow",
-      accessor: "escrow_status",
+      header: "Manufacturer",
+      accessor: "manufacturer_id",
       cell: (value: string) => (
-        <Badge variant={
-          value === 'fake_released' ? 'default' :
-          value === 'fake_paid' ? 'secondary' : 'outline'
-        } className="text-xs">
-          {value === 'fake_released' ? 'Released' :
-           value === 'fake_paid' ? 'Locked' :
-           value === 'partial_released' ? 'Partial' : 'Pending'}
-        </Badge>
+        <span className={`text-xs ${value ? 'text-green-600 font-medium' : 'text-amber-600'}`}>
+          {value ? `${value.slice(0, 6)}...` : '⚠ Unassigned'}
+        </span>
       )
+    },
+    {
+      header: "QC",
+      accessor: "qc_status",
+      cell: (value: string, row: any) => {
+        const hasQC = row.sample_qc_video_url || row.bulk_qc_video_url || row.qc_video_url;
+        return (
+          <Badge variant={
+            value === 'approved' ? 'default' :
+            value === 'rejected' ? 'destructive' :
+            hasQC ? 'secondary' : 'outline'
+          } className="text-xs">
+            {value === 'approved' ? '✓' : value === 'rejected' ? '✗' : hasQC ? 'Uploaded' : 'Pending'}
+          </Badge>
+        );
+      }
+    },
+    {
+      header: "Delivery",
+      accessor: "delivery_status",
+      cell: (value: string) => {
+        const deliveryColors: Record<string, string> = {
+          'NOT_STARTED': 'bg-gray-100 text-gray-700',
+          'PACKED': 'bg-blue-100 text-blue-700',
+          'PICKUP_SCHEDULED': 'bg-purple-100 text-purple-700',
+          'IN_TRANSIT': 'bg-orange-100 text-orange-700',
+          'DELIVERED': 'bg-green-100 text-green-700',
+        };
+        return (
+          <Badge className={deliveryColors[value] || 'bg-gray-100 text-gray-700'} variant="outline">
+            {value?.replace(/_/g, ' ') || 'Pending'}
+          </Badge>
+        );
+      }
+    },
+    {
+      header: "Payment",
+      accessor: "payment_state",
+      cell: (value: string, row: any) => {
+        const displayValue = value || (row.escrow_status === 'fake_paid' ? 'PAYMENT_HELD' : 
+                             row.escrow_status === 'fake_released' ? 'PAYMENT_RELEASED' : 'PAYMENT_INITIATED');
+        const paymentColors: Record<string, string> = {
+          'PAYMENT_INITIATED': 'bg-yellow-100 text-yellow-700',
+          'PAYMENT_HELD': 'bg-blue-100 text-blue-700',
+          'PAYMENT_RELEASABLE': 'bg-purple-100 text-purple-700',
+          'PAYMENT_RELEASED': 'bg-green-100 text-green-700',
+          'PAYMENT_REFUNDED': 'bg-red-100 text-red-700',
+        };
+        return (
+          <Badge className={paymentColors[displayValue] || 'bg-gray-100 text-gray-700'} variant="outline">
+            {displayValue === 'PAYMENT_HELD' ? 'Escrow' : 
+             displayValue === 'PAYMENT_RELEASED' ? 'Released' : 
+             displayValue === 'PAYMENT_INITIATED' ? 'Pending' :
+             displayValue?.replace('PAYMENT_', '') || 'N/A'}
+          </Badge>
+        );
+      }
     },
     {
       header: "Total",
       accessor: "total_amount",
       cell: (value: number) => (
-        <span className="font-semibold">
+        <span className="font-semibold text-xs">
           {value ? `₹${value.toLocaleString()}` : 'N/A'}
         </span>
       )
-    },
-    {
-      header: "Created",
-      accessor: "created_at",
-      cell: (value: string) => new Date(value).toLocaleDateString()
     },
     {
       header: "Actions",
