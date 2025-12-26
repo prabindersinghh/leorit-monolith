@@ -2,13 +2,19 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle, Play, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { canTransitionTo, getActionLabel, OrderDetailedStatus, isSampleOrder, canStartBulkProduction } from "@/lib/orderStateMachine";
 import { getOrderMode, shouldShowStartBulkButton, isBulkQCRequired } from "@/lib/orderModeUtils";
 import { logOrderEvent } from "@/lib/orderEventLogger";
-
+import { 
+  canApproveSample, 
+  canRejectSample, 
+  canRequestRevision, 
+  createQCTimestamp,
+  createQCActionMetadata 
+} from "@/lib/sampleQCWorkflow";
 interface SampleQCReviewProps {
   orderId: string;
   onStatusChange?: () => void;
@@ -18,7 +24,9 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showConcernForm, setShowConcernForm] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
   const [concernMessage, setConcernMessage] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     fetchOrder();
@@ -45,8 +53,33 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   const handleApprove = async () => {
     const currentStatus = order.detailed_status as OrderDetailedStatus;
     const isSample = isSampleOrder(order.quantity);
-    const orderMode = getOrderMode(order); // Use order_mode for explicit enforcement
-    const orderIntent = order.order_intent; // Backward compatibility
+    const orderMode = getOrderMode(order);
+    const orderIntent = order.order_intent;
+    
+    // =====================================================
+    // SAMPLE QC WORKFLOW ENFORCEMENT - ADD ONLY
+    // Validate approval is allowed before proceeding
+    // =====================================================
+    const approvalCheck = canApproveSample({
+      id: order.id,
+      order_state: order.order_state,
+      detailed_status: order.detailed_status,
+      qc_video_url: order.qc_video_url,
+      qc_files: order.qc_files,
+      sample_qc_video_url: order.sample_qc_video_url,
+      sample_approved_at: order.sample_approved_at,
+      order_mode: orderMode,
+      order_intent: orderIntent,
+    });
+    
+    if (!approvalCheck.allowed) {
+      toast.error(approvalCheck.reason);
+      console.error('Sample approval blocked:', approvalCheck.reason);
+      return;
+    }
+    // =====================================================
+    // END: SAMPLE QC WORKFLOW ENFORCEMENT
+    // =====================================================
     
     // First transition to sample_approved_by_buyer
     const newStatus: OrderDetailedStatus = 'sample_approved_by_buyer';
@@ -166,6 +199,37 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
 
   const handleReject = async () => {
     const currentStatus = order.detailed_status as OrderDetailedStatus;
+    const orderMode = getOrderMode(order);
+    const orderIntent = order.order_intent;
+    
+    // =====================================================
+    // SAMPLE QC WORKFLOW ENFORCEMENT - ADD ONLY
+    // Validate rejection: reason is MANDATORY
+    // =====================================================
+    const rejectCheck = canRejectSample({
+      id: order.id,
+      order_state: order.order_state,
+      detailed_status: order.detailed_status,
+      qc_video_url: order.qc_video_url,
+      qc_files: order.qc_files,
+      sample_qc_video_url: order.sample_qc_video_url,
+      order_mode: orderMode,
+      order_intent: orderIntent,
+    }, rejectReason);
+    
+    if (!rejectCheck.allowed) {
+      toast.error(rejectCheck.reason);
+      console.error('Sample rejection blocked:', rejectCheck.reason);
+      // Show the reject form if reason is missing
+      if (!showRejectForm) {
+        setShowRejectForm(true);
+      }
+      return;
+    }
+    // =====================================================
+    // END: SAMPLE QC WORKFLOW ENFORCEMENT
+    // =====================================================
+    
     const newStatus: OrderDetailedStatus = 'sample_rejected_by_buyer';
     
     if (!canTransitionTo(currentStatus, newStatus)) {
@@ -174,17 +238,29 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
     }
 
     try {
+      const now = createQCTimestamp();
+      
       const { error } = await supabase
         .from('orders')
         .update({ 
           detailed_status: newStatus,
-          sample_status: 'rejected', // Backward compatibility
-          qc_feedback: 'Rejected by buyer'
+          sample_status: 'rejected',
+          qc_feedback: `Rejected: ${rejectReason}`,
+          updated_at: now,
         })
         .eq('id', orderId);
 
       if (error) throw error;
+      
+      // Log rejection event with reason for analytics
+      await logOrderEvent(orderId, 'qc_rejected', createQCActionMetadata('sample_rejected', order, {
+        reason: rejectReason,
+        rejection_timestamp: now,
+      }));
+      
       toast.error("Sample QC rejected. Manufacturer will be notified.");
+      setShowRejectForm(false);
+      setRejectReason("");
       fetchOrder();
       onStatusChange?.();
     } catch (error) {
@@ -193,31 +269,72 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
     }
   };
 
-  const handleConcern = async () => {
-    if (!concernMessage.trim()) {
-      toast.error("Please specify your concerns");
+  const handleRevision = async () => {
+    const orderMode = getOrderMode(order);
+    const orderIntent = order.order_intent;
+    
+    // =====================================================
+    // SAMPLE QC WORKFLOW ENFORCEMENT - ADD ONLY
+    // Validate revision request: reason is MANDATORY
+    // =====================================================
+    const revisionCheck = canRequestRevision({
+      id: order.id,
+      order_state: order.order_state,
+      detailed_status: order.detailed_status,
+      qc_video_url: order.qc_video_url,
+      qc_files: order.qc_files,
+      sample_qc_video_url: order.sample_qc_video_url,
+      order_mode: orderMode,
+      order_intent: orderIntent,
+    }, concernMessage);
+    
+    if (!revisionCheck.allowed) {
+      toast.error(revisionCheck.reason);
+      console.error('Revision request blocked:', revisionCheck.reason);
       return;
     }
+    // =====================================================
+    // END: SAMPLE QC WORKFLOW ENFORCEMENT
+    // =====================================================
 
     try {
+      const now = createQCTimestamp();
+      
       const { error } = await supabase
         .from('orders')
         .update({ 
           concern_notes: concernMessage,
-          qc_feedback: 'Concerns raised by buyer'
+          qc_feedback: `Revision requested: ${concernMessage}`,
+          // Stay in qc_uploaded state, manufacturer needs to re-upload
+          detailed_status: 'sample_in_production',
+          sample_status: 'revision_requested',
+          updated_at: now,
         })
         .eq('id', orderId);
 
       if (error) throw error;
-      toast.info("Concern submitted. Manufacturer will review and respond.");
+      
+      // Log revision request for analytics
+      await logOrderEvent(orderId, 'concern_raised', createQCActionMetadata('sample_revision_requested', order, {
+        revision_reason: concernMessage,
+        revision_timestamp: now,
+      }));
+      
+      toast.info("Revision requested. Manufacturer will review and re-upload QC video.");
       setShowConcernForm(false);
       setConcernMessage("");
       fetchOrder();
       onStatusChange?.();
     } catch (error) {
-      console.error('Error submitting concern:', error);
-      toast.error('Failed to submit concern');
+      console.error('Error requesting revision:', error);
+      toast.error('Failed to request revision');
     }
+  };
+
+  // handleConcern is now replaced by handleRevision above
+  // Keeping for backward compatibility but redirecting to revision flow
+  const handleConcern = async () => {
+    await handleRevision();
   };
 
   if (loading) {
@@ -305,7 +422,7 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
                   Approve Sample
                 </Button>
                 <Button 
-                  onClick={handleReject}
+                  onClick={() => setShowRejectForm(!showRejectForm)}
                   variant="destructive"
                   className="flex-1"
                 >
@@ -317,26 +434,77 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
                   variant="outline"
                   className="flex-1"
                 >
-                  <AlertCircle className="w-4 h-4 mr-2" />
-                  Raise Concern
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Request Revision
                 </Button>
               </div>
 
+              {/* Reject form - reason is MANDATORY */}
+              {showRejectForm && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                  <Label className="text-red-700 font-medium">
+                    Rejection Reason (Required) *
+                  </Label>
+                  <Textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Please explain why you are rejecting this sample (minimum 10 characters)..."
+                    className="min-h-24 border-red-200 focus:border-red-400"
+                  />
+                  <p className="text-xs text-red-600">
+                    A detailed reason is mandatory for rejection. This helps the manufacturer understand what went wrong.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleReject} 
+                      size="sm"
+                      variant="destructive"
+                      disabled={rejectReason.trim().length < 10}
+                    >
+                      Confirm Rejection
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        setShowRejectForm(false);
+                        setRejectReason("");
+                      }} 
+                      variant="ghost" 
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Revision request form - reason is MANDATORY */}
               {showConcernForm && (
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg space-y-3">
-                  <Label>Specify your concerns to the manufacturer</Label>
+                  <Label className="text-yellow-700 font-medium">
+                    What needs to be revised? (Required) *
+                  </Label>
                   <Textarea
                     value={concernMessage}
                     onChange={(e) => setConcernMessage(e.target.value)}
-                    placeholder="e.g., Color seems slightly off from the mockup, stitching quality needs improvement on sleeves..."
-                    className="min-h-24"
+                    placeholder="e.g., Color seems slightly off from the mockup, stitching quality needs improvement on sleeves... (minimum 10 characters)"
+                    className="min-h-24 border-yellow-200 focus:border-yellow-400"
                   />
+                  <p className="text-xs text-yellow-600">
+                    A detailed revision request is mandatory. The manufacturer will re-upload QC video after addressing your concerns.
+                  </p>
                   <div className="flex gap-2">
-                    <Button onClick={handleConcern} size="sm">
-                      Submit Concern
+                    <Button 
+                      onClick={handleRevision} 
+                      size="sm"
+                      disabled={concernMessage.trim().length < 10}
+                    >
+                      Request Revision
                     </Button>
                     <Button 
-                      onClick={() => setShowConcernForm(false)} 
+                      onClick={() => {
+                        setShowConcernForm(false);
+                        setConcernMessage("");
+                      }} 
                       variant="ghost" 
                       size="sm"
                     >
