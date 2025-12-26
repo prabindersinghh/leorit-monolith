@@ -314,6 +314,7 @@ export type Database = {
           order_state: Database["public"]["Enums"]["order_state"] | null
           packaging_video_url: string | null
           packed_at: string | null
+          payment_state: string | null
           payment_status: string | null
           pickup_scheduled_at: string | null
           product_category: string | null
@@ -324,6 +325,9 @@ export type Database = {
           qc_uploaded_at: string | null
           qc_video_url: string | null
           quantity: number
+          refund_reason: string | null
+          refunded_at: string | null
+          refunded_by: string | null
           rejection_reason: string | null
           sample_approved_at: string | null
           sample_order_placed_at: string | null
@@ -390,6 +394,7 @@ export type Database = {
           order_state?: Database["public"]["Enums"]["order_state"] | null
           packaging_video_url?: string | null
           packed_at?: string | null
+          payment_state?: string | null
           payment_status?: string | null
           pickup_scheduled_at?: string | null
           product_category?: string | null
@@ -400,6 +405,9 @@ export type Database = {
           qc_uploaded_at?: string | null
           qc_video_url?: string | null
           quantity?: number
+          refund_reason?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
           rejection_reason?: string | null
           sample_approved_at?: string | null
           sample_order_placed_at?: string | null
@@ -466,6 +474,7 @@ export type Database = {
           order_state?: Database["public"]["Enums"]["order_state"] | null
           packaging_video_url?: string | null
           packed_at?: string | null
+          payment_state?: string | null
           payment_status?: string | null
           pickup_scheduled_at?: string | null
           product_category?: string | null
@@ -476,6 +485,9 @@ export type Database = {
           qc_uploaded_at?: string | null
           qc_video_url?: string | null
           quantity?: number
+          refund_reason?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
           rejection_reason?: string | null
           sample_approved_at?: string | null
           sample_order_placed_at?: string | null
@@ -652,6 +664,12 @@ export type Database = {
         | "DISPATCHED"
         | "DELIVERED"
         | "COMPLETED"
+      payment_state:
+        | "PAYMENT_INITIATED"
+        | "PAYMENT_HELD"
+        | "PAYMENT_RELEASABLE"
+        | "PAYMENT_RELEASED"
+        | "PAYMENT_REFUNDED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -821,6 +839,13 @@ export const Constants = {
         "DISPATCHED",
         "DELIVERED",
         "COMPLETED",
+      ],
+      payment_state: [
+        "PAYMENT_INITIATED",
+        "PAYMENT_HELD",
+        "PAYMENT_RELEASABLE",
+        "PAYMENT_RELEASED",
+        "PAYMENT_REFUNDED",
       ],
     },
   },
