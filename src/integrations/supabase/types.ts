@@ -309,6 +309,7 @@ export type Database = {
           mockup_image: string | null
           order_intent: Database["public"]["Enums"]["order_intent"] | null
           order_mode: Database["public"]["Enums"]["order_mode"] | null
+          order_state: Database["public"]["Enums"]["order_state"] | null
           packed_at: string | null
           payment_status: string | null
           product_category: string | null
@@ -331,6 +332,7 @@ export type Database = {
           sample_to_bulk_conversion: boolean | null
           selected_color: string | null
           size_chart_url: string | null
+          state_updated_at: string | null
           status: string
           total_amount: number | null
           total_order_value: number | null
@@ -379,6 +381,7 @@ export type Database = {
           mockup_image?: string | null
           order_intent?: Database["public"]["Enums"]["order_intent"] | null
           order_mode?: Database["public"]["Enums"]["order_mode"] | null
+          order_state?: Database["public"]["Enums"]["order_state"] | null
           packed_at?: string | null
           payment_status?: string | null
           product_category?: string | null
@@ -401,6 +404,7 @@ export type Database = {
           sample_to_bulk_conversion?: boolean | null
           selected_color?: string | null
           size_chart_url?: string | null
+          state_updated_at?: string | null
           status?: string
           total_amount?: number | null
           total_order_value?: number | null
@@ -449,6 +453,7 @@ export type Database = {
           mockup_image?: string | null
           order_intent?: Database["public"]["Enums"]["order_intent"] | null
           order_mode?: Database["public"]["Enums"]["order_mode"] | null
+          order_state?: Database["public"]["Enums"]["order_state"] | null
           packed_at?: string | null
           payment_status?: string | null
           product_category?: string | null
@@ -471,6 +476,7 @@ export type Database = {
           sample_to_bulk_conversion?: boolean | null
           selected_color?: string | null
           size_chart_url?: string | null
+          state_updated_at?: string | null
           status?: string
           total_amount?: number | null
           total_order_value?: number | null
@@ -614,6 +620,20 @@ export type Database = {
         | "sample_completed"
       order_intent: "sample_only" | "sample_then_bulk" | "direct_bulk"
       order_mode: "sample_only" | "sample_then_bulk" | "direct_bulk"
+      order_state:
+        | "DRAFT"
+        | "SUBMITTED"
+        | "MANUFACTURER_ASSIGNED"
+        | "SAMPLE_IN_PROGRESS"
+        | "SAMPLE_QC_UPLOADED"
+        | "SAMPLE_APPROVED"
+        | "BULK_UNLOCKED"
+        | "BULK_IN_PRODUCTION"
+        | "BULK_QC_UPLOADED"
+        | "READY_FOR_DISPATCH"
+        | "DISPATCHED"
+        | "DELIVERED"
+        | "COMPLETED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -762,6 +782,21 @@ export const Constants = {
       ],
       order_intent: ["sample_only", "sample_then_bulk", "direct_bulk"],
       order_mode: ["sample_only", "sample_then_bulk", "direct_bulk"],
+      order_state: [
+        "DRAFT",
+        "SUBMITTED",
+        "MANUFACTURER_ASSIGNED",
+        "SAMPLE_IN_PROGRESS",
+        "SAMPLE_QC_UPLOADED",
+        "SAMPLE_APPROVED",
+        "BULK_UNLOCKED",
+        "BULK_IN_PRODUCTION",
+        "BULK_QC_UPLOADED",
+        "READY_FOR_DISPATCH",
+        "DISPATCHED",
+        "DELIVERED",
+        "COMPLETED",
+      ],
     },
   },
 } as const
