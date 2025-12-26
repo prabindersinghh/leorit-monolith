@@ -34,12 +34,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Factory, Truck, Settings, AlertTriangle } from "lucide-react";
+import { Factory, Truck, Settings, AlertTriangle, PauseCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 import { OrderState } from "@/lib/orderStateMachineV2";
 import { DeliveryState } from "@/lib/deliveryStateMachine";
+import OrderDelayFlags from "@/components/OrderDelayFlags";
 
 interface AdminOrderControlPanelProps {
   order: any;
@@ -92,13 +93,15 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
   }, []);
 
   const fetchManufacturers = async () => {
-    // Get all verified manufacturers
+    // Get all verified/soft-onboarded manufacturers that are NOT paused
     const { data: verifications } = await supabase
       .from('manufacturer_verifications')
-      .select('user_id, company_name, city, state, capacity, verified, soft_onboarded')
+      .select('user_id, company_name, city, state, capacity, verified, soft_onboarded, paused')
       .or('verified.eq.true,soft_onboarded.eq.true');
     
-    setManufacturers(verifications || []);
+    // Filter out paused manufacturers client-side for proper logic
+    const activeManufacturers = (verifications || []).filter(m => !m.paused);
+    setManufacturers(activeManufacturers);
   };
 
   const handleAssignManufacturer = async () => {
@@ -367,6 +370,13 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
 
   return (
     <div className="space-y-6">
+      {/* Delay Metrics - Admin visibility into manufacturer discipline */}
+      <Card className="border-muted">
+        <CardContent className="pt-4">
+          <OrderDelayFlags order={order} />
+        </CardContent>
+      </Card>
+
       {/* Manufacturer Assignment */}
       <Card className="border-primary/20">
         <CardHeader className="pb-3">
