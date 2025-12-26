@@ -14,7 +14,9 @@ import {
   FileSpreadsheet,
   Truck,
   ExternalLink,
-  Link2
+  Link2,
+  CreditCard,
+  PackageCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -70,12 +72,25 @@ const OrderEvidenceView = ({ order, manufacturerInfo, manufacturerVerification }
     if (order.size_chart_url) {
       links.push({ label: "Size Chart", url: order.size_chart_url, type: "document" });
     }
-    if (order.qc_video_url) {
-      links.push({ label: "Sample QC Video", url: order.qc_video_url, type: "video" });
+    // Sample QC
+    if (order.sample_qc_video_url) {
+      links.push({ label: "Sample QC Video", url: order.sample_qc_video_url, type: "video" });
     }
+    if (order.qc_video_url && order.qc_video_url !== order.sample_qc_video_url) {
+      links.push({ label: "QC Video (Legacy)", url: order.qc_video_url, type: "video" });
+    }
+    // Bulk QC
+    if (order.bulk_qc_video_url) {
+      links.push({ label: "Bulk QC Video", url: order.bulk_qc_video_url, type: "video" });
+    }
+    // Packaging proof
+    if (order.packaging_video_url) {
+      links.push({ label: "Packaging Proof", url: order.packaging_video_url, type: "video" });
+    }
+    // Additional QC files
     if (order.qc_files && order.qc_files.length > 0) {
       order.qc_files.forEach((url: string, idx: number) => {
-        links.push({ label: `QC Video ${idx + 1}`, url, type: "video" });
+        links.push({ label: `Additional QC ${idx + 1}`, url, type: "video" });
       });
     }
 
@@ -84,16 +99,45 @@ const OrderEvidenceView = ({ order, manufacturerInfo, manufacturerVerification }
 
   const evidenceLinks = collectEvidenceLinks();
 
-  // Timeline events for display
+  // Payment state display
+  const getPaymentStateLabel = (state: string) => {
+    switch (state) {
+      case "PAYMENT_INITIATED": return "Initiated";
+      case "ESCROW_LOCKED": return "Escrow Locked";
+      case "PARTIAL_RELEASED": return "Partial Released";
+      case "FULLY_RELEASED": return "Fully Released";
+      case "REFUNDED": return "Refunded";
+      default: return state || "Pending";
+    }
+  };
+
+  const getPaymentStateColor = (state: string) => {
+    switch (state) {
+      case "FULLY_RELEASED": return "text-green-600";
+      case "ESCROW_LOCKED": return "text-blue-600";
+      case "PARTIAL_RELEASED": return "text-amber-600";
+      case "REFUNDED": return "text-red-600";
+      default: return "text-muted-foreground";
+    }
+  };
+
+  // Timeline events for display - complete order lifecycle
   const timelineEvents = [
     { label: "Order Created", timestamp: order.created_at, actor: "Buyer" },
     { label: "Payment Received (55%)", timestamp: order.fake_payment_timestamp, actor: "System" },
+    { label: "Escrow Locked", timestamp: order.escrow_locked_timestamp, actor: "System" },
     { label: "Assigned to Manufacturer", timestamp: order.assigned_at, actor: "Platform" },
     { label: "Manufacturer Accepted", timestamp: order.manufacturer_accept_time, actor: "Manufacturer" },
     { label: "Sample Production Started", timestamp: order.sample_production_started_at, actor: "Manufacturer" },
     { label: "Sample QC Uploaded", timestamp: order.sample_qc_uploaded_at || order.qc_uploaded_at, actor: "Manufacturer" },
     { label: "Sample Approved", timestamp: order.sample_approved_at || order.sample_qc_approved_at, actor: "Buyer" },
+    { label: "Bulk Unlocked", timestamp: order.order_state === 'BULK_UNLOCKED' || order.bulk_order_confirmed_at ? order.sample_approved_at : null, actor: "System" },
     { label: "Bulk Production Started", timestamp: order.bulk_order_confirmed_at, actor: "Manufacturer" },
+    { label: "Bulk QC Uploaded", timestamp: order.bulk_qc_uploaded_at, actor: "Manufacturer" },
+    { label: "Bulk QC Approved", timestamp: order.bulk_qc_approved_at, actor: "Buyer" },
+    { label: "Packed", timestamp: order.packed_at, actor: "Manufacturer" },
+    { label: "Pickup Scheduled", timestamp: order.pickup_scheduled_at, actor: "Platform" },
+    { label: "In Transit", timestamp: order.in_transit_at, actor: "Courier" },
     { label: "Dispatched", timestamp: order.dispatched_at, actor: "Manufacturer" },
     { label: "Delivered", timestamp: order.delivered_at, actor: "Buyer Confirmed" },
     { label: "Escrow Released", timestamp: order.escrow_released_timestamp, actor: "System" },
@@ -282,25 +326,89 @@ const OrderEvidenceView = ({ order, manufacturerInfo, manufacturerVerification }
           )}
         </div>
 
-        {/* QC Videos */}
-        {(order.qc_video_url || (order.qc_files && order.qc_files.length > 0)) && (
+        {/* Sample QC Video */}
+        {(order.sample_qc_video_url || order.qc_video_url) && (
           <div className="space-y-3">
             <h4 className="text-sm font-semibold flex items-center gap-2">
               <Video className="h-4 w-4" />
-              QC Videos
+              Sample QC Video
+              {order.sample_qc_approved_at && (
+                <Badge variant="default" className="ml-2 text-xs">Approved</Badge>
+              )}
+            </h4>
+            <div className="bg-background rounded-lg p-3">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-xs text-muted-foreground">
+                  Uploaded: {order.sample_qc_uploaded_at ? format(new Date(order.sample_qc_uploaded_at), "dd MMM yyyy, HH:mm") : "—"}
+                </p>
+              </div>
+              <video controls className="w-full max-h-48 rounded">
+                <source src={order.sample_qc_video_url || order.qc_video_url} type="video/mp4" />
+              </video>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk QC Video */}
+        {order.bulk_qc_video_url && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              Bulk QC Video
+              {order.bulk_qc_approved_at && (
+                <Badge variant="default" className="ml-2 text-xs">Approved</Badge>
+              )}
+            </h4>
+            <div className="bg-background rounded-lg p-3">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-xs text-muted-foreground">
+                  Uploaded: {order.bulk_qc_uploaded_at ? format(new Date(order.bulk_qc_uploaded_at), "dd MMM yyyy, HH:mm") : "—"}
+                </p>
+                {order.bulk_qc_approved_at && (
+                  <p className="text-xs text-green-600">
+                    Approved: {format(new Date(order.bulk_qc_approved_at), "dd MMM yyyy, HH:mm")}
+                  </p>
+                )}
+              </div>
+              <video controls className="w-full max-h-48 rounded">
+                <source src={order.bulk_qc_video_url} type="video/mp4" />
+              </video>
+            </div>
+          </div>
+        )}
+
+        {/* Packaging Proof Video */}
+        {order.packaging_video_url && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <PackageCheck className="h-4 w-4" />
+              Packaging Proof
+            </h4>
+            <div className="bg-background rounded-lg p-3">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-xs text-muted-foreground">
+                  Packed: {order.packed_at ? format(new Date(order.packed_at), "dd MMM yyyy, HH:mm") : "—"}
+                </p>
+              </div>
+              <video controls className="w-full max-h-48 rounded">
+                <source src={order.packaging_video_url} type="video/mp4" />
+              </video>
+            </div>
+          </div>
+        )}
+
+        {/* Additional QC Files */}
+        {order.qc_files && order.qc_files.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              Additional QC Files
+              <Badge variant="secondary" className="ml-1">{order.qc_files.length}</Badge>
             </h4>
             <div className="space-y-2">
-              {order.qc_video_url && (
-                <div className="bg-background rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-2">Sample QC Video</p>
-                  <video controls className="w-full max-h-48 rounded">
-                    <source src={order.qc_video_url} type="video/mp4" />
-                  </video>
-                </div>
-              )}
-              {order.qc_files && order.qc_files.map((url: string, idx: number) => (
+              {order.qc_files.map((url: string, idx: number) => (
                 <div key={idx} className="bg-background rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-2">QC Video {idx + 1}</p>
+                  <p className="text-xs text-muted-foreground mb-2">File {idx + 1}</p>
                   <video controls className="w-full max-h-48 rounded">
                     <source src={url} type="video/mp4" />
                   </video>
@@ -311,29 +419,47 @@ const OrderEvidenceView = ({ order, manufacturerInfo, manufacturerVerification }
         )}
 
         {/* Dispatch / Delivery Proof */}
-        {(order.tracking_id || order.dispatched_at) && (
+        {(order.tracking_id || order.dispatched_at || order.courier_name) && (
           <div className="space-y-3">
             <h4 className="text-sm font-semibold flex items-center gap-2">
               <Truck className="h-4 w-4" />
               Dispatch & Delivery Proof
             </h4>
             <div className="bg-background rounded-lg p-4 space-y-2 text-sm">
+              {order.courier_name && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Courier:</span>
+                  <span className="font-medium">{order.courier_name}</span>
+                </div>
+              )}
               {order.tracking_id && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tracking ID:</span>
                   <code className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{order.tracking_id}</code>
                 </div>
               )}
-              {order.dispatched_at && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Dispatched:</span>
-                  <span>{format(new Date(order.dispatched_at), "dd MMM yyyy, HH:mm")}</span>
-                </div>
-              )}
               {order.packed_at && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Packed:</span>
                   <span>{format(new Date(order.packed_at), "dd MMM yyyy, HH:mm")}</span>
+                </div>
+              )}
+              {order.pickup_scheduled_at && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pickup Scheduled:</span>
+                  <span>{format(new Date(order.pickup_scheduled_at), "dd MMM yyyy, HH:mm")}</span>
+                </div>
+              )}
+              {order.in_transit_at && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">In Transit:</span>
+                  <span>{format(new Date(order.in_transit_at), "dd MMM yyyy, HH:mm")}</span>
+                </div>
+              )}
+              {order.dispatched_at && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Dispatched:</span>
+                  <span>{format(new Date(order.dispatched_at), "dd MMM yyyy, HH:mm")}</span>
                 </div>
               )}
               {order.delivered_at && (
@@ -347,6 +473,64 @@ const OrderEvidenceView = ({ order, manufacturerInfo, manufacturerVerification }
             </div>
           </div>
         )}
+
+        {/* Payment State */}
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            Payment State
+          </h4>
+          <div className="bg-background rounded-lg p-4 space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Current State:</span>
+              <Badge variant="outline" className={getPaymentStateColor(order.payment_state)}>
+                {getPaymentStateLabel(order.payment_state)}
+              </Badge>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Escrow Status:</span>
+              <span className="capitalize">{order.escrow_status?.replace(/_/g, ' ') || 'pending'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Value:</span>
+              <span className="font-semibold">₹{(order.total_order_value || order.total_amount || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Escrow Amount (55%):</span>
+              <span>₹{(order.upfront_payable_amount || order.escrow_amount || 0).toLocaleString()}</span>
+            </div>
+            {order.fake_payment_timestamp && (
+              <div className="flex justify-between pt-2 border-t">
+                <span className="text-muted-foreground">Payment Received:</span>
+                <span>{format(new Date(order.fake_payment_timestamp), "dd MMM yyyy, HH:mm")}</span>
+              </div>
+            )}
+            {order.escrow_locked_timestamp && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Escrow Locked:</span>
+                <span>{format(new Date(order.escrow_locked_timestamp), "dd MMM yyyy, HH:mm")}</span>
+              </div>
+            )}
+            {order.escrow_released_timestamp && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Escrow Released:</span>
+                <span className="text-green-600 font-medium">{format(new Date(order.escrow_released_timestamp), "dd MMM yyyy, HH:mm")}</span>
+              </div>
+            )}
+            {order.refunded_at && (
+              <div className="flex justify-between pt-2 border-t">
+                <span className="text-muted-foreground">Refunded:</span>
+                <span className="text-red-600 font-medium">{format(new Date(order.refunded_at), "dd MMM yyyy, HH:mm")}</span>
+              </div>
+            )}
+            {order.refund_reason && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Refund Reason:</span>
+                <span className="text-sm">{order.refund_reason}</span>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Export Links Section */}
         <div className="space-y-3 pt-4 border-t">
