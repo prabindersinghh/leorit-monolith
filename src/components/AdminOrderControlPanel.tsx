@@ -150,6 +150,12 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
       return;
     }
 
+    // Validate delivery status - must be PACKED first
+    if (order.delivery_status !== 'PACKED') {
+      toast.error("Manufacturer must mark order as PACKED before assigning courier");
+      return;
+    }
+
     setAssigningCourier(true);
     try {
       const now = new Date().toISOString();
@@ -174,11 +180,109 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
         timestamp: now,
       });
 
-      toast.success("Courier assigned successfully");
+      await logOrderEvent(order.id, 'pickup_scheduled', {
+        courier_name: courierName.trim(),
+        tracking_id: trackingId.trim(),
+        scheduled_by: 'admin',
+        timestamp: now,
+      });
+
+      toast.success("Courier assigned and pickup scheduled");
       onUpdate();
     } catch (error: any) {
       console.error('Error assigning courier:', error);
       toast.error(error.message || "Failed to assign courier");
+    } finally {
+      setAssigningCourier(false);
+    }
+  };
+
+  const handleMarkInTransit = async () => {
+    if (order.delivery_status !== 'PICKUP_SCHEDULED') {
+      toast.error("Pickup must be scheduled before marking in transit");
+      return;
+    }
+
+    setAssigningCourier(true);
+    try {
+      const now = new Date().toISOString();
+      const dispatchedAt = now;
+      // Calculate estimated delivery (dispatched_at + 3 days)
+      const estimatedDelivery = new Date(now);
+      estimatedDelivery.setDate(estimatedDelivery.getDate() + 3);
+      
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          delivery_status: 'IN_TRANSIT',
+          in_transit_at: now,
+          dispatched_at: dispatchedAt,
+          estimated_delivery_date: estimatedDelivery.toISOString(),
+          order_state: 'DISPATCHED',
+          state_updated_at: now,
+          updated_at: now,
+        })
+        .eq('id', order.id);
+
+      if (error) throw error;
+
+      await logOrderEvent(order.id, 'in_transit', {
+        marked_by: 'admin',
+        timestamp: now,
+        tracking_id: order.tracking_id,
+        courier_name: order.courier_name,
+      });
+
+      await logOrderEvent(order.id, 'dispatched', {
+        dispatched_at: dispatchedAt,
+        estimated_delivery: estimatedDelivery.toISOString(),
+        marked_by: 'admin',
+      });
+
+      toast.success("Order marked as in transit");
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error marking in transit:', error);
+      toast.error(error.message || "Failed to mark in transit");
+    } finally {
+      setAssigningCourier(false);
+    }
+  };
+
+  const handleMarkDelivered = async () => {
+    if (order.delivery_status !== 'IN_TRANSIT') {
+      toast.error("Order must be in transit before marking delivered");
+      return;
+    }
+
+    setAssigningCourier(true);
+    try {
+      const now = new Date().toISOString();
+      
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          delivery_status: 'DELIVERED',
+          delivered_at: now,
+          order_state: 'DELIVERED',
+          state_updated_at: now,
+          updated_at: now,
+        })
+        .eq('id', order.id);
+
+      if (error) throw error;
+
+      await logOrderEvent(order.id, 'order_delivered', {
+        marked_by: 'admin',
+        timestamp: now,
+        tracking_id: order.tracking_id,
+      });
+
+      toast.success("Order marked as delivered");
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error marking delivered:', error);
+      toast.error(error.message || "Failed to mark delivered");
     } finally {
       setAssigningCourier(false);
     }
@@ -318,50 +422,108 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
         </CardContent>
       </Card>
 
-      {/* Courier Assignment */}
+      {/* Courier & Delivery Management */}
       <Card className="border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Truck className="h-5 w-5" />
-            Assign Courier & Tracking
+            Delivery Management (Admin Only)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Courier Name</Label>
-              <Input
-                value={courierName}
-                onChange={(e) => setCourierName(e.target.value)}
-                placeholder="e.g., Delhivery, BlueDart"
-              />
+          {/* Current Delivery Status */}
+          <div className="p-3 bg-muted rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Current Delivery Status:</span>
+              <Badge variant="outline" className="font-mono">
+                {order.delivery_status || 'NOT_STARTED'}
+              </Badge>
             </div>
-            <div className="space-y-2">
-              <Label>Tracking ID</Label>
-              <Input
-                value={trackingId}
-                onChange={(e) => setTrackingId(e.target.value)}
-                placeholder="e.g., AWB12345678"
-              />
-            </div>
+            {order.packed_at && (
+              <p className="text-xs text-muted-foreground">
+                Packed at: {new Date(order.packed_at).toLocaleString()}
+              </p>
+            )}
           </div>
-          
+
+          {/* Courier Assignment - Only when PACKED */}
+          {order.delivery_status === 'PACKED' && (
+            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+              <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                Order is packed. Assign courier and schedule pickup:
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Courier Name</Label>
+                  <Input
+                    value={courierName}
+                    onChange={(e) => setCourierName(e.target.value)}
+                    placeholder="e.g., Delhivery, BlueDart"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tracking ID</Label>
+                  <Input
+                    value={trackingId}
+                    onChange={(e) => setTrackingId(e.target.value)}
+                    placeholder="e.g., AWB12345678"
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleAssignCourier} 
+                disabled={!courierName.trim() || !trackingId.trim() || assigningCourier}
+                className="w-full"
+              >
+                {assigningCourier ? "Assigning..." : "Assign Courier & Schedule Pickup"}
+              </Button>
+            </div>
+          )}
+
+          {/* Current Courier Info */}
           {order.courier_name && order.tracking_id && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-              <p className="text-sm text-blue-700 dark:text-blue-400 font-medium">
-                Current: {order.courier_name} — {order.tracking_id}
+            <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+              <p className="text-sm text-green-700 dark:text-green-400 font-medium">
+                ✓ Courier: {order.courier_name}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Tracking ID: {order.tracking_id}
               </p>
             </div>
           )}
-          
-          <Button 
-            onClick={handleAssignCourier} 
-            disabled={!courierName.trim() || !trackingId.trim() || assigningCourier}
-            className="w-full"
-            variant="secondary"
-          >
-            {assigningCourier ? "Assigning..." : order.courier_name ? "Update Courier" : "Assign Courier"}
-          </Button>
+
+          {/* Mark In Transit - Only when PICKUP_SCHEDULED */}
+          {order.delivery_status === 'PICKUP_SCHEDULED' && (
+            <Button 
+              onClick={handleMarkInTransit} 
+              disabled={assigningCourier}
+              className="w-full bg-orange-600 hover:bg-orange-700"
+            >
+              {assigningCourier ? "Processing..." : "Mark as In Transit (Dispatched)"}
+            </Button>
+          )}
+
+          {/* Mark Delivered - Only when IN_TRANSIT */}
+          {order.delivery_status === 'IN_TRANSIT' && (
+            <Button 
+              onClick={handleMarkDelivered} 
+              disabled={assigningCourier}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              {assigningCourier ? "Processing..." : "Mark as Delivered"}
+            </Button>
+          )}
+
+          {/* Delivery Flow Explanation */}
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg text-xs text-amber-700 dark:text-amber-400">
+            <strong>Delivery Flow:</strong>
+            <div className="mt-1 space-y-1">
+              <p>1. Manufacturer marks as PACKED (with video)</p>
+              <p>2. Admin assigns courier + tracking ID → PICKUP_SCHEDULED</p>
+              <p>3. Admin marks as IN_TRANSIT when picked up</p>
+              <p>4. Admin marks as DELIVERED on confirmation</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

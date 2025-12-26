@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import OrderChat from "@/components/OrderChat";
-import TrackingIdInput from "@/components/TrackingIdInput";
+import ManufacturerPackingAction from "@/components/ManufacturerPackingAction";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
 import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
@@ -770,16 +770,20 @@ const ManufacturerOrderDetails = () => {
             fabricType={order.fabric_type || undefined}
           />
 
-          {order.tracking_id || order.dispatched_at ? (
+          {/* Manufacturer Packing Action - ONLY action manufacturer can do for delivery */}
+          {order.order_state && ['READY_FOR_DISPATCH', 'BULK_QC_UPLOADED'].includes(order.order_state) && (
+            <ManufacturerPackingAction order={order} onUpdate={fetchOrderDetails} />
+          )}
+          
+          {/* Show delivery status (read-only) after packed */}
+          {order.delivery_status && order.delivery_status !== 'NOT_STARTED' && (
             <DeliveryTrackingInfo
               trackingId={order.tracking_id || undefined}
-              trackingUrl={order.tracking_url || undefined}
+              trackingUrl={undefined} /* Manufacturer doesn't get external tracking links */
               dispatchedAt={order.dispatched_at || undefined}
               estimatedDeliveryDate={order.estimated_delivery_date || undefined}
             />
-          ) : order.status === "sample_in_production" ? (
-            <TrackingIdInput orderId={order.id} onSuccess={fetchOrderDetails} />
-          ) : null}
+          )}
 
           <OrderChat orderId={order.id} currentUserId={currentUserId} />
         </div>
