@@ -29,10 +29,11 @@ export interface ValidationResult {
 }
 
 /**
- * Required fields per buyer purpose
+ * Required fields per buyer purpose AT SUBMISSION TIME
+ * NOTE: CSV is NOT required at submission - it's validated at bulk transition
  */
 const REQUIRED_FIELDS: Record<BuyerPurpose, string[]> = {
-  merch_bulk: ['designFile', 'csv', 'fabric', 'quantity'],
+  merch_bulk: ['designFile', 'fabric', 'quantity'], // CSV removed - validated at bulk transition
   blank_apparel: ['fabric', 'color', 'quantity'],
   fabric_only: ['fabric', 'quantity'],
 };
@@ -194,11 +195,21 @@ export function isDesignRequired(purpose: BuyerPurpose): boolean {
 }
 
 /**
- * Check if CSV is required for a buyer purpose
+ * Check if CSV is required for a buyer purpose AT SUBMISSION
+ * NOTE: This returns false - CSV is validated at bulk transition, not submission
  * @param purpose - Buyer purpose
- * @returns boolean - True if CSV is required
+ * @returns boolean - Always false for submission (CSV validated at bulk transition)
  */
-export function isCsvRequired(purpose: BuyerPurpose): boolean {
+export function isCsvRequiredAtSubmission(purpose: BuyerPurpose): boolean {
+  return false; // CSV is never required at submission
+}
+
+/**
+ * Check if CSV is required for bulk production (merch orders with printing)
+ * @param purpose - Buyer purpose
+ * @returns boolean - True if CSV is required before bulk production
+ */
+export function isCsvRequiredForBulk(purpose: BuyerPurpose): boolean {
   return purpose === 'merch_bulk';
 }
 

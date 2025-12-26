@@ -39,7 +39,11 @@ export type OrderEventType =
   | 'payment_held'                    // Payment captured and held in escrow
   | 'payment_releasable'              // All conditions met for release
   | 'payment_released'                // Payment released to manufacturer
-  | 'payment_refunded';               // Payment refunded to buyer (admin only)
+  | 'payment_refunded'                // Payment refunded to buyer (admin only)
+  // CSV validation events
+  | 'csv_uploaded'                    // CSV file uploaded by buyer
+  | 'csv_validation_passed'           // CSV validation gate passed for bulk transition
+  | 'csv_validation_blocked';         // Bulk transition blocked due to missing CSV
 
 /**
  * Logs an order event to the order_events table for analytics.

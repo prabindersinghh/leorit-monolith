@@ -7,6 +7,7 @@
  */
 
 import { logOrderEvent } from './orderEventLogger';
+import { BuyerPurpose, isCsvRequiredForBulk } from './buyerPurposeValidation';
 
 // Order states in strict linear order
 export type OrderState =
@@ -267,4 +268,144 @@ export function validateTransition(
   }
   
   return `Invalid transition: ${STATE_LABELS[from]} → ${STATE_LABELS[to]}. Valid next states: ${validNext.map(s => STATE_LABELS[s]).join(', ')}.`;
+}
+
+// ============= CSV VALIDATION GUARDS =============
+
+export interface CsvValidationData {
+  orderId: string;
+  buyerPurpose: BuyerPurpose | null;
+  csvFileUrl?: string | null;
+  correctedCsvUrl?: string | null;
+}
+
+export interface CsvValidationResult {
+  allowed: boolean;
+  reason?: string;
+}
+
+/**
+ * Check if CSV is required for bulk production based on buyer purpose
+ * CSV is ONLY required for merch_bulk orders (orders with printing)
+ * @param buyerPurpose - The buyer's order purpose
+ * @returns boolean - True if CSV is required for bulk transition
+ */
+export function requiresCsvForBulk(buyerPurpose: BuyerPurpose | null): boolean {
+  if (!buyerPurpose) return false;
+  return isCsvRequiredForBulk(buyerPurpose);
+}
+
+/**
+ * Check if order has valid CSV uploaded
+ * @param data - CSV validation data
+ * @returns boolean - True if CSV is present
+ */
+export function hasCsvUploaded(data: CsvValidationData): boolean {
+  return !!(data.csvFileUrl || data.correctedCsvUrl);
+}
+
+/**
+ * Validate if order can transition to bulk states (BULK_UNLOCKED or BULK_IN_PRODUCTION)
+ * CSV is required ONLY for merch_bulk orders
+ * 
+ * @param targetState - Target state to transition to
+ * @param data - CSV validation data including order context
+ * @returns CsvValidationResult with allowed flag and reason if blocked
+ */
+export function validateCsvForBulkTransition(
+  targetState: OrderState,
+  data: CsvValidationData
+): CsvValidationResult {
+  // Only validate for bulk transition states
+  const bulkTransitionStates: OrderState[] = ['BULK_UNLOCKED', 'BULK_IN_PRODUCTION'];
+  if (!bulkTransitionStates.includes(targetState)) {
+    return { allowed: true };
+  }
+  
+  // Check if CSV is required for this order type
+  if (!requiresCsvForBulk(data.buyerPurpose)) {
+    // CSV not required for blank_apparel, fabric_only, sample_only
+    return { allowed: true };
+  }
+  
+  // For merch_bulk orders, CSV must be uploaded before bulk production
+  if (!hasCsvUploaded(data)) {
+    return {
+      allowed: false,
+      reason: 'CSV required before bulk production. Please upload CSV with sizes and names.',
+    };
+  }
+  
+  return { allowed: true };
+}
+
+/**
+ * Log CSV upload event
+ * @param orderId - Order ID
+ * @param csvUrl - URL of uploaded CSV
+ */
+export async function logCsvUploaded(orderId: string, csvUrl: string): Promise<void> {
+  await logOrderEvent(orderId, 'csv_uploaded', {
+    csv_url: csvUrl,
+    uploaded_at: new Date().toISOString(),
+  });
+}
+
+/**
+ * Log CSV validation gate passed (bulk transition allowed)
+ * @param orderId - Order ID
+ * @param targetState - Target state being transitioned to
+ */
+export async function logCsvValidationPassed(orderId: string, targetState: OrderState): Promise<void> {
+  await logOrderEvent(orderId, 'csv_validation_passed', {
+    target_state: targetState,
+    validated_at: new Date().toISOString(),
+  });
+}
+
+/**
+ * Log CSV validation blocked (bulk transition denied)
+ * @param orderId - Order ID
+ * @param targetState - Target state that was blocked
+ * @param reason - Reason for blocking
+ */
+export async function logCsvValidationBlocked(
+  orderId: string,
+  targetState: OrderState,
+  reason: string
+): Promise<void> {
+  await logOrderEvent(orderId, 'csv_validation_blocked', {
+    target_state: targetState,
+    reason,
+    blocked_at: new Date().toISOString(),
+  });
+}
+
+/**
+ * Full validation for bulk state transition including CSV check
+ * Combines standard transition validation with CSV guard
+ * 
+ * @param from - Current state
+ * @param to - Target state
+ * @param csvData - CSV validation data
+ * @returns string | null - Error message if invalid, null if valid
+ */
+export function validateBulkTransitionWithCsv(
+  from: OrderState | null | undefined,
+  to: OrderState,
+  csvData: CsvValidationData
+): string | null {
+  // First check standard transition validity
+  const transitionError = validateTransition(from, to);
+  if (transitionError) {
+    return transitionError;
+  }
+  
+  // Then check CSV guard for bulk transitions
+  const csvResult = validateCsvForBulkTransition(to, csvData);
+  if (!csvResult.allowed) {
+    return csvResult.reason || 'CSV validation failed';
+  }
+  
+  return null;
 }
