@@ -23,7 +23,10 @@ export type OrderEventType =
   | 'upfront_payment_locked'          // 55% upfront payment locked in escrow
   | 'upfront_payment_released'        // 55% released after sample approval (sample-only) or partial release
   | 'remaining_payment_released'      // 45% released after bulk QC + delivery confirmed
-  | 'full_payment_released';          // Full payment released (order completed)
+  | 'full_payment_released'           // Full payment released (order completed)
+  | 'bulk_qc_uploaded'                // Bulk QC video uploaded by manufacturer
+  | 'bulk_qc_approved'                // Bulk QC approved by buyer
+  | 'bulk_qc_rejected';               // Bulk QC rejected by buyer (reason required)
 
 /**
  * Logs an order event to the order_events table for analytics.
