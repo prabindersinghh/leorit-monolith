@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
 import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import OrderEvidenceView from "@/components/OrderEvidenceView";
+import AdminOrderControlPanel from "@/components/AdminOrderControlPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,8 @@ import {
   Image,
   FileSpreadsheet,
   Shield,
-  AlertCircle
+  AlertCircle,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -174,6 +176,19 @@ const AdminOrderDetails = () => {
               <Badge>{order.detailed_status || order.status}</Badge>
             </div>
           </div>
+
+          {/* Admin Control Panel - Assign manufacturer, courier, manual transitions */}
+          <Card className="border-2 border-primary/30 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-primary" />
+                Admin Control Panel
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AdminOrderControlPanel order={order} onUpdate={fetchOrderDetails} />
+            </CardContent>
+          </Card>
 
           {/* Evidence Bundle - YC Ready */}
           <OrderEvidenceView 
