@@ -30,6 +30,7 @@ import DisputeCenter from "./pages/Admin/DisputeCenter";
 import Analytics from "./pages/Admin/Analytics";
 import AdminOrderDetails from "./pages/Admin/OrderDetails";
 import Manufacturers from "./pages/Admin/Manufacturers";
+import CommandCenter from "./pages/Admin/CommandCenter";
 
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
@@ -135,6 +136,11 @@ const App = () => (
           <Route path="/admin/manufacturers" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <Manufacturers />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/command-center" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <CommandCenter />
             </ProtectedRoute>
           } />
 

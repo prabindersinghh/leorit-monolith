@@ -1,4 +1,4 @@
-import { Home, Package, ClipboardList, Settings, Shield, Users, FileCheck, Building2 } from "lucide-react";
+import { Home, Package, ClipboardList, Settings, Shield, Users, FileCheck, Building2, Terminal } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/leorit-logo.png";
@@ -39,6 +39,7 @@ const Sidebar = ({ userRole }: SidebarProps) => {
 
   const adminLinks = [
     { to: "/admin/dashboard", icon: Home, label: "Dashboard" },
+    { to: "/admin/command-center", icon: Terminal, label: "Command Center" },
     { to: "/admin/verification", icon: Shield, label: "Verification" },
     { to: "/admin/disputes", icon: Users, label: "Disputes" },
     { to: "/admin/analytics", icon: ClipboardList, label: "Analytics" },
