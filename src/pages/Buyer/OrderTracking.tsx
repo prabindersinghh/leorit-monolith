@@ -4,6 +4,7 @@ import SampleQCReview from "@/components/SampleQCReview";
 import PaymentTimeline from "@/components/PaymentTimeline";
 import EscrowMoneyFlow from "@/components/EscrowMoneyFlow";
 import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
+import BuyerDeliveryTracking from "@/components/BuyerDeliveryTracking";
 import { Button } from "@/components/ui/button";
 import { Eye, Package, Clock, CheckCircle2, Truck, Send } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -437,6 +438,18 @@ const OrderTracking = () => {
               })()}
             </div>
           )}
+
+          {/* Delivery Tracking Section - Buyer view only, no actions */}
+          {selectedOrder && (() => {
+            const order = orders.find(o => o.id === selectedOrder);
+            if (!order) return null;
+            
+            return (
+              <div className="mb-6">
+                <BuyerDeliveryTracking order={order} />
+              </div>
+            );
+          })()}
 
           {/* Sample QC Section */}
           {selectedOrder && (
