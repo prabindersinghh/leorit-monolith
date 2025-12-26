@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
 import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import OrderEvidenceView from "@/components/OrderEvidenceView";
+import EvidenceSummary from "@/components/EvidenceSummary";
 import AdminOrderControlPanel from "@/components/AdminOrderControlPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -190,7 +191,13 @@ const AdminOrderDetails = () => {
             </CardContent>
           </Card>
 
-          {/* Evidence Bundle - YC Ready */}
+          {/* Evidence Summary - YC Ready with Copy */}
+          <EvidenceSummary
+            order={order}
+            manufacturerName={manufacturerVerification?.company_name}
+          />
+
+          {/* Detailed Evidence Bundle */}
           <OrderEvidenceView 
             order={order} 
             manufacturerInfo={manufacturerInfo}
