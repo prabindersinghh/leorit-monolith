@@ -67,6 +67,10 @@ export type Database = {
           id: string
           location: string
           notes: string | null
+          pause_reason: string | null
+          paused: boolean | null
+          paused_at: string | null
+          paused_by: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           soft_onboarded: boolean | null
@@ -84,6 +88,10 @@ export type Database = {
           id?: string
           location: string
           notes?: string | null
+          pause_reason?: string | null
+          paused?: boolean | null
+          paused_at?: string | null
+          paused_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           soft_onboarded?: boolean | null
@@ -101,6 +109,10 @@ export type Database = {
           id?: string
           location?: string
           notes?: string | null
+          pause_reason?: string | null
+          paused?: boolean | null
+          paused_at?: string | null
+          paused_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           soft_onboarded?: boolean | null
@@ -269,11 +281,13 @@ export type Database = {
       }
       orders: {
         Row: {
+          acceptance_delay_hours: number | null
           assigned_at: string | null
           back_design_url: string | null
           back_mockup_image: string | null
           bulk_order_confirmed_at: string | null
           bulk_qc_approved_at: string | null
+          bulk_qc_delay_hours: number | null
           bulk_qc_uploaded_at: string | null
           bulk_qc_video_url: string | null
           bulk_status: string | null
@@ -287,6 +301,7 @@ export type Database = {
           created_at: string
           delivered_at: string | null
           delivery_cost: number | null
+          delivery_delay_hours: number | null
           delivery_status: string | null
           design_file_url: string | null
           design_size: string
@@ -333,6 +348,7 @@ export type Database = {
           sample_order_placed_at: string | null
           sample_production_started_at: string | null
           sample_qc_approved_at: string | null
+          sample_qc_delay_hours: number | null
           sample_qc_uploaded_at: string | null
           sample_qc_video_url: string | null
           sample_required: boolean | null
@@ -349,11 +365,13 @@ export type Database = {
           upfront_payable_amount: number | null
         }
         Insert: {
+          acceptance_delay_hours?: number | null
           assigned_at?: string | null
           back_design_url?: string | null
           back_mockup_image?: string | null
           bulk_order_confirmed_at?: string | null
           bulk_qc_approved_at?: string | null
+          bulk_qc_delay_hours?: number | null
           bulk_qc_uploaded_at?: string | null
           bulk_qc_video_url?: string | null
           bulk_status?: string | null
@@ -367,6 +385,7 @@ export type Database = {
           created_at?: string
           delivered_at?: string | null
           delivery_cost?: number | null
+          delivery_delay_hours?: number | null
           delivery_status?: string | null
           design_file_url?: string | null
           design_size: string
@@ -413,6 +432,7 @@ export type Database = {
           sample_order_placed_at?: string | null
           sample_production_started_at?: string | null
           sample_qc_approved_at?: string | null
+          sample_qc_delay_hours?: number | null
           sample_qc_uploaded_at?: string | null
           sample_qc_video_url?: string | null
           sample_required?: boolean | null
@@ -429,11 +449,13 @@ export type Database = {
           upfront_payable_amount?: number | null
         }
         Update: {
+          acceptance_delay_hours?: number | null
           assigned_at?: string | null
           back_design_url?: string | null
           back_mockup_image?: string | null
           bulk_order_confirmed_at?: string | null
           bulk_qc_approved_at?: string | null
+          bulk_qc_delay_hours?: number | null
           bulk_qc_uploaded_at?: string | null
           bulk_qc_video_url?: string | null
           bulk_status?: string | null
@@ -447,6 +469,7 @@ export type Database = {
           created_at?: string
           delivered_at?: string | null
           delivery_cost?: number | null
+          delivery_delay_hours?: number | null
           delivery_status?: string | null
           design_file_url?: string | null
           design_size?: string
@@ -493,6 +516,7 @@ export type Database = {
           sample_order_placed_at?: string | null
           sample_production_started_at?: string | null
           sample_qc_approved_at?: string | null
+          sample_qc_delay_hours?: number | null
           sample_qc_uploaded_at?: string | null
           sample_qc_video_url?: string | null
           sample_required?: boolean | null
