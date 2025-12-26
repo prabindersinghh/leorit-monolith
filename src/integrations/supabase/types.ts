@@ -283,6 +283,7 @@ export type Database = {
           buyer_type: Database["public"]["Enums"]["buyer_type"] | null
           concern_notes: string | null
           corrected_csv_url: string | null
+          courier_name: string | null
           created_at: string
           delivered_at: string | null
           delivery_cost: number | null
@@ -304,14 +305,17 @@ export type Database = {
           fake_payment_timestamp: string | null
           generated_preview: string | null
           id: string
+          in_transit_at: string | null
           manufacturer_accept_time: string | null
           manufacturer_id: string | null
           mockup_image: string | null
           order_intent: Database["public"]["Enums"]["order_intent"] | null
           order_mode: Database["public"]["Enums"]["order_mode"] | null
           order_state: Database["public"]["Enums"]["order_state"] | null
+          packaging_video_url: string | null
           packed_at: string | null
           payment_status: string | null
+          pickup_scheduled_at: string | null
           product_category: string | null
           product_type: string
           qc_feedback: string | null
@@ -355,6 +359,7 @@ export type Database = {
           buyer_type?: Database["public"]["Enums"]["buyer_type"] | null
           concern_notes?: string | null
           corrected_csv_url?: string | null
+          courier_name?: string | null
           created_at?: string
           delivered_at?: string | null
           delivery_cost?: number | null
@@ -376,14 +381,17 @@ export type Database = {
           fake_payment_timestamp?: string | null
           generated_preview?: string | null
           id?: string
+          in_transit_at?: string | null
           manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
           mockup_image?: string | null
           order_intent?: Database["public"]["Enums"]["order_intent"] | null
           order_mode?: Database["public"]["Enums"]["order_mode"] | null
           order_state?: Database["public"]["Enums"]["order_state"] | null
+          packaging_video_url?: string | null
           packed_at?: string | null
           payment_status?: string | null
+          pickup_scheduled_at?: string | null
           product_category?: string | null
           product_type: string
           qc_feedback?: string | null
@@ -427,6 +435,7 @@ export type Database = {
           buyer_type?: Database["public"]["Enums"]["buyer_type"] | null
           concern_notes?: string | null
           corrected_csv_url?: string | null
+          courier_name?: string | null
           created_at?: string
           delivered_at?: string | null
           delivery_cost?: number | null
@@ -448,14 +457,17 @@ export type Database = {
           fake_payment_timestamp?: string | null
           generated_preview?: string | null
           id?: string
+          in_transit_at?: string | null
           manufacturer_accept_time?: string | null
           manufacturer_id?: string | null
           mockup_image?: string | null
           order_intent?: Database["public"]["Enums"]["order_intent"] | null
           order_mode?: Database["public"]["Enums"]["order_mode"] | null
           order_state?: Database["public"]["Enums"]["order_state"] | null
+          packaging_video_url?: string | null
           packed_at?: string | null
           payment_status?: string | null
+          pickup_scheduled_at?: string | null
           product_category?: string | null
           product_type?: string
           qc_feedback?: string | null
@@ -603,6 +615,12 @@ export type Database = {
       app_role: "buyer" | "manufacturer" | "admin"
       buyer_purpose: "merch_bulk" | "blank_apparel" | "fabric_only"
       buyer_type: "campus" | "brand" | "fabric"
+      delivery_state:
+        | "NOT_STARTED"
+        | "PACKED"
+        | "PICKUP_SCHEDULED"
+        | "IN_TRANSIT"
+        | "DELIVERED"
       escrow_status: "pending" | "fake_paid" | "fake_released"
       order_detailed_status:
         | "created"
@@ -764,6 +782,13 @@ export const Constants = {
       app_role: ["buyer", "manufacturer", "admin"],
       buyer_purpose: ["merch_bulk", "blank_apparel", "fabric_only"],
       buyer_type: ["campus", "brand", "fabric"],
+      delivery_state: [
+        "NOT_STARTED",
+        "PACKED",
+        "PICKUP_SCHEDULED",
+        "IN_TRANSIT",
+        "DELIVERED",
+      ],
       escrow_status: ["pending", "fake_paid", "fake_released"],
       order_detailed_status: [
         "created",
