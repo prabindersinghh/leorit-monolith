@@ -25,6 +25,7 @@ import { calculateDeliveryCost } from "@/lib/deliveryCostCalculator";
 import { getFabricsForProduct, getDefaultFabric, getFabricById, FabricOption } from "@/lib/fabrics";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { validateOrderSubmission, formatValidationErrors } from "@/lib/buyerPurposeValidation";
 
 const StartOrder = () => {
   // Step 0 is the new buyer purpose selector
@@ -948,6 +949,30 @@ const StartOrder = () => {
                         toast.error("Please login to place an order");
                         return;
                       }
+
+                      // =====================================================
+                      // BUYER PURPOSE VALIDATION GUARD - ADD ONLY
+                      // Enforces required fields before allowing SUBMITTED state
+                      // =====================================================
+                      const validationResult = validateOrderSubmission({
+                        buyerPurpose: buyerPurpose,
+                        designFileUrl: mockupImage || null, // Using mockup as proxy for design upload
+                        csvFileUrl: correctedCsv || csvAnalysis || null,
+                        fabricType: selectedFabric?.label || null,
+                        selectedColor: selectedColor || null,
+                        quantity: isSampleOnly ? 1 : bulkQuantity,
+                        productType: productType || null,
+                      });
+
+                      if (!validationResult.isValid) {
+                        const errorMessage = formatValidationErrors(validationResult.errors);
+                        toast.error(errorMessage, { duration: 5000 });
+                        console.error('Order submission blocked:', validationResult.errors);
+                        return;
+                      }
+                      // =====================================================
+                      // END: BUYER PURPOSE VALIDATION GUARD
+                      // =====================================================
 
                       // Validate bulk quantity
                       if (!isSampleOnly && (bulkQuantity < 1 || bulkQuantity > 1000)) {
