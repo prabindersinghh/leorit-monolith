@@ -24,7 +24,9 @@ import {
   FileSpreadsheet,
   Shield,
   AlertCircle,
-  Settings
+  Settings,
+  Route,
+  Info
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -588,6 +590,64 @@ const AdminOrderDetails = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Manufacturer Routing Rationale */}
+          {order.manufacturer_id && manufacturerVerification && (
+            <Card className="border-dashed border-muted-foreground/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Route className="h-4 w-4 text-muted-foreground" />
+                  Routing Rationale
+                  <Badge variant="outline" className="ml-2 text-xs font-normal">Read-only</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">
+                        Assigned to: <span className="text-primary">{manufacturerVerification.company_name}</span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Matched based on{' '}
+                        {[
+                          order.product_category && 'category support',
+                          order.fabric_type && 'fabric type compatibility',
+                          manufacturerVerification.capacity && 'available capacity',
+                          manufacturerVerification.city && 'geographic proximity',
+                          manufacturerVerification.verified && 'verified status'
+                        ].filter(Boolean).join(', ') || 'general availability'}
+                        .
+                      </p>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {order.product_category && (
+                          <Badge variant="secondary" className="text-xs">
+                            Category: {order.product_category}
+                          </Badge>
+                        )}
+                        {order.fabric_type && (
+                          <Badge variant="secondary" className="text-xs">
+                            Fabric: {order.fabric_type}
+                          </Badge>
+                        )}
+                        {manufacturerVerification.capacity && (
+                          <Badge variant="secondary" className="text-xs">
+                            Capacity: {manufacturerVerification.capacity}
+                          </Badge>
+                        )}
+                        {manufacturerVerification.city && (
+                          <Badge variant="secondary" className="text-xs">
+                            Location: {manufacturerVerification.city}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Row 4: Deadlines & Delivery */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
