@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowRight, Sparkles, Download, Edit, Link2, Type, Shield, CalendarIcon } from "lucide-react";
+import { ArrowRight, Sparkles, Download, Edit, Link2, Type, Shield, CalendarIcon, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OrderDetailedStatus } from "@/lib/orderStateMachine";
@@ -56,6 +56,8 @@ const StartOrder = () => {
   const [expectedDeadline, setExpectedDeadline] = useState<Date | undefined>(undefined);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [buyerNotes, setBuyerNotes] = useState<string>("");
+  const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
+  const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
   
   const fabricSectionRef = useRef<HTMLDivElement>(null);
 
@@ -787,17 +789,48 @@ const StartOrder = () => {
             {/* Step 6: Payment */}
             {internalStep === 6 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-foreground">Payment & Escrow</h2>
-                
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <h3 className="font-semibold text-blue-900 mb-1">Protected Payment</h3>
-                    <p className="text-sm text-blue-700">
-                      Your payment is held securely in escrow and only released to the manufacturer after you approve the QC.
-                    </p>
+                {/* Order Confirmation Screen */}
+                {showOrderConfirmation ? (
+                  <div className="text-center py-8 space-y-6">
+                    <div className="flex justify-center">
+                      <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                        <CheckCircle2 className="w-10 h-10 text-green-600" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-bold text-foreground">Order Submitted Successfully</h2>
+                      <p className="text-muted-foreground max-w-md mx-auto">
+                        Our team will review and approve your order within 12 hours.
+                        Payment will be requested only after approval.
+                      </p>
+                    </div>
+                    {submittedOrderId && (
+                      <p className="text-sm text-muted-foreground">
+                        Order ID: <span className="font-mono font-medium">{submittedOrderId.slice(0, 8)}...</span>
+                      </p>
+                    )}
+                    <div className="pt-4">
+                      <Button
+                        onClick={() => window.location.href = '/buyer/orders'}
+                        className="bg-foreground text-background hover:bg-gray-800"
+                      >
+                        View My Orders
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <h2 className="text-2xl font-bold text-foreground">Review & Submit</h2>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                      <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <h3 className="font-semibold text-blue-900 mb-1">How It Works</h3>
+                        <p className="text-sm text-blue-700">
+                          Submit your order for review. Our team will verify requirements and contact you within 12 hours. Payment is only requested after approval.
+                        </p>
+                      </div>
+                    </div>
 
                 {/* Buyer Notes Input - TASK D */}
                 <BuyerNotesInput
@@ -946,7 +979,7 @@ const StartOrder = () => {
                         </div>
                         <div className="pt-3 border-t border-border">
                           <div className="flex justify-between text-lg">
-                            <span className="text-foreground font-semibold">Total Payable:</span>
+                            <span className="text-foreground font-semibold">Estimated Order Value:</span>
                             <span className="font-bold text-foreground">₹{totalAmount.toLocaleString()}</span>
                           </div>
                         </div>
@@ -956,7 +989,7 @@ const StartOrder = () => {
                   
                   <div className="pt-3 border-t border-border">
                     <p className="text-xs text-muted-foreground">
-                      Full amount will be transferred to escrow and released only after QC approval.
+                      Payment will be requested only after our team reviews and approves your order.
                     </p>
                   </div>
                 </div>
@@ -1029,18 +1062,13 @@ const StartOrder = () => {
                       const escrowAmount = upfrontPayableAmount;
                       const totalAmount = totalOrderValue; // Buyer sees full cost
 
-                      // START: Fake Escrow Payment Simulation Layer
+                      // START: Order Submission Processing
                       setIsProcessingPayment(true);
-                      toast.loading("Processing payment...", { id: "payment-processing" });
+                      toast.loading("Submitting order for review...", { id: "payment-processing" });
                       
-                      // Simulate 2-second payment processing
-                      await new Promise(resolve => setTimeout(resolve, 2000));
-                      
-                      toast.success(`Payment Sent to Escrow (Test Mode) - ₹${totalAmount.toLocaleString()}`, { 
-                        id: "payment-processing",
-                        duration: 4000 
-                      });
-                      // END: Fake Escrow Payment Simulation Layer
+                      // Brief processing delay for UX
+                      await new Promise(resolve => setTimeout(resolve, 1500));
+                      // END: Order Submission Processing
 
                       // =====================================================
                       // MANAGED MANUFACTURING MODEL - No buyer choice
@@ -1121,15 +1149,11 @@ const StartOrder = () => {
                         await logOrderEvent(orderResponse.id, 'back_mockup_generated', { url: backMockupImage });
                       }
                       
-                      toast.success(
-                        `Order placed! ₹${totalAmount.toLocaleString()} (incl. ₹${deliveryCost} delivery) transferred to escrow.`,
-                        { duration: 5000 }
-                      );
-                      
-                      // Reset form or redirect
-                      setTimeout(() => {
-                        window.location.href = '/buyer/orders';
-                      }, 2000);
+                      // Show confirmation screen instead of toast + redirect
+                      setSubmittedOrderId(orderResponse.id);
+                      setShowOrderConfirmation(true);
+                      setIsProcessingPayment(false);
+                      toast.dismiss("payment-processing");
                     } catch (error) {
                       console.error('Error placing order:', error);
                       toast.error("Failed to place order");
@@ -1137,14 +1161,10 @@ const StartOrder = () => {
                     }
                   }}
                 >
-                  {isProcessingPayment ? "Processing..." : `Place Order - ₹${(() => {
-                    const quantity = isSampleOnly ? 1 : bulkQuantity;
-                    const pricePerPiece = isSampleOnly ? 500 : 380;
-                    const orderCost = quantity * pricePerPiece;
-                    const deliveryCost = calculateDeliveryCost({ productType, quantity }).cost;
-                    return (orderCost + deliveryCost).toLocaleString();
-                  })()}`}
+                  {isProcessingPayment ? "Submitting..." : "Submit Order for Review"}
                 </Button>
+                  </>
+                )}
               </div>
             )}
 
