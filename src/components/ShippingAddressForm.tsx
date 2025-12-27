@@ -135,7 +135,7 @@ const ShippingAddressForm = ({ onSubmit, onBack }: ShippingAddressFormProps) => 
                 Back
               </Button>
             )}
-            <Button type="submit">Continue to Payment</Button>
+            <Button type="submit">Continue to Review</Button>
           </div>
         </form>
       </CardContent>
