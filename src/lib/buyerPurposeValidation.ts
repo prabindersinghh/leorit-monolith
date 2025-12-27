@@ -33,9 +33,9 @@ export interface ValidationResult {
  * NOTE: CSV is NOT required at submission - it's validated at bulk transition
  */
 const REQUIRED_FIELDS: Record<BuyerPurpose, string[]> = {
-  merch_bulk: ['designFile', 'fabric', 'quantity'], // CSV removed - validated at bulk transition
+  merch_bulk: ['designFile', 'fabric', 'color', 'quantity'], // Color now required for merch_bulk
   blank_apparel: ['fabric', 'color', 'quantity'],
-  fabric_only: ['fabric', 'quantity'],
+  fabric_only: ['fabric', 'quantity'], // No color required for fabric-only
 };
 
 /**
@@ -122,11 +122,11 @@ function validateField(field: string, data: OrderSubmissionData): ValidationErro
       break;
       
     case 'color':
-      // Color required for blank_apparel
+      // Color required for merch_bulk and blank_apparel (garment orders)
       if (!data.selectedColor) {
         return {
           field: 'color',
-          message: `${label} is required for blank apparel orders`,
+          message: `${label} is required for garment orders`,
         };
       }
       break;
@@ -217,8 +217,8 @@ export function isCsvRequiredForBulk(purpose: BuyerPurpose): boolean {
 /**
  * Check if color is required for a buyer purpose
  * @param purpose - Buyer purpose
- * @returns boolean - True if color is required
+ * @returns boolean - True if color is required (merch_bulk and blank_apparel)
  */
 export function isColorRequired(purpose: BuyerPurpose): boolean {
-  return purpose === 'blank_apparel';
+  return purpose === 'merch_bulk' || purpose === 'blank_apparel';
 }

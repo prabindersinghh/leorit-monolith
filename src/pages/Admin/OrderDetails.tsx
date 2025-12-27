@@ -255,6 +255,14 @@ const AdminOrderDetails = () => {
                   <span className="text-muted-foreground">Design Size:</span>
                   <span className="font-medium">{order.design_size}</span>
                 </div>
+                {order.selected_color && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Base Garment Color:</span>
+                    <Badge variant="outline" className="capitalize">
+                      {order.selected_color.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                )}
                 {order.fabric_type && (
                   <>
                     <div className="flex justify-between pt-2 border-t">
