@@ -366,17 +366,6 @@ const StartOrder = () => {
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground">Select Product Type</h2>
                 
-                {/* Color selection for blank_apparel */}
-                {buyerPurpose === "blank_apparel" && (
-                  <div className="mb-6">
-                    <ColorSelector
-                      selectedColor={selectedColor}
-                      onColorSelect={setSelectedColor}
-                      required={true}
-                    />
-                  </div>
-                )}
-                
                 <div className="grid grid-cols-2 gap-4">
                   {["T-Shirts", "Hoodies", "Caps", "Bags", "Jackets", "Custom"].map((product) => (
                     <button
@@ -398,9 +387,20 @@ const StartOrder = () => {
                   ))}
                 </div>
                 
-                {buyerPurpose === "blank_apparel" && !selectedColor && (
+                {/* Color selection for merch_bulk and blank_apparel */}
+                {(buyerPurpose === "merch_bulk" || buyerPurpose === "blank_apparel") && productType && (
+                  <div className="pt-4 border-t border-border">
+                    <ColorSelector
+                      selectedColor={selectedColor}
+                      onColorSelect={setSelectedColor}
+                      required={true}
+                    />
+                  </div>
+                )}
+                
+                {(buyerPurpose === "merch_bulk" || buyerPurpose === "blank_apparel") && productType && !selectedColor && (
                   <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
-                    Please select a color for your blank apparel order
+                    Please select a base garment color to continue
                   </p>
                 )}
               </div>
@@ -757,11 +757,7 @@ const StartOrder = () => {
                   </div>
                 </div>
                 
-                {(buyerPurpose === "fabric_only" || buyerPurpose === "blank_apparel") && !selectedColor && (
-                  <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
-                    Please select a color to continue
-                  </p>
-                )}
+                {/* Color warning removed - color is now selected in product step for merch_bulk and blank_apparel */}
               </div>
             )}
 
@@ -1184,7 +1180,7 @@ const StartOrder = () => {
                   onClick={handleNextStep}
                   disabled={
                     (internalStep === 1 && !productType) ||
-                    (internalStep === 1 && buyerPurpose === "blank_apparel" && !selectedColor) ||
+                    (internalStep === 1 && (buyerPurpose === "merch_bulk" || buyerPurpose === "blank_apparel") && !selectedColor) ||
                     (internalStep === 4 && needsColorSelection && !selectedColor)
                   }
                 >
