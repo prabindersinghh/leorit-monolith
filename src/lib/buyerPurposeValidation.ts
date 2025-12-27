@@ -91,11 +91,12 @@ function validateField(field: string, data: OrderSubmissionData): ValidationErro
   
   switch (field) {
     case 'designFile':
-      // For merch_bulk, design file is required
-      if (!data.designFileUrl) {
+      // For merch_bulk, at least ONE design file (front OR back) is required
+      const hasAnyDesign = !!data.designFileUrl || !!data.backDesignUrl;
+      if (!hasAnyDesign) {
         return {
           field: 'designFile',
-          message: `${label} is required for merchandise/bulk orders`,
+          message: `${label} is required for merchandise/bulk orders (front or back)`,
         };
       }
       break;
