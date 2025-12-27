@@ -1011,7 +1011,8 @@ const StartOrder = () => {
                       // =====================================================
                       const validationResult = validateOrderSubmission({
                         buyerPurpose: buyerPurpose,
-                        designFileUrl: mockupImage || null, // Using mockup as proxy for design upload
+                        designFileUrl: mockupImage || (designFile ? 'pending' : null), // Front design
+                        backDesignUrl: backMockupImage || (backDesignFile ? 'pending' : null), // Back design
                         csvFileUrl: correctedCsv || csvAnalysis || null,
                         fabricType: selectedFabric?.label || null,
                         selectedColor: selectedColor || null,
