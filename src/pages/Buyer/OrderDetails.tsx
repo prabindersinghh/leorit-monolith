@@ -11,8 +11,10 @@ import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MapPin } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FileText, Package, MapPin, CreditCard, Info } from "lucide-react";
 import { toast } from "sonner";
+import { getBuyerDisplayStatus, isAwaitingReview } from "@/lib/buyerStatusLabels";
 
 const OrderDetails = () => {
   const { id } = useParams();
@@ -74,6 +76,9 @@ const OrderDetails = () => {
     );
   }
 
+  const displayStatus = getBuyerDisplayStatus(order);
+  const awaitingReview = isAwaitingReview(order);
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole="buyer" />
@@ -81,8 +86,36 @@ const OrderDetails = () => {
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold">Order Details</h1>
-            <Badge>{order.status}</Badge>
+            <Badge className={displayStatus.color}>{displayStatus.label}</Badge>
           </div>
+
+          {/* Informational alert for orders under review */}
+          {awaitingReview && (
+            <Alert className="border-amber-200 bg-amber-50">
+              <Info className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                Your order is under review. Payment will be enabled after approval.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Payment Pending Alert with Proceed to Payment button */}
+          {displayStatus.showPaymentPending && (
+            <Alert className="border-orange-200 bg-orange-50">
+              <CreditCard className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800 flex items-center justify-between">
+                <span>Your order has been approved! Please complete the payment to proceed.</span>
+                <Button 
+                  size="sm"
+                  className="ml-4 bg-orange-600 hover:bg-orange-700 text-white"
+                  onClick={() => toast.info("Payment gateway will be integrated soon")}
+                >
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Proceed to Payment
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Order Mode Info Banner - ADD-ONLY informational text */}
           <OrderModeInfoBanner order={order} />

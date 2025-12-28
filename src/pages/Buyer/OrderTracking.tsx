@@ -6,11 +6,13 @@ import EscrowMoneyFlow from "@/components/EscrowMoneyFlow";
 import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
 import BuyerDeliveryTracking from "@/components/BuyerDeliveryTracking";
 import { Button } from "@/components/ui/button";
-import { Eye, Package, Clock, CheckCircle2, Truck, Send } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Eye, Package, Clock, CheckCircle2, Truck, Send, CreditCard, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { canTransitionTo, statusLabels, statusColors, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
+import { canTransitionTo, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
+import { buyerStatusLabels, buyerStatusColors, getBuyerDisplayStatus, isAwaitingReview } from "@/lib/buyerStatusLabels";
 import { getOrderMode } from "@/lib/orderModeUtils";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 import { PAYMENT_CONSTANTS } from "@/lib/orderStatusConstants";
@@ -202,27 +204,33 @@ const OrderTracking = () => {
     {
       header: "Status",
       accessor: "detailed_status",
-      cell: (value: OrderDetailedStatus) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[value] || 'bg-gray-100 text-foreground'}`}>
-          {statusLabels[value] || value}
-        </span>
-      ),
+      cell: (value: OrderDetailedStatus, row: any) => {
+        const displayStatus = getBuyerDisplayStatus(row);
+        return (
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${displayStatus.color}`}>
+            {displayStatus.label}
+          </span>
+        );
+      },
     },
     { 
-      header: "Escrow", 
+      header: "Payment", 
       accessor: "escrow_amount",
       cell: (value: number, row: any) => {
-        const escrowStatus = row.escrow_status;
+        const displayStatus = getBuyerDisplayStatus(row);
         return (
           <div className="space-y-1">
             <div className="font-semibold text-foreground">
               {value ? `₹${value.toLocaleString()}` : 'N/A'}
             </div>
-            {row.escrow_locked_timestamp && !row.escrow_released_timestamp && (
-              <div className="text-xs text-yellow-600 font-medium">In Escrow</div>
+            {displayStatus.showPaymentPending && (
+              <div className="text-xs text-orange-600 font-medium">Awaiting Payment</div>
+            )}
+            {row.escrow_locked_timestamp && !row.escrow_released_timestamp && !displayStatus.showPaymentPending && (
+              <div className="text-xs text-green-600 font-medium">Paid & Secured</div>
             )}
             {row.escrow_released_timestamp && (
-              <div className="text-xs text-green-600 font-medium">Released</div>
+              <div className="text-xs text-green-600 font-medium">Completed</div>
             )}
           </div>
         );
@@ -273,6 +281,10 @@ const OrderTracking = () => {
       accessor: "id",
       cell: (value: string, row: any) => {
         const currentStatus = row.detailed_status as OrderDetailedStatus;
+        const displayStatus = getBuyerDisplayStatus(row);
+        
+        // Check if payment link exists (simulated by manufacturer_id being assigned and payment pending)
+        const hasPaymentLink = displayStatus.showPaymentPending;
         
         return (
           <div className="flex gap-2">
@@ -284,6 +296,18 @@ const OrderTracking = () => {
             >
               <Eye className="w-4 h-4" />
             </Button>
+            {/* Show Proceed to Payment button only when payment link exists */}
+            {hasPaymentLink && (
+              <Button 
+                size="sm"
+                variant="default"
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+                onClick={() => toast.info("Payment gateway will be integrated soon")}
+              >
+                <CreditCard className="w-4 h-4 mr-2" />
+                Proceed to Payment
+              </Button>
+            )}
             {currentStatus === 'dispatched' && (
               <Button 
                 size="sm"
@@ -310,6 +334,16 @@ const OrderTracking = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Order Tracking</h1>
             <p className="text-muted-foreground">Monitor all your bulk orders and samples</p>
           </div>
+
+          {/* Informational alert for orders under review */}
+          {orders.some(o => isAwaitingReview(o)) && (
+            <Alert className="mb-6 border-amber-200 bg-amber-50">
+              <Info className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                Your order is under review. Payment will be enabled after approval.
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="bg-card border border-border rounded-xl p-6 mb-6">
             {loading ? (
@@ -368,7 +402,7 @@ const OrderTracking = () => {
 
                 const timelineEvents = [
                   {
-                    label: "Order Created",
+                    label: "Order Submitted",
                     timestamp: order.created_at,
                     icon: Send,
                     color: "text-blue-600",
