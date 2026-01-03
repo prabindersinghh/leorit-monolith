@@ -227,7 +227,7 @@ const Homepage = () => {
               </div>
             </div>
             <div className="text-sm text-muted-foreground">
-              Contact: <a href="mailto:operations@leorit.xyz" className="text-foreground hover:underline">operations@leorit.xyz</a>
+              Contact: <a href="mailto:contact@leorit.xyz" className="text-foreground hover:underline">contact@leorit.xyz</a>
             </div>
           </div>
         </div>
