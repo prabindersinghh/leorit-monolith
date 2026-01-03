@@ -75,7 +75,7 @@ const Login = () => {
         <div className="text-center mb-8">
           <img src={logo} alt="Leorit.ai" className="w-20 h-20 object-contain mx-auto mb-6" />
           <h1 className="text-3xl font-bold text-foreground mb-2">Leorit.ai</h1>
-          <p className="text-muted-foreground">AI-Powered Custom Apparel Platform</p>
+          <p className="text-muted-foreground">End-to-end manufacturing execution, without factory chaos</p>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-8 shadow-xl">
