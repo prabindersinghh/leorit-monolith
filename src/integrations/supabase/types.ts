@@ -58,6 +58,51 @@ export type Database = {
           },
         ]
       }
+      manufacturer_onboarding_requests: {
+        Row: {
+          capacity: string
+          categories: string[]
+          company_name: string
+          contact_name: string
+          email: string
+          id: string
+          location: string
+          notes: string | null
+          phone: string
+          status: string
+          submitted_at: string
+          years_active: string | null
+        }
+        Insert: {
+          capacity: string
+          categories?: string[]
+          company_name: string
+          contact_name: string
+          email: string
+          id?: string
+          location: string
+          notes?: string | null
+          phone: string
+          status?: string
+          submitted_at?: string
+          years_active?: string | null
+        }
+        Update: {
+          capacity?: string
+          categories?: string[]
+          company_name?: string
+          contact_name?: string
+          email?: string
+          id?: string
+          location?: string
+          notes?: string | null
+          phone?: string
+          status?: string
+          submitted_at?: string
+          years_active?: string | null
+        }
+        Relationships: []
+      }
       manufacturer_verifications: {
         Row: {
           capacity: string
