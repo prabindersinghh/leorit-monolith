@@ -10,13 +10,14 @@ import FabricAdvisor from "@/components/FabricAdvisor";
 import BuyerPurposeSelector, { BuyerPurpose } from "@/components/BuyerPurposeSelector";
 import ColorSelector from "@/components/ColorSelector";
 import BuyerNotesInput from "@/components/BuyerNotesInput";
+import DesignFilesSubmission from "@/components/DesignFilesSubmission";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowRight, Sparkles, Download, Edit, Link2, Type, Shield, CalendarIcon, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Sparkles, Download, Edit, Link2, Type, Shield, CalendarIcon, CheckCircle2, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OrderDetailedStatus } from "@/lib/orderStateMachine";
@@ -58,6 +59,9 @@ const StartOrder = () => {
   const [buyerNotes, setBuyerNotes] = useState<string>("");
   const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
   const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
+  // New states for design files submission
+  const [designExplanation, setDesignExplanation] = useState<string>("");
+  const [googleDriveLink, setGoogleDriveLink] = useState<string>("");
   
   const fabricSectionRef = useRef<HTMLDivElement>(null);
 
@@ -793,12 +797,20 @@ const StartOrder = () => {
                         <CheckCircle2 className="w-10 h-10 text-green-600" />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <h2 className="text-2xl font-bold text-foreground">Order Submitted Successfully</h2>
+                    <div className="space-y-3">
+                      <h2 className="text-2xl font-bold text-foreground">Order Submitted for Review</h2>
                       <p className="text-muted-foreground max-w-md mx-auto">
-                        Our team will review and approve your order within 12 hours.
-                        Payment will be requested only after approval.
+                        Our team is reviewing your order details.
                       </p>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto text-left">
+                        <p className="text-sm text-blue-800 font-medium mb-2 flex items-center gap-2">
+                          <Phone className="w-4 h-4" />
+                          What happens next?
+                        </p>
+                        <p className="text-sm text-blue-700">
+                          You will receive a call from Leorit.ai within 12 hours to confirm specifications and next steps.
+                        </p>
+                      </div>
                     </div>
                     {submittedOrderId && (
                       <p className="text-sm text-muted-foreground">
@@ -827,6 +839,18 @@ const StartOrder = () => {
                         </p>
                       </div>
                     </div>
+
+                {/* Design Files & Order Explanation Section - Only for apparel orders */}
+                {buyerPurpose !== "fabric_only" && (
+                  <DesignFilesSubmission
+                    designExplanation={designExplanation}
+                    onDesignExplanationChange={setDesignExplanation}
+                    googleDriveLink={googleDriveLink}
+                    onGoogleDriveLinkChange={setGoogleDriveLink}
+                    hasDesignFile={!!designFile}
+                    hasMockup={!!mockupImage}
+                  />
+                )}
 
                 {/* Buyer Notes Input - TASK D */}
                 <BuyerNotesInput
@@ -1026,6 +1050,27 @@ const StartOrder = () => {
                       // END: BUYER PURPOSE VALIDATION GUARD
                       // =====================================================
 
+                      // =====================================================
+                      // DESIGN FILES VALIDATION - For apparel orders only
+                      // =====================================================
+                      if (buyerPurpose !== "fabric_only") {
+                        // Check if at least one design reference exists
+                        const hasDesignReference = !!designFile || !!mockupImage || googleDriveLink.trim().length > 0;
+                        if (!hasDesignReference) {
+                          toast.error("Please provide at least one design reference (file upload, mockup, or Google Drive link)");
+                          return;
+                        }
+                        
+                        // Order explanation is mandatory for apparel orders
+                        if (!designExplanation.trim()) {
+                          toast.error("Please provide an order explanation");
+                          return;
+                        }
+                      }
+                      // =====================================================
+                      // END: DESIGN FILES VALIDATION
+                      // =====================================================
+
                       // Validate bulk quantity
                       if (!isSampleOnly && (bulkQuantity < 1 || bulkQuantity > 1000)) {
                         toast.error("Please enter a valid bulk quantity (1-1000)");
@@ -1068,17 +1113,10 @@ const StartOrder = () => {
                       // END: Order Submission Processing
 
                       // =====================================================
-                      // MANAGED MANUFACTURING MODEL - No buyer choice
-                      // Orders are auto-assigned to the platform's verified manufacturer
-                      // Buyer CANNOT select, compare, or bid on manufacturers
+                      // ADMIN-APPROVAL-FIRST MODEL
+                      // Order is submitted for review - NO manufacturer assignment
+                      // NO payment processing - payment only after admin approval
                       // =====================================================
-                      
-                      // Platform-managed manufacturer assignment (single verified manufacturer)
-                      const MANAGED_MANUFACTURER_ID = '81bf98d4-352b-4296-a577-81fb3973c6c2';
-                      const assignedManufacturerId = MANAGED_MANUFACTURER_ID;
-                      const assignedAt = new Date().toISOString();
-                      
-                      // END: Managed Manufacturing Assignment
 
                       const now = new Date().toISOString();
                       const effectiveProductType = buyerPurpose === "fabric_only" ? "Fabric" : productType;
@@ -1086,8 +1124,8 @@ const StartOrder = () => {
                       
                       const orderData: any = {
                         buyer_id: user.id,
-                        manufacturer_id: assignedManufacturerId,
-                        assigned_at: assignedAt,
+                        // NO manufacturer_id - will be assigned after payment
+                        // NO assigned_at - will be set after payment
                         product_type: effectiveProductType,
                         design_size: designSize,
                         quantity: effectiveQuantity,
@@ -1096,11 +1134,11 @@ const StartOrder = () => {
                         escrow_amount: escrowAmount,
                         delivery_cost: deliveryCost,
                         total_amount: totalAmount,
-                        escrow_status: 'fake_paid',
+                        escrow_status: 'pending', // NOT 'fake_paid' - payment pending admin approval
                         detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
                         status: 'pending',
                         sample_status: 'not_started',
-                        fake_payment_timestamp: now,
+                        // NO fake_payment_timestamp - payment not yet received
                         fabric_type: fabric?.label || null,
                         fabric_unit_price: fabric?.unit_price_bulk || null,
                         sample_order_placed_at: (buyerPurpose !== "fabric_only" && isSampleOnly) ? now : null,
@@ -1109,10 +1147,13 @@ const StartOrder = () => {
                         expected_deadline: expectedDeadline ? expectedDeadline.toISOString() : null,
                         order_intent: (buyerPurpose === "fabric_only" || !isSampleOnly) ? 'direct_bulk' : 'sample_only',
                         order_mode: (buyerPurpose === "fabric_only" || !isSampleOnly) ? 'direct_bulk' : 'sample_only',
-                        // NEW FIELDS - buyer_purpose, buyer_notes, selected_color
+                        // Core buyer fields
                         buyer_purpose: buyerPurpose || 'merch_bulk',
                         buyer_notes: buyerNotes || null,
                         selected_color: selectedColor || null,
+                        // New design files submission fields
+                        design_explanation: buyerPurpose !== "fabric_only" ? designExplanation.trim() : null,
+                        google_drive_link: buyerPurpose !== "fabric_only" ? (googleDriveLink.trim() || null) : null,
                       };
 
                       const { data: orderResponse, error } = await supabase
@@ -1134,8 +1175,16 @@ const StartOrder = () => {
                       // Log order event for analytics
                       await logOrderEvent(
                         orderResponse.id,
-                        isSampleOnly ? 'sample_created' : 'bulk_created',
-                        { quantity, productType, escrowAmount, fabricType: fabric?.label }
+                        'order_submitted_for_review',
+                        { 
+                          quantity, 
+                          productType, 
+                          escrowAmount, 
+                          fabricType: fabric?.label,
+                          buyerPurpose,
+                          hasDesignExplanation: !!designExplanation,
+                          hasGoogleDriveLink: !!googleDriveLink,
+                        }
                       );
 
                       // Log mockup generation events for evidence tracking (if mockups were generated)

@@ -327,6 +327,9 @@ export type Database = {
       orders: {
         Row: {
           acceptance_delay_hours: number | null
+          admin_approved_at: string | null
+          admin_approved_by: string | null
+          admin_notes: string | null
           assigned_at: string | null
           back_design_url: string | null
           back_mockup_image: string | null
@@ -348,6 +351,7 @@ export type Database = {
           delivery_cost: number | null
           delivery_delay_hours: number | null
           delivery_status: string | null
+          design_explanation: string | null
           design_file_url: string | null
           design_size: string
           detailed_status:
@@ -364,6 +368,7 @@ export type Database = {
           fabric_unit_price: number | null
           fake_payment_timestamp: string | null
           generated_preview: string | null
+          google_drive_link: string | null
           id: string
           in_transit_at: string | null
           manufacturer_accept_time: string | null
@@ -374,6 +379,8 @@ export type Database = {
           order_state: Database["public"]["Enums"]["order_state"] | null
           packaging_video_url: string | null
           packed_at: string | null
+          payment_link: string | null
+          payment_received_at: string | null
           payment_state: string | null
           payment_status: string | null
           pickup_scheduled_at: string | null
@@ -411,6 +418,9 @@ export type Database = {
         }
         Insert: {
           acceptance_delay_hours?: number | null
+          admin_approved_at?: string | null
+          admin_approved_by?: string | null
+          admin_notes?: string | null
           assigned_at?: string | null
           back_design_url?: string | null
           back_mockup_image?: string | null
@@ -432,6 +442,7 @@ export type Database = {
           delivery_cost?: number | null
           delivery_delay_hours?: number | null
           delivery_status?: string | null
+          design_explanation?: string | null
           design_file_url?: string | null
           design_size: string
           detailed_status?:
@@ -448,6 +459,7 @@ export type Database = {
           fabric_unit_price?: number | null
           fake_payment_timestamp?: string | null
           generated_preview?: string | null
+          google_drive_link?: string | null
           id?: string
           in_transit_at?: string | null
           manufacturer_accept_time?: string | null
@@ -458,6 +470,8 @@ export type Database = {
           order_state?: Database["public"]["Enums"]["order_state"] | null
           packaging_video_url?: string | null
           packed_at?: string | null
+          payment_link?: string | null
+          payment_received_at?: string | null
           payment_state?: string | null
           payment_status?: string | null
           pickup_scheduled_at?: string | null
@@ -495,6 +509,9 @@ export type Database = {
         }
         Update: {
           acceptance_delay_hours?: number | null
+          admin_approved_at?: string | null
+          admin_approved_by?: string | null
+          admin_notes?: string | null
           assigned_at?: string | null
           back_design_url?: string | null
           back_mockup_image?: string | null
@@ -516,6 +533,7 @@ export type Database = {
           delivery_cost?: number | null
           delivery_delay_hours?: number | null
           delivery_status?: string | null
+          design_explanation?: string | null
           design_file_url?: string | null
           design_size?: string
           detailed_status?:
@@ -532,6 +550,7 @@ export type Database = {
           fabric_unit_price?: number | null
           fake_payment_timestamp?: string | null
           generated_preview?: string | null
+          google_drive_link?: string | null
           id?: string
           in_transit_at?: string | null
           manufacturer_accept_time?: string | null
@@ -542,6 +561,8 @@ export type Database = {
           order_state?: Database["public"]["Enums"]["order_state"] | null
           packaging_video_url?: string | null
           packed_at?: string | null
+          payment_link?: string | null
+          payment_received_at?: string | null
           payment_state?: string | null
           payment_status?: string | null
           pickup_scheduled_at?: string | null
