@@ -2,8 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+
+// Public
+import Homepage from "./pages/Homepage";
 
 // Auth
 import Login from "./pages/Auth/Login";
@@ -22,6 +25,7 @@ import ManufacturerOrders from "./pages/Manufacturer/ManufacturerOrders";
 import UploadQCProof from "./pages/Manufacturer/UploadQCProof";
 import ManufacturerProfile from "./pages/Manufacturer/ManufacturerProfile";
 import ManufacturerOrderDetails from "./pages/Manufacturer/OrderDetails";
+import ManufacturerApply from "./pages/Manufacturer/Apply";
 
 // Admin
 import AdminDashboard from "./pages/Admin/AdminDashboard";
@@ -44,9 +48,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* Public Routes */}
+          <Route path="/" element={<Homepage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/manufacturer/apply" element={<ManufacturerApply />} />
 
           {/* Buyer Routes */}
           <Route path="/buyer/dashboard" element={
