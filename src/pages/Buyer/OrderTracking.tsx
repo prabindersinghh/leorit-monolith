@@ -7,7 +7,8 @@ import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
 import BuyerDeliveryTracking from "@/components/BuyerDeliveryTracking";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, Package, Clock, CheckCircle2, Truck, Send, CreditCard, Info } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Eye, Package, Clock, CheckCircle2, Truck, Send, CreditCard, Info, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -283,9 +284,6 @@ const OrderTracking = () => {
         const currentStatus = row.detailed_status as OrderDetailedStatus;
         const displayStatus = getBuyerDisplayStatus(row);
         
-        // Check if payment link exists (simulated by manufacturer_id being assigned and payment pending)
-        const hasPaymentLink = displayStatus.showPaymentPending;
-        
         return (
           <div className="flex gap-2">
             <Button 
@@ -296,17 +294,26 @@ const OrderTracking = () => {
             >
               <Eye className="w-4 h-4" />
             </Button>
-            {/* Show Proceed to Payment button only when payment link exists */}
-            {hasPaymentLink && (
+            {/* Show Pay Now button when order is approved and has payment link */}
+            {displayStatus.showPayNow && row.payment_link && (
               <Button 
                 size="sm"
                 variant="default"
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-                onClick={() => toast.info("Payment gateway will be integrated soon")}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => {
+                  // Open payment link in new tab
+                  window.open(row.payment_link, '_blank');
+                }}
               >
                 <CreditCard className="w-4 h-4 mr-2" />
-                Proceed to Payment
+                Pay Now
               </Button>
+            )}
+            {/* Show pending payment message when approved but no payment link yet */}
+            {displayStatus.showPaymentPending && !row.payment_link && (
+              <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                Payment link pending
+              </Badge>
             )}
             {currentStatus === 'dispatched' && (
               <Button 
@@ -341,6 +348,16 @@ const OrderTracking = () => {
               <Info className="h-4 w-4 text-amber-600" />
               <AlertDescription className="text-amber-800">
                 Your order is under review. Payment will be enabled after approval.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Alert for orders with change requests */}
+          {orders.some(o => o.admin_notes && !o.admin_approved_at) && (
+            <Alert className="mb-6 border-orange-200 bg-orange-50">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                <strong>Changes Requested:</strong> One or more orders need your attention. Please review the notes from our team.
               </AlertDescription>
             </Alert>
           )}

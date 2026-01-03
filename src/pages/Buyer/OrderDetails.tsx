@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileText, Package, MapPin, CreditCard, Info } from "lucide-react";
+import { FileText, Package, MapPin, CreditCard, Info, AlertTriangle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { getBuyerDisplayStatus, isAwaitingReview } from "@/lib/buyerStatusLabels";
 
@@ -99,20 +99,41 @@ const OrderDetails = () => {
             </Alert>
           )}
 
-          {/* Payment Pending Alert with Proceed to Payment button */}
-          {displayStatus.showPaymentPending && (
+          {/* Changes Requested Alert */}
+          {order.admin_notes && !order.admin_approved_at && (
             <Alert className="border-orange-200 bg-orange-50">
-              <CreditCard className="h-4 w-4 text-orange-600" />
-              <AlertDescription className="text-orange-800 flex items-center justify-between">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                <strong>Changes Requested:</strong>
+                <p className="mt-1">{order.admin_notes}</p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Payment Pending Alert with Pay Now button */}
+          {displayStatus.showPayNow && order.payment_link && (
+            <Alert className="border-green-200 bg-green-50">
+              <CreditCard className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 flex items-center justify-between">
                 <span>Your order has been approved! Please complete the payment to proceed.</span>
                 <Button 
                   size="sm"
-                  className="ml-4 bg-orange-600 hover:bg-orange-700 text-white"
-                  onClick={() => toast.info("Payment gateway will be integrated soon")}
+                  className="ml-4 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => window.open(order.payment_link, '_blank')}
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
-                  Proceed to Payment
+                  Pay Now
                 </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Payment Received Confirmation */}
+          {order.payment_received_at && (
+            <Alert className="border-green-200 bg-green-50">
+              <CreditCard className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                <strong>Payment Received!</strong> Your order is now being processed.
               </AlertDescription>
             </Alert>
           )}
@@ -156,6 +177,26 @@ const OrderDetails = () => {
                       <span className="font-medium">₹{order.fabric_unit_price}</span>
                     </div>
                   </>
+                )}
+                {order.design_explanation && (
+                  <div className="pt-2 border-t">
+                    <span className="text-muted-foreground block mb-1">Order Explanation:</span>
+                    <p className="text-sm whitespace-pre-wrap">{order.design_explanation}</p>
+                  </div>
+                )}
+                {order.google_drive_link && (
+                  <div className="pt-2 border-t">
+                    <span className="text-muted-foreground block mb-1">Design Files:</span>
+                    <a 
+                      href={order.google_drive_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      View Google Drive Folder
+                    </a>
+                  </div>
                 )}
               </CardContent>
             </Card>

@@ -41,6 +41,7 @@ import { logOrderEvent } from "@/lib/orderEventLogger";
 import { OrderState } from "@/lib/orderStateMachineV2";
 import { DeliveryState } from "@/lib/deliveryStateMachine";
 import OrderDelayFlags from "@/components/OrderDelayFlags";
+import AdminOrderApproval from "@/components/AdminOrderApproval";
 
 interface AdminOrderControlPanelProps {
   order: any;
@@ -370,6 +371,9 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
 
   return (
     <div className="space-y-6">
+      {/* Order Approval Section - New approval workflow */}
+      <AdminOrderApproval order={order} onUpdate={onUpdate} />
+
       {/* Delay Metrics - Admin visibility into manufacturer discipline */}
       <Card className="border-muted">
         <CardContent className="pt-4">
@@ -377,7 +381,7 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
         </CardContent>
       </Card>
 
-      {/* Manufacturer Assignment */}
+      {/* Manufacturer Assignment - Only after payment received */}
       <Card className="border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -386,6 +390,23 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Payment Gate - Manufacturer assignment only after payment */}
+          {!order.payment_received_at && !order.manufacturer_id && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg flex items-start gap-2">
+              <PauseCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
+                  Awaiting Payment
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Manufacturer can only be assigned after buyer payment is received.
+                  {!order.admin_approved_at && " Please approve the order and add payment link first."}
+                  {order.admin_approved_at && !order.payment_received_at && " Waiting for buyer to complete payment."}
+                </p>
+              </div>
+            </div>
+          )}
+          
           {order.manufacturer_id ? (
             <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
               <p className="text-sm text-green-700 dark:text-green-400 font-medium">
@@ -395,7 +416,7 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
                 ID: {order.manufacturer_id.slice(0, 8)}...
               </p>
             </div>
-          ) : (
+          ) : order.payment_received_at ? (
             <>
               <div className="space-y-2">
                 <Label>Select Manufacturer</Label>
@@ -428,7 +449,7 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
                 {assigningManufacturer ? "Assigning..." : "Assign Manufacturer"}
               </Button>
             </>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 

@@ -43,7 +43,12 @@ export type OrderEventType =
   // CSV validation events
   | 'csv_uploaded'                    // CSV file uploaded by buyer
   | 'csv_validation_passed'           // CSV validation gate passed for bulk transition
-  | 'csv_validation_blocked';         // Bulk transition blocked due to missing CSV
+  | 'csv_validation_blocked'          // Bulk transition blocked due to missing CSV
+  // Admin approval flow events
+  | 'order_submitted_for_review'      // Order submitted by buyer for admin review
+  | 'admin_approved'                  // Order approved by admin with payment link
+  | 'changes_requested'               // Admin requested changes from buyer
+  | 'payment_received';               // Payment marked as received by admin
 
 /**
  * Logs an order event to the order_events table for analytics.
