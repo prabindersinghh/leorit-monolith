@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload, Video, Info } from "lucide-react";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { storeQCEvidence } from "@/lib/evidenceStorage";
 import { getOrderMode, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
 
 const UploadQCProof = () => {
@@ -126,6 +127,9 @@ const UploadQCProof = () => {
         url: publicUrl, 
         uploaded_by: 'manufacturer' 
       });
+      
+      // Store QC video as evidence
+      await storeQCEvidence(selectedOrder, user.id, publicUrl, 'sample');
 
       // Get order details to notify buyer
       const { data: orderData } = await supabase

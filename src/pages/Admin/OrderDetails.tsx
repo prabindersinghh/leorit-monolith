@@ -987,6 +987,14 @@ const AdminOrderDetails = () => {
                     <p className="text-sm">{order.qc_feedback}</p>
                   </div>
                 )}
+                {order.qc_feedback_structured && (
+                  <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded">
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-2">Structured QC Feedback (ML Label):</p>
+                    <pre className="text-xs text-foreground whitespace-pre-wrap font-mono bg-background p-2 rounded">
+                      {order.qc_feedback_structured}
+                    </pre>
+                  </div>
+                )}
                 {order.rejection_reason && (
                   <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded">
                     <p className="text-sm font-medium text-destructive mb-1">Rejection Reason:</p>

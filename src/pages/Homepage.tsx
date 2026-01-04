@@ -1,10 +1,16 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, CheckCircle, ChevronRight } from "lucide-react";
 import logo from "@/assets/leorit-logo.png";
+import { trackHomepageVisit, trackBuyerCTAClick, trackManufacturerCTAClick } from "@/lib/analyticsLogger";
 
 const Homepage = () => {
+  // Track homepage visit on mount
+  useEffect(() => {
+    trackHomepageVisit();
+  }, []);
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -32,13 +38,13 @@ const Homepage = () => {
             Leorit.ai takes full responsibility for custom manufacturing orders — from specification locking and quality control to delivery coordination and payment release.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/buyer/start-order">
+            <Link to="/buyer/start-order" onClick={() => trackBuyerCTAClick()}>
               <Button size="lg" className="gap-2">
                 Start an Order
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
-            <Link to="/manufacturer/apply">
+            <Link to="/manufacturer/apply" onClick={() => trackManufacturerCTAClick()}>
               <Button variant="outline" size="lg" className="gap-2">
                 Work With Leorit
                 <ChevronRight className="w-4 h-4" />
@@ -77,7 +83,7 @@ const Homepage = () => {
                     <span className="text-muted-foreground">Zero factory coordination</span>
                   </li>
                 </ul>
-                <Link to="/buyer/start-order">
+                <Link to="/buyer/start-order" onClick={() => trackBuyerCTAClick()}>
                   <Button className="w-full gap-2">
                     Start an Order
                     <ArrowRight className="w-4 h-4" />
@@ -108,7 +114,7 @@ const Homepage = () => {
                     <span className="text-muted-foreground">Payment certainty</span>
                   </li>
                 </ul>
-                <Link to="/manufacturer/apply">
+                <Link to="/manufacturer/apply" onClick={() => trackManufacturerCTAClick()}>
                   <Button variant="outline" className="w-full gap-2">
                     Apply as Manufacturer
                     <ArrowRight className="w-4 h-4" />

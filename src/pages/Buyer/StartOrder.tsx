@@ -22,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OrderDetailedStatus } from "@/lib/orderStateMachine";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { trackOrderCreated } from "@/lib/analyticsLogger";
+import { storeSpecificationEvidence, storeGoogleDriveEvidence } from "@/lib/evidenceStorage";
 import { calculateDeliveryCost } from "@/lib/deliveryCostCalculator";
 import { getFabricsForProduct, getDefaultFabric, getFabricById, FabricOption } from "@/lib/fabrics";
 import { format, addDays } from "date-fns";
@@ -1186,6 +1188,9 @@ const StartOrder = () => {
                           hasGoogleDriveLink: !!googleDriveLink,
                         }
                       );
+                      
+                      // Track order_created for analytics dashboard
+                      await trackOrderCreated(orderResponse.id, user.id);
 
                       // Log mockup generation events for evidence tracking (if mockups were generated)
                       if (mockupImage) {
@@ -1193,6 +1198,23 @@ const StartOrder = () => {
                       }
                       if (backMockupImage) {
                         await logOrderEvent(orderResponse.id, 'back_mockup_generated', { url: backMockupImage });
+                      }
+                      
+                      // Store evidence for specification files (using state values since orderData URLs are same)
+                      const evidenceFiles: { url: string; name: string; type: string }[] = [];
+                      if (orderResponse.design_file_url) evidenceFiles.push({ url: orderResponse.design_file_url, name: 'front_design', type: 'design_front' });
+                      if (orderResponse.back_design_url) evidenceFiles.push({ url: orderResponse.back_design_url, name: 'back_design', type: 'design_back' });
+                      if (orderResponse.corrected_csv_url) evidenceFiles.push({ url: orderResponse.corrected_csv_url, name: 'size_csv', type: 'size_csv' });
+                      if (mockupImage) evidenceFiles.push({ url: mockupImage, name: 'front_mockup', type: 'mockup_front' });
+                      if (backMockupImage) evidenceFiles.push({ url: backMockupImage, name: 'back_mockup', type: 'mockup_back' });
+                      
+                      if (evidenceFiles.length > 0) {
+                        await storeSpecificationEvidence(orderResponse.id, user.id, evidenceFiles);
+                      }
+                      
+                      // Store Google Drive link as evidence
+                      if (googleDriveLink) {
+                        await storeGoogleDriveEvidence(orderResponse.id, user.id, googleDriveLink);
                       }
                       
                       // Show confirmation screen instead of toast + redirect
