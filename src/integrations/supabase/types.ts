@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          created_at: string
+          event_name: string
+          id: string
+          metadata: Json | null
+          order_id: string | null
+          user_id: string | null
+          user_role: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_name: string
+          id?: string
+          metadata?: Json | null
+          order_id?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_name?: string
+          id?: string
+          metadata?: Json | null
+          order_id?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       disputes: {
         Row: {
           created_at: string | null
@@ -274,6 +312,59 @@ export type Database = {
           },
         ]
       }
+      order_evidence: {
+        Row: {
+          created_at: string
+          description: string | null
+          evidence_type: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          manufacturer_id: string | null
+          metadata: Json | null
+          order_id: string
+          stage: string
+          uploader_id: string | null
+          uploader_role: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          evidence_type: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          manufacturer_id?: string | null
+          metadata?: Json | null
+          order_id: string
+          stage: string
+          uploader_id?: string | null
+          uploader_role: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          evidence_type?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          manufacturer_id?: string | null
+          metadata?: Json | null
+          order_id?: string
+          stage?: string
+          uploader_id?: string | null
+          uploader_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_evidence_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_shipping_info: {
         Row: {
           address_line1: string
@@ -387,6 +478,7 @@ export type Database = {
           product_category: string | null
           product_type: string
           qc_feedback: string | null
+          qc_feedback_structured: string | null
           qc_files: string[] | null
           qc_status: string | null
           qc_uploaded_at: string | null
@@ -478,6 +570,7 @@ export type Database = {
           product_category?: string | null
           product_type: string
           qc_feedback?: string | null
+          qc_feedback_structured?: string | null
           qc_files?: string[] | null
           qc_status?: string | null
           qc_uploaded_at?: string | null
@@ -569,6 +662,7 @@ export type Database = {
           product_category?: string | null
           product_type?: string
           qc_feedback?: string | null
+          qc_feedback_structured?: string | null
           qc_files?: string[] | null
           qc_status?: string | null
           qc_uploaded_at?: string | null

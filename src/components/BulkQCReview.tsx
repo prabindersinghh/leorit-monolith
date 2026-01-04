@@ -24,6 +24,9 @@ import { CheckCircle, XCircle, Package, Video } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { trackBulkQCApproved } from "@/lib/analyticsLogger";
+import { storeQCDecisionEvidence, storeAdminQCFeedback } from "@/lib/evidenceStorage";
+import StructuredQCFeedback from "@/components/StructuredQCFeedback";
 import { 
   canApproveBulkQC, 
   canRejectBulkQC, 
@@ -42,6 +45,7 @@ const BulkQCReview = ({ orderId, onStatusChange }: BulkQCReviewProps) => {
   const [loading, setLoading] = useState(true);
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [structuredFeedback, setStructuredFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -115,6 +119,12 @@ const BulkQCReview = ({ orderId, onStatusChange }: BulkQCReviewProps) => {
       await logOrderEvent(orderId, 'bulk_qc_approved', createBulkQCActionMetadata('bulk_qc_approved', order, {
         approval_timestamp: now,
       }));
+      
+      // Track bulk QC approved for analytics dashboard
+      await trackBulkQCApproved(orderId, order.buyer_id);
+      
+      // Store evidence for this decision
+      await storeQCDecisionEvidence(orderId, order.buyer_id, 'bulk', 'approved');
 
       toast.success("Bulk QC approved! Order is now ready for dispatch.", { duration: 5000 });
       fetchOrder();
@@ -166,6 +176,7 @@ const BulkQCReview = ({ orderId, onStatusChange }: BulkQCReviewProps) => {
         .update({ 
           bulk_status: 'qc_rejected',
           qc_feedback: `Bulk QC Rejected: ${rejectReason}`,
+          qc_feedback_structured: structuredFeedback || null,
           // Go back to bulk in production for manufacturer to re-do
           order_state: 'BULK_IN_PRODUCTION',
           state_updated_at: now,
@@ -181,9 +192,18 @@ const BulkQCReview = ({ orderId, onStatusChange }: BulkQCReviewProps) => {
         rejection_timestamp: now,
       }));
       
+      // Store rejection evidence
+      await storeQCDecisionEvidence(orderId, order.buyer_id, 'bulk', 'rejected', rejectReason, structuredFeedback);
+      
+      // Store admin structured feedback as separate evidence if provided
+      if (structuredFeedback) {
+        await storeAdminQCFeedback(orderId, order.buyer_id, 'bulk', structuredFeedback);
+      }
+      
       toast.error("Bulk QC rejected. Manufacturer will be notified to re-upload.");
       setShowRejectForm(false);
       setRejectReason("");
+      setStructuredFeedback("");
       fetchOrder();
       onStatusChange?.();
     } catch (error) {
@@ -301,7 +321,7 @@ const BulkQCReview = ({ orderId, onStatusChange }: BulkQCReviewProps) => {
 
             {/* Reject form - reason is MANDATORY */}
             {showRejectForm && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-4">
                 <Label className="text-red-700 font-medium">
                   Rejection Reason (Required) *
                 </Label>
@@ -314,6 +334,17 @@ const BulkQCReview = ({ orderId, onStatusChange }: BulkQCReviewProps) => {
                 <p className="text-xs text-red-600">
                   A detailed reason is mandatory for rejection. This helps the manufacturer understand what needs to be fixed.
                 </p>
+                
+                {/* Structured QC Feedback - for ML labeling */}
+                <div className="pt-3 border-t border-red-200">
+                  <StructuredQCFeedback
+                    value={structuredFeedback}
+                    onChange={setStructuredFeedback}
+                    isRequired={true}
+                    stage="bulk"
+                  />
+                </div>
+                
                 <div className="flex gap-2">
                   <Button 
                     onClick={handleReject} 
@@ -327,6 +358,7 @@ const BulkQCReview = ({ orderId, onStatusChange }: BulkQCReviewProps) => {
                     onClick={() => {
                       setShowRejectForm(false);
                       setRejectReason("");
+                      setStructuredFeedback("");
                     }} 
                     size="sm"
                     variant="outline"

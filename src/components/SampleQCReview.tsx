@@ -8,6 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { canTransitionTo, getActionLabel, OrderDetailedStatus, isSampleOrder, canStartBulkProduction } from "@/lib/orderStateMachine";
 import { getOrderMode, shouldShowStartBulkButton, isBulkQCRequired } from "@/lib/orderModeUtils";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { trackSampleQCApproved } from "@/lib/analyticsLogger";
+import { storeQCDecisionEvidence, storeAdminQCFeedback } from "@/lib/evidenceStorage";
+import StructuredQCFeedback from "@/components/StructuredQCFeedback";
 import { 
   canApproveSample, 
   canRejectSample, 
@@ -27,6 +30,7 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [concernMessage, setConcernMessage] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [structuredFeedback, setStructuredFeedback] = useState("");
 
   useEffect(() => {
     fetchOrder();
@@ -108,6 +112,12 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
 
       // Log QC approved event for analytics
       await logOrderEvent(orderId, 'qc_approved', { isSample, escrowAmount: order.escrow_amount, orderIntent, orderMode });
+      
+      // Track sample QC approved for analytics dashboard
+      await trackSampleQCApproved(orderId, order.buyer_id);
+      
+      // Store evidence for this decision
+      await storeQCDecisionEvidence(orderId, order.buyer_id, 'sample', 'approved');
 
       // Determine next action based on order_mode (with fallback to order_intent)
       // sample_only: Order ends here - complete and release escrow
@@ -246,6 +256,7 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
           detailed_status: newStatus,
           sample_status: 'rejected',
           qc_feedback: `Rejected: ${rejectReason}`,
+          qc_feedback_structured: structuredFeedback || null,
           updated_at: now,
         })
         .eq('id', orderId);
@@ -258,9 +269,18 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
         rejection_timestamp: now,
       }));
       
+      // Store rejection evidence
+      await storeQCDecisionEvidence(orderId, order.buyer_id, 'sample', 'rejected', rejectReason, structuredFeedback);
+      
+      // Store admin structured feedback as separate evidence if provided
+      if (structuredFeedback) {
+        await storeAdminQCFeedback(orderId, order.buyer_id, 'sample', structuredFeedback);
+      }
+      
       toast.error("Sample QC rejected. Manufacturer will be notified.");
       setShowRejectForm(false);
       setRejectReason("");
+      setStructuredFeedback("");
       fetchOrder();
       onStatusChange?.();
     } catch (error) {
@@ -441,7 +461,7 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
 
               {/* Reject form - reason is MANDATORY */}
               {showRejectForm && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-4">
                   <Label className="text-red-700 font-medium">
                     Rejection Reason (Required) *
                   </Label>
@@ -454,6 +474,17 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
                   <p className="text-xs text-red-600">
                     A detailed reason is mandatory for rejection. This helps the manufacturer understand what went wrong.
                   </p>
+                  
+                  {/* Structured QC Feedback - for ML labeling */}
+                  <div className="pt-3 border-t border-red-200">
+                    <StructuredQCFeedback
+                      value={structuredFeedback}
+                      onChange={setStructuredFeedback}
+                      isRequired={true}
+                      stage="sample"
+                    />
+                  </div>
+                  
                   <div className="flex gap-2">
                     <Button 
                       onClick={handleReject} 
@@ -467,6 +498,7 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
                       onClick={() => {
                         setShowRejectForm(false);
                         setRejectReason("");
+                        setStructuredFeedback("");
                       }} 
                       variant="ghost" 
                       size="sm"
