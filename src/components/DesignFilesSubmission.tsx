@@ -109,14 +109,17 @@ const DesignFilesSubmission = ({
               <li>Paste the folder link here</li>
             </ol>
             <a 
-              href="https://drive.google.com" 
+              href="https://drive.google.com/drive/folders/1revoyaF0wQ1UnEBAquHOJA1JJzqj95TZ" 
               target="_blank" 
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline mt-2"
             >
               <ExternalLink className="w-3 h-3" />
-              Open Google Drive
+              Open Google Drive (Sample Folder)
             </a>
+            <p className="text-xs text-muted-foreground mt-1">
+              You can create a folder like this and paste the link above.
+            </p>
           </div>
         </div>
 
