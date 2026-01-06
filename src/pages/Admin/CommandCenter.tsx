@@ -47,6 +47,7 @@ import {
 import Sidebar from "@/components/Sidebar";
 import BuyerPurposeBadge from "@/components/BuyerPurposeBadge";
 import CommandCenterActions from "@/components/CommandCenterActions";
+import AdminOrderApproval from "@/components/AdminOrderApproval";
 import EvidenceSummary from "@/components/EvidenceSummary";
 import { format } from "date-fns";
 
@@ -82,6 +83,20 @@ interface Order {
   escrow_locked_timestamp: string | null;
   escrow_released_timestamp: string | null;
   state_updated_at: string | null;
+  // Additional fields for admin panel
+  admin_approved_at: string | null;
+  admin_notes: string | null;
+  payment_link: string | null;
+  payment_received_at: string | null;
+  design_explanation: string | null;
+  google_drive_link: string | null;
+  design_file_url: string | null;
+  corrected_csv_url: string | null;
+  quantity: number | null;
+  product_type: string | null;
+  fabric_type: string | null;
+  selected_color: string | null;
+  design_size: string | null;
 }
 
 interface OrderEvent {
@@ -213,9 +228,9 @@ const CommandCenter = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar userRole="admin" />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto ml-64">
         <div className="p-6 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -355,41 +370,105 @@ const CommandCenter = () => {
           {selectedOrder && (
             <ScrollArea className="flex-1 -mx-6 px-6">
               <div className="space-y-6 py-4">
-                {/* Order Summary */}
-                <Card>
+                {/* ADMIN APPROVAL PANEL - FIRST AUTHORITY */}
+                <AdminOrderApproval 
+                  order={selectedOrder} 
+                  onUpdate={handleOrderUpdate} 
+                />
+
+                {/* Full Order Specifications */}
+                <Card className="border-primary/20 bg-primary/5">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Order Summary
+                      <Package className="h-4 w-4" />
+                      Full Order Specifications
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Order ID:</span>
-                      <span className="font-mono">{selectedOrder.id.slice(0, 8)}...</span>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground">Order ID:</span>
+                        <p className="font-mono text-xs">{selectedOrder.id}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">State:</span>
+                        <Badge className={`ml-2 ${getStateColor(selectedOrder.order_state)}`}>
+                          {selectedOrder.order_state}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">State:</span>
-                      <Badge className={getStateColor(selectedOrder.order_state)}>
-                        {selectedOrder.order_state}
-                      </Badge>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground">Product:</span>
+                        <p className="font-medium">{selectedOrder.product_type || '—'}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Quantity:</span>
+                        <p className="font-bold">{selectedOrder.quantity || 0} pcs</p>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Mode:</span>
-                      <span>{selectedOrder.order_mode || '—'}</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground">Fabric/GSM:</span>
+                        <p className="font-medium">{selectedOrder.fabric_type || '—'}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Color:</span>
+                        <p className="font-medium capitalize">{selectedOrder.selected_color?.replace('_', ' ') || '—'}</p>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Purpose:</span>
-                      {selectedOrder.buyer_purpose ? (
-                        <BuyerPurposeBadge purpose={selectedOrder.buyer_purpose as any} />
-                      ) : (
-                        <span>—</span>
-                      )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground">Design Size:</span>
+                        <p className="font-medium">{selectedOrder.design_size || '—'}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Purpose:</span>
+                        {selectedOrder.buyer_purpose ? (
+                          <BuyerPurposeBadge purpose={selectedOrder.buyer_purpose as any} />
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex justify-between">
+                    <div>
                       <span className="text-muted-foreground">Total Value:</span>
-                      <span>₹{selectedOrder.total_order_value?.toLocaleString() || '—'}</span>
+                      <p className="text-lg font-bold">₹{selectedOrder.total_order_value?.toLocaleString() || '—'}</p>
                     </div>
+                    
+                    {/* Design Explanation */}
+                    {selectedOrder.design_explanation && (
+                      <div className="pt-2 border-t">
+                        <span className="text-muted-foreground">Order Explanation:</span>
+                        <p className="whitespace-pre-wrap bg-background/80 p-2 rounded mt-1">
+                          {selectedOrder.design_explanation}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Google Drive Link */}
+                    {selectedOrder.google_drive_link && (
+                      <div className="pt-2 border-t">
+                        <span className="text-muted-foreground">Google Drive:</span>
+                        <a 
+                          href={selectedOrder.google_drive_link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-600 hover:underline mt-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Open Design Files
+                        </a>
+                      </div>
+                    )}
+                    
+                    {/* CSV File */}
+                    {selectedOrder.corrected_csv_url && (
+                      <div className="pt-2 border-t">
+                        <span className="text-muted-foreground">Size Distribution CSV:</span>
+                        <p className="text-xs font-mono mt-1">CSV uploaded</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -417,7 +496,14 @@ const CommandCenter = () => {
                         )}
                       </div>
                     ) : (
-                      <p className="text-muted-foreground">Not assigned</p>
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-amber-700 dark:text-amber-400 text-xs">
+                        <strong>Not assigned</strong>
+                        <p className="mt-1">
+                          {selectedOrder.payment_received_at 
+                            ? "Payment received. Ready for manufacturer assignment." 
+                            : "Awaiting payment. Assign manufacturer after payment is confirmed."}
+                        </p>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -477,9 +563,14 @@ const CommandCenter = () => {
 
                 <Separator />
 
-                {/* Admin Actions */}
+                {/* Admin Actions - Only show after payment */}
                 <div className="pb-6">
                   <h3 className="text-sm font-semibold mb-4">Admin Actions</h3>
+                  {!selectedOrder.payment_received_at && (
+                    <div className="p-3 mb-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-amber-700 dark:text-amber-400 text-xs">
+                      ⚠️ Payment has not been received. Approve the order and mark payment as received before assigning a manufacturer.
+                    </div>
+                  )}
                   <CommandCenterActions
                     order={selectedOrder}
                     manufacturers={manufacturers}

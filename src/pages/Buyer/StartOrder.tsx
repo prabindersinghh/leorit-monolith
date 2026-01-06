@@ -1137,7 +1137,8 @@ const StartOrder = () => {
                         delivery_cost: deliveryCost,
                         total_amount: totalAmount,
                         escrow_status: 'pending', // NOT 'fake_paid' - payment pending admin approval
-                        detailed_status: 'submitted_to_manufacturer' as OrderDetailedStatus,
+                        order_state: 'SUBMITTED', // ADMIN-FIRST: Order starts in SUBMITTED, not MANUFACTURER_ASSIGNED
+                        detailed_status: 'created' as OrderDetailedStatus, // Pre-approval state
                         status: 'pending',
                         sample_status: 'not_started',
                         // NO fake_payment_timestamp - payment not yet received
