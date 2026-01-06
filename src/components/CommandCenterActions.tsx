@@ -86,6 +86,12 @@ const CommandCenterActions = ({ order, manufacturers, onUpdate }: CommandCenterA
       return;
     }
 
+    // ADMIN-FIRST: Payment must be received before manufacturer assignment
+    if (!order.payment_received_at) {
+      toast.error("Cannot assign manufacturer: Payment has not been received yet. Admin must first approve the order and mark payment as received.");
+      return;
+    }
+
     setAssigningManufacturer(true);
     try {
       const now = new Date().toISOString();

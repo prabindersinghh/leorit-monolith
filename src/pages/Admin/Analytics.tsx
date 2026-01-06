@@ -81,7 +81,7 @@ const Analytics = () => {
     total: 0,
     softOnboarded: 0,
     verified: 0,
-    activeManufacturerEmail: "singhprabindersingh@gmail.com",
+    activeManufacturerEmail: "",
   });
   const [softOnboardedList, setSoftOnboardedList] = useState<ManufacturerVerification[]>([]);
   const [recentEvents, setRecentEvents] = useState<OrderEvent[]>([]);
@@ -247,11 +247,14 @@ const Analytics = () => {
     const softOnboarded = manufacturers?.filter(m => m.soft_onboarded === true).length || 0;
     const verified = manufacturers?.filter(m => m.verified === true).length || 0;
 
+    // Find the most recently active manufacturer
+    const activeManufacturer = manufacturers?.find(m => m.verified || m.soft_onboarded);
+    
     setManufacturerStats({
       total,
       softOnboarded,
       verified,
-      activeManufacturerEmail: "singhprabindersingh@gmail.com",
+      activeManufacturerEmail: "", // Removed hardcoded email - no longer displayed
     });
 
     const softOnboardedManufacturers = manufacturers?.filter(m => m.soft_onboarded === true) || [];

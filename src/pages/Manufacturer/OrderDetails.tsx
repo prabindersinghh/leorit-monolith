@@ -10,7 +10,7 @@ import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet, User, Clock, CheckCircle2, Circle, MessageSquare, Video, Palette } from "lucide-react";
+import { FileText, Package, MapPin, Calendar, Download, Image, FileSpreadsheet, User, Clock, CheckCircle2, Circle, MessageSquare, Video, Palette, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { getOrderMode, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
@@ -679,6 +679,14 @@ const ManufacturerOrderDetails = () => {
               <div className="pt-4 border-t">
                 <h4 className="text-sm font-medium text-muted-foreground mb-3">Documents</h4>
                 <div className="flex flex-wrap gap-3">
+                  {order.google_drive_link && (
+                    <Button variant="default" asChild className="bg-blue-600 hover:bg-blue-700">
+                      <a href={order.google_drive_link} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open Google Drive Folder
+                      </a>
+                    </Button>
+                  )}
                   {order.corrected_csv_url && (
                     <Button variant="outline" asChild>
                       <a href={order.corrected_csv_url} download target="_blank" rel="noopener noreferrer">
@@ -695,11 +703,21 @@ const ManufacturerOrderDetails = () => {
                       </a>
                     </Button>
                   )}
-                  {!order.corrected_csv_url && !order.size_chart_url && (
+                  {!order.corrected_csv_url && !order.size_chart_url && !order.google_drive_link && (
                     <p className="text-sm text-muted-foreground">No documents uploaded</p>
                   )}
                 </div>
               </div>
+
+              {/* Design Explanation - Buyer's instructions */}
+              {order.design_explanation && (
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Design Explanation from Buyer</h4>
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                    <p className="text-sm whitespace-pre-wrap">{order.design_explanation}</p>
+                  </div>
+                </div>
+              )}
 
               {/* QC Videos Section */}
               {(order.sample_qc_video_url || order.bulk_qc_video_url || order.qc_video_url) && (
