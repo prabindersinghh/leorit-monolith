@@ -10,6 +10,7 @@ import { CheckCircle, XCircle, Truck, Eye } from "lucide-react";
 import { canTransitionTo, getActionLabel, statusLabels, statusColors, OrderDetailedStatus, isSampleOrder } from "@/lib/orderStateMachine";
 import { getOrderMode, shouldShowStartBulkButton, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { canManufacturerStartProduction } from "@/components/ManufacturerPaymentGate";
 import { addDays, format } from "date-fns";
 
 const ManufacturerOrders = () => {
@@ -159,7 +160,14 @@ const ManufacturerOrders = () => {
     }
   };
 
-  const handleStartSampleProduction = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+  const handleStartSampleProduction = async (orderId: string, currentStatus: OrderDetailedStatus, order: any) => {
+    // PAYMENT GATE: Check if payment is confirmed
+    const paymentCheck = canManufacturerStartProduction(order);
+    if (!paymentCheck.allowed) {
+      toast.error(paymentCheck.reason || "Payment not confirmed. Cannot start production.");
+      return;
+    }
+
     const newStatus: OrderDetailedStatus = 'sample_in_production';
     
     if (!canTransitionTo(currentStatus, newStatus)) {
@@ -191,7 +199,14 @@ const ManufacturerOrders = () => {
     }
   };
 
-  const handleStartBulkProduction = async (orderId: string, currentStatus: OrderDetailedStatus) => {
+  const handleStartBulkProduction = async (orderId: string, currentStatus: OrderDetailedStatus, order: any) => {
+    // PAYMENT GATE: Check if payment is confirmed
+    const paymentCheck = canManufacturerStartProduction(order);
+    if (!paymentCheck.allowed) {
+      toast.error(paymentCheck.reason || "Payment not confirmed. Cannot start production.");
+      return;
+    }
+
     const newStatus: OrderDetailedStatus = 'bulk_in_production';
     
     if (!canTransitionTo(currentStatus, newStatus)) {
@@ -330,7 +345,7 @@ const ManufacturerOrders = () => {
             {currentStatus === 'accepted_by_manufacturer' && (
               <Button
                 size="sm"
-                onClick={() => handleStartSampleProduction(value, currentStatus)}
+                onClick={() => handleStartSampleProduction(value, currentStatus, row)}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
                 {getActionLabel('sample_in_production')}
@@ -360,7 +375,7 @@ const ManufacturerOrders = () => {
             {showBulkButton && currentStatus === 'sample_approved_by_buyer' && (
               <Button
                 size="sm"
-                onClick={() => handleStartBulkProduction(value, currentStatus)}
+                onClick={() => handleStartBulkProduction(value, currentStatus, row)}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 {getActionLabel('bulk_in_production')}

@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import BuyerPaymentGate from "@/components/BuyerPaymentGate";
 import { FileText, Package, MapPin, CreditCard, Info, AlertTriangle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { getBuyerDisplayStatus, isAwaitingReview } from "@/lib/buyerStatusLabels";
@@ -110,33 +111,8 @@ const OrderDetails = () => {
             </Alert>
           )}
 
-          {/* Payment Pending Alert with Pay Now button */}
-          {displayStatus.showPayNow && order.payment_link && (
-            <Alert className="border-green-200 bg-green-50">
-              <CreditCard className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800 flex items-center justify-between">
-                <span>Your order has been approved! Please complete the payment to proceed.</span>
-                <Button 
-                  size="sm"
-                  className="ml-4 bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => window.open(order.payment_link, '_blank')}
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Pay Now
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Payment Received Confirmation */}
-          {order.payment_received_at && (
-            <Alert className="border-green-200 bg-green-50">
-              <CreditCard className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                <strong>Payment Received!</strong> Your order is now being processed.
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* PAYMENT GATE - Shows payment status to buyer */}
+          <BuyerPaymentGate order={order} />
 
           {/* Order Mode Info Banner - ADD-ONLY informational text */}
           <OrderModeInfoBanner order={order} />
