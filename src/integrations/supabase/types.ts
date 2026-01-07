@@ -837,7 +837,10 @@ export type Database = {
       order_state:
         | "DRAFT"
         | "SUBMITTED"
+        | "ADMIN_APPROVED"
         | "MANUFACTURER_ASSIGNED"
+        | "PAYMENT_REQUESTED"
+        | "PAYMENT_CONFIRMED"
         | "SAMPLE_IN_PROGRESS"
         | "SAMPLE_QC_UPLOADED"
         | "SAMPLE_APPROVED"
@@ -1012,7 +1015,10 @@ export const Constants = {
       order_state: [
         "DRAFT",
         "SUBMITTED",
+        "ADMIN_APPROVED",
         "MANUFACTURER_ASSIGNED",
+        "PAYMENT_REQUESTED",
+        "PAYMENT_CONFIRMED",
         "SAMPLE_IN_PROGRESS",
         "SAMPLE_QC_UPLOADED",
         "SAMPLE_APPROVED",

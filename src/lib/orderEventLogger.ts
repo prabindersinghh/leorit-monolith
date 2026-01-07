@@ -48,7 +48,10 @@ export type OrderEventType =
   | 'order_submitted_for_review'      // Order submitted by buyer for admin review
   | 'admin_approved'                  // Order approved by admin with payment link
   | 'changes_requested'               // Admin requested changes from buyer
-  | 'payment_received';               // Payment marked as received by admin
+  | 'payment_received'                // Payment marked as received by admin
+  // Payment gate events
+  | 'payment_requested'               // Admin requested payment from buyer
+  | 'payment_confirmed';              // Admin confirmed payment received
 
 /**
  * Logs an order event to the order_events table for analytics.

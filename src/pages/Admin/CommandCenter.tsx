@@ -48,6 +48,7 @@ import Sidebar from "@/components/Sidebar";
 import BuyerPurposeBadge from "@/components/BuyerPurposeBadge";
 import CommandCenterActions from "@/components/CommandCenterActions";
 import AdminOrderApproval from "@/components/AdminOrderApproval";
+import AdminPaymentGate from "@/components/AdminPaymentGate";
 import EvidenceSummary from "@/components/EvidenceSummary";
 import { format } from "date-fns";
 
@@ -207,8 +208,11 @@ const CommandCenter = () => {
     const colors: Record<string, string> = {
       'DRAFT': 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
       'SUBMITTED': 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+      'ADMIN_APPROVED': 'bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300',
       'MANUFACTURER_ASSIGNED': 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-      'SAMPLE_IN_PROGRESS': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+      'PAYMENT_REQUESTED': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+      'PAYMENT_CONFIRMED': 'bg-lime-100 text-lime-700 dark:bg-lime-900 dark:text-lime-300',
+      'SAMPLE_IN_PROGRESS': 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
       'SAMPLE_QC_UPLOADED': 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
       'SAMPLE_APPROVED': 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
       'BULK_UNLOCKED': 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
@@ -374,6 +378,12 @@ const CommandCenter = () => {
                 <AdminOrderApproval 
                   order={selectedOrder} 
                   onUpdate={handleOrderUpdate} 
+                />
+
+                {/* PAYMENT GATE - After manufacturer assigned */}
+                <AdminPaymentGate
+                  order={selectedOrder}
+                  onUpdate={handleOrderUpdate}
                 />
 
                 {/* Full Order Specifications */}

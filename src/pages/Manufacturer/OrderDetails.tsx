@@ -7,6 +7,7 @@ import ManufacturerPackingAction from "@/components/ManufacturerPackingAction";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
 import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
+import ManufacturerPaymentGate from "@/components/ManufacturerPaymentGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { getOrderMode, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
 import BuyerPurposeBadge from "@/components/BuyerPurposeBadge";
+import { canManufacturerStartProduction } from "@/components/ManufacturerPaymentGate";
 
 const ManufacturerOrderDetails = () => {
   const { id } = useParams();
@@ -137,11 +139,20 @@ const ManufacturerOrderDetails = () => {
 
           {/* Order Mode Info Banner - Manufacturer sees order mode context */}
           <OrderModeInfoBanner order={order}/>
+
+          {/* PAYMENT GATE - Block production until payment confirmed */}
+          <ManufacturerPaymentGate order={order} />
           
           {/* Order Mode specific guidance for manufacturer */}
           {(() => {
             const orderMode = getOrderMode(order);
             const qcUploadType = getManufacturerQCUploadType(order);
+            const productionCheck = canManufacturerStartProduction(order);
+            
+            // If payment not confirmed, don't show production guidance
+            if (!productionCheck.allowed) {
+              return null;
+            }
             
             if (orderMode === 'sample_only' && qcUploadType === 'none') {
               return (
