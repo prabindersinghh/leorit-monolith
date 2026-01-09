@@ -49,6 +49,7 @@ import BuyerPurposeBadge from "@/components/BuyerPurposeBadge";
 import CommandCenterActions from "@/components/CommandCenterActions";
 import AdminOrderApproval from "@/components/AdminOrderApproval";
 import AdminPaymentGate from "@/components/AdminPaymentGate";
+import AdminProductionFilesView from "@/components/AdminProductionFilesView";
 import EvidenceSummary from "@/components/EvidenceSummary";
 import { format } from "date-fns";
 
@@ -98,6 +99,12 @@ interface Order {
   fabric_type: string | null;
   selected_color: string | null;
   design_size: string | null;
+  // Production files - added for admin visibility
+  back_design_url: string | null;
+  mockup_image: string | null;
+  back_mockup_image: string | null;
+  generated_preview: string | null;
+  size_chart_url: string | null;
 }
 
 interface OrderEvent {
@@ -391,7 +398,7 @@ const CommandCenter = () => {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Package className="h-4 w-4" />
-                      Full Order Specifications
+                      Order Specifications
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
@@ -445,42 +452,11 @@ const CommandCenter = () => {
                       <span className="text-muted-foreground">Total Value:</span>
                       <p className="text-lg font-bold">₹{selectedOrder.total_order_value?.toLocaleString() || '—'}</p>
                     </div>
-                    
-                    {/* Design Explanation */}
-                    {selectedOrder.design_explanation && (
-                      <div className="pt-2 border-t">
-                        <span className="text-muted-foreground">Order Explanation:</span>
-                        <p className="whitespace-pre-wrap bg-background/80 p-2 rounded mt-1">
-                          {selectedOrder.design_explanation}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Google Drive Link */}
-                    {selectedOrder.google_drive_link && (
-                      <div className="pt-2 border-t">
-                        <span className="text-muted-foreground">Google Drive:</span>
-                        <a 
-                          href={selectedOrder.google_drive_link} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-blue-600 hover:underline mt-1"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          Open Design Files
-                        </a>
-                      </div>
-                    )}
-                    
-                    {/* CSV File */}
-                    {selectedOrder.corrected_csv_url && (
-                      <div className="pt-2 border-t">
-                        <span className="text-muted-foreground">Size Distribution CSV:</span>
-                        <p className="text-xs font-mono mt-1">CSV uploaded</p>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
+
+                {/* PRODUCTION FILES & BUYER INPUTS - Admin visibility fix */}
+                <AdminProductionFilesView order={selectedOrder} />
 
                 {/* Manufacturer Info */}
                 <Card>
