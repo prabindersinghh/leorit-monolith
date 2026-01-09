@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
@@ -7,6 +7,8 @@ import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import OrderEvidenceView from "@/components/OrderEvidenceView";
 import EvidenceSummary from "@/components/EvidenceSummary";
 import AdminOrderControlPanel from "@/components/AdminOrderControlPanel";
+import AdminProductionFilesView from "@/components/AdminProductionFilesView";
+import AdminPaymentGate from "@/components/AdminPaymentGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,23 +28,42 @@ import {
   AlertCircle,
   Settings,
   Route,
-  Info
+  Info,
+  ArrowLeft,
+  History,
+  CreditCard
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 const AdminOrderDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [shippingInfo, setShippingInfo] = useState<any>(null);
   const [buyerInfo, setBuyerInfo] = useState<any>(null);
   const [manufacturerInfo, setManufacturerInfo] = useState<any>(null);
   const [manufacturerVerification, setManufacturerVerification] = useState<any>(null);
+  const [orderEvents, setOrderEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchOrderDetails();
+    fetchOrderEvents();
   }, [id]);
+
+  const fetchOrderEvents = async () => {
+    if (!id) return;
+    
+    const { data } = await supabase
+      .from('order_events')
+      .select('*')
+      .eq('order_id', id)
+      .order('event_timestamp', { ascending: false })
+      .limit(50);
+    
+    setOrderEvents(data || []);
+  };
 
   const fetchOrderDetails = async () => {
     const { data: orderData, error: orderError } = await supabase
@@ -161,24 +182,141 @@ const AdminOrderDetails = () => {
     );
   }
 
+  const getOrderStateColor = (state: string) => {
+    switch (state) {
+      case 'DRAFT': return 'bg-muted text-muted-foreground';
+      case 'SUBMITTED': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+      case 'ADMIN_APPROVED': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300';
+      case 'MANUFACTURER_ASSIGNED': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+      case 'PAYMENT_REQUESTED': return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+      case 'PAYMENT_CONFIRMED': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
+      case 'SAMPLE_IN_PROGRESS': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+      case 'SAMPLE_QC_UPLOADED': return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300';
+      case 'SAMPLE_APPROVED': return 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300';
+      case 'BULK_IN_PRODUCTION': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+      case 'DISPATCHED': return 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300';
+      case 'DELIVERED': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+      case 'COMPLETED': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole="admin" />
       <div className="flex-1 p-8 ml-64">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* Header */}
+          {/* Header with Back Navigation */}
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Order Details</h1>
-              <p className="text-sm text-muted-foreground mt-1">Admin View — Full Access</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={order.quantity === 1 ? "secondary" : "default"}>
-                {order.quantity === 1 ? "Sample" : "Bulk"}
-              </Badge>
-              <Badge>{order.detailed_status || order.status}</Badge>
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => navigate('/admin/command-center')}
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Command Center
+              </Button>
             </div>
           </div>
+
+          {/* Order Overview Card - Primary Info */}
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" />
+                  Order Overview
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge className={getOrderStateColor(order.order_state || '')}>
+                    {order.order_state?.replace(/_/g, ' ') || order.status}
+                  </Badge>
+                  <Badge variant={order.quantity === 1 ? "secondary" : "default"}>
+                    {order.quantity === 1 ? "Sample" : `Bulk (${order.quantity} pcs)`}
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Order ID</p>
+                  <p className="font-mono text-sm truncate" title={order.id}>{order.id}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Buyer Purpose</p>
+                  <Badge variant="outline" className="capitalize">
+                    {order.buyer_purpose?.replace(/_/g, ' ') || 'Not Set'}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Quantity</p>
+                  <p className="font-semibold">{order.quantity} pieces</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Created</p>
+                  <p className="text-sm">{format(new Date(order.created_at), "dd MMM yyyy, HH:mm")}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Product Type</p>
+                  <p className="font-medium">{order.product_type}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Design Size</p>
+                  <p className="font-medium">{order.design_size}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Order Intent</p>
+                  <Badge variant="secondary" className="capitalize">
+                    {order.order_intent?.replace(/_/g, ' ') || 'Legacy'}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Order Mode</p>
+                  <Badge variant="outline" className="capitalize">
+                    {order.order_mode?.replace(/_/g, ' ') || 'N/A'}
+                  </Badge>
+                </div>
+              </div>
+              
+              {/* Additional Details Row */}
+              <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-4 gap-4">
+                {order.fabric_type && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Fabric Type</p>
+                    <p className="font-medium">{order.fabric_type}</p>
+                  </div>
+                )}
+                {order.selected_color && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Color</p>
+                    <Badge variant="outline" className="capitalize">
+                      {order.selected_color.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                )}
+                {order.product_category && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Category</p>
+                    <p className="font-medium">{order.product_category}</p>
+                  </div>
+                )}
+                {order.expected_deadline && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Buyer Deadline</p>
+                    <p className="font-medium text-primary">
+                      {format(new Date(order.expected_deadline), "dd MMM yyyy")}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* BUYER INPUTS SECTION - Read Only */}
+          <AdminProductionFilesView order={order} />
 
           {/* Admin Control Panel - Assign manufacturer, courier, manual transitions */}
           <Card className="border-2 border-primary/30 bg-primary/5">
@@ -190,6 +328,25 @@ const AdminOrderDetails = () => {
             </CardHeader>
             <CardContent>
               <AdminOrderControlPanel order={order} onUpdate={fetchOrderDetails} />
+            </CardContent>
+          </Card>
+
+          {/* Payment Management Section */}
+          <Card className="border-2 border-amber-200/50 bg-amber-50/30 dark:border-amber-800/50 dark:bg-amber-950/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-amber-600" />
+                Payment Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AdminPaymentGate 
+                order={order} 
+                onUpdate={async () => {
+                  await fetchOrderDetails();
+                  await fetchOrderEvents();
+                }} 
+              />
             </CardContent>
           </Card>
 
@@ -845,125 +1002,49 @@ const AdminOrderDetails = () => {
             </CardContent>
           </Card>
 
-          {/* Production Files Section */}
+          {/* Database Event Log (from order_events table) */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Image className="h-5 w-5" />
-                Production Files
+                <History className="h-5 w-5" />
+                Event Log (Database)
+                <Badge variant="outline" className="ml-2 text-xs font-normal">
+                  {orderEvents.length} events
+                </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Design Images */}
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">Design Images</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                  {order.design_file_url && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Front Design</p>
-                      <img
-                        src={order.design_file_url}
-                        alt="Front design"
-                        className="w-full h-32 object-contain border rounded bg-muted/50"
-                      />
-                      <Button variant="outline" size="sm" className="w-full" asChild>
-                        <a href={order.design_file_url} download target="_blank" rel="noopener noreferrer">
-                          <Download className="w-3 h-3 mr-1" /> Download
-                        </a>
-                      </Button>
+            <CardContent>
+              {orderEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No events recorded yet.</p>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {orderEvents.map((event) => (
+                    <div 
+                      key={event.id} 
+                      className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border border-border/50"
+                    >
+                      <div className="p-1.5 bg-primary/10 rounded">
+                        <Clock className="h-3 w-3 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="secondary" className="text-xs font-mono">
+                            {event.event_type}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(event.event_timestamp), "dd MMM yyyy, HH:mm:ss")}
+                          </span>
+                        </div>
+                        {event.metadata && (
+                          <pre className="text-xs text-muted-foreground mt-1.5 whitespace-pre-wrap font-mono bg-background/50 p-2 rounded max-w-full overflow-x-auto">
+                            {JSON.stringify(event.metadata, null, 2)}
+                          </pre>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  {order.back_design_url && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Back Design</p>
-                      <img
-                        src={order.back_design_url}
-                        alt="Back design"
-                        className="w-full h-32 object-contain border rounded bg-muted/50"
-                      />
-                      <Button variant="outline" size="sm" className="w-full" asChild>
-                        <a href={order.back_design_url} download target="_blank" rel="noopener noreferrer">
-                          <Download className="w-3 h-3 mr-1" /> Download
-                        </a>
-                      </Button>
-                    </div>
-                  )}
-                  {order.mockup_image && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Front Mockup</p>
-                      <img
-                        src={order.mockup_image}
-                        alt="Front mockup"
-                        className="w-full h-32 object-contain border rounded bg-muted/50"
-                      />
-                      <Button variant="outline" size="sm" className="w-full" asChild>
-                        <a href={order.mockup_image} download target="_blank" rel="noopener noreferrer">
-                          <Download className="w-3 h-3 mr-1" /> Download
-                        </a>
-                      </Button>
-                    </div>
-                  )}
-                  {order.back_mockup_image && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Back Mockup</p>
-                      <img
-                        src={order.back_mockup_image}
-                        alt="Back mockup"
-                        className="w-full h-32 object-contain border rounded bg-muted/50"
-                      />
-                      <Button variant="outline" size="sm" className="w-full" asChild>
-                        <a href={order.back_mockup_image} download target="_blank" rel="noopener noreferrer">
-                          <Download className="w-3 h-3 mr-1" /> Download
-                        </a>
-                      </Button>
-                    </div>
-                  )}
-                  {order.generated_preview && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Generated Preview</p>
-                      <img
-                        src={order.generated_preview}
-                        alt="Generated preview"
-                        className="w-full h-32 object-contain border rounded bg-muted/50"
-                      />
-                      <Button variant="outline" size="sm" className="w-full" asChild>
-                        <a href={order.generated_preview} download target="_blank" rel="noopener noreferrer">
-                          <Download className="w-3 h-3 mr-1" /> Download
-                        </a>
-                      </Button>
-                    </div>
-                  )}
+                  ))}
                 </div>
-                {!order.design_file_url && !order.back_design_url && (
-                  <p className="text-sm text-muted-foreground">No design files uploaded</p>
-                )}
-              </div>
-
-              {/* CSV & Size Chart */}
-              <div className="pt-4 border-t">
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">Documents</h4>
-                <div className="flex flex-wrap gap-3">
-                  {order.corrected_csv_url && (
-                    <Button variant="outline" asChild>
-                      <a href={order.corrected_csv_url} download target="_blank" rel="noopener noreferrer">
-                        <FileSpreadsheet className="w-4 h-4 mr-2" />
-                        Download Name/Size CSV
-                      </a>
-                    </Button>
-                  )}
-                  {order.size_chart_url && (
-                    <Button variant="outline" asChild>
-                      <a href={order.size_chart_url} target="_blank" rel="noopener noreferrer">
-                        <FileText className="w-4 h-4 mr-2" />
-                        View Size Chart PDF
-                      </a>
-                    </Button>
-                  )}
-                  {!order.corrected_csv_url && !order.size_chart_url && (
-                    <p className="text-sm text-muted-foreground">No documents uploaded</p>
-                  )}
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
