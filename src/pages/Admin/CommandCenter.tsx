@@ -190,14 +190,21 @@ const CommandCenter = () => {
   };
 
   const handleOrderUpdate = async () => {
-    await fetchOrders();
+    // Fetch fresh order data directly from database
     if (selectedOrder) {
-      const updated = orders.find(o => o.id === selectedOrder.id);
-      if (updated) {
-        setSelectedOrder(updated);
-        await fetchOrderEvents(updated.id);
+      const { data: freshOrder, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', selectedOrder.id)
+        .single();
+      
+      if (!error && freshOrder) {
+        setSelectedOrder(freshOrder as Order);
+        await fetchOrderEvents(freshOrder.id);
       }
     }
+    // Also refresh the orders list
+    await fetchOrders();
   };
 
   const filteredOrders = orders.filter(order => {
