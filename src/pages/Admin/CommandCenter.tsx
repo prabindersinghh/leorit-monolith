@@ -378,11 +378,27 @@ const CommandCenter = () => {
       {/* Order Detail Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent className="w-[600px] sm:max-w-[600px] overflow-hidden flex flex-col">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Order Details
-            </SheetTitle>
+          <SheetHeader className="space-y-3">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Order Details
+              </SheetTitle>
+              {selectedOrder && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    navigate(`/admin/order/${selectedOrder.id}`);
+                  }}
+                  className="gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View Full Details
+                </Button>
+              )}
+            </div>
           </SheetHeader>
 
           {selectedOrder && (
