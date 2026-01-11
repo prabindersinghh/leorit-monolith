@@ -288,7 +288,7 @@ const CommandCenter = () => {
                     <TableHead>Payment</TableHead>
                     <TableHead>Delivery</TableHead>
                     <TableHead>Last Updated</TableHead>
-                    <TableHead className="w-[80px]"></TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -311,7 +311,13 @@ const CommandCenter = () => {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => handleOrderClick(order)}
                       >
-                        <TableCell className="font-mono text-xs">
+                        <TableCell 
+                          className="font-mono text-xs text-primary hover:underline cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/order/${order.id}`);
+                          }}
+                        >
                           {order.id.slice(0, 8)}...
                         </TableCell>
                         <TableCell>
@@ -350,14 +356,16 @@ const CommandCenter = () => {
                         </TableCell>
                         <TableCell>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/admin/order/${order.id}`);
                             }}
+                            className="gap-1"
                           >
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-3 w-3" />
+                            View
                           </Button>
                         </TableCell>
                       </TableRow>
