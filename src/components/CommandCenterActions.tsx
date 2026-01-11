@@ -299,16 +299,18 @@ const CommandCenterActions = ({ order, manufacturers, onUpdate }: CommandCenterA
               <SelectValue placeholder="Select manufacturer..." />
             </SelectTrigger>
             <SelectContent>
-              {availableManufacturers.map((m) => (
-                <SelectItem key={m.user_id} value={m.user_id}>
-                  <div className="flex items-center gap-2">
-                    <span>{m.company_name}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {m.city}
-                    </Badge>
-                  </div>
-                </SelectItem>
-              ))}
+              {availableManufacturers
+                .filter((m) => m.user_id && m.user_id.trim() !== '')
+                .map((m) => (
+                  <SelectItem key={m.user_id} value={m.user_id}>
+                    <div className="flex items-center gap-2">
+                      <span>{m.company_name}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {m.city}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
           <Button
