@@ -244,17 +244,32 @@ const CommandCenter = () => {
   };
 
   const handleOrderUpdate = async () => {
-    // Fetch fresh order data directly from database
+    // Fetch fresh order data directly from database and refresh related info
     if (selectedOrder) {
+      console.log('[CommandCenter] Refreshing order:', selectedOrder.id);
+      
       const { data: freshOrder, error } = await supabase
         .from('orders')
         .select('*')
         .eq('id', selectedOrder.id)
         .single();
-      
+
       if (!error && freshOrder) {
+        console.log('[CommandCenter] Fresh order data:', {
+          id: freshOrder.id,
+          design_file_url: freshOrder.design_file_url,
+          back_design_url: freshOrder.back_design_url,
+          corrected_csv_url: freshOrder.corrected_csv_url,
+          mockup_image: freshOrder.mockup_image,
+          google_drive_link: freshOrder.google_drive_link,
+        });
+        
         setSelectedOrder(freshOrder as Order);
-        await fetchOrderEvents(freshOrder.id);
+        await Promise.all([
+          fetchOrderEvents(freshOrder.id),
+          fetchBuyerInfo(freshOrder.buyer_id),
+          fetchShippingInfo(freshOrder.id),
+        ]);
       }
     }
     // Also refresh the orders list
