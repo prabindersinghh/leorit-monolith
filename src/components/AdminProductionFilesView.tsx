@@ -1,13 +1,12 @@
 /**
  * Admin Production Files View
- * 
- * READ-ONLY view of all production-related files for an order.
- * Allows admin to see: designs, CSVs, mockups, buyer notes & attachments.
- * 
- * Handles signed URL generation for private storage buckets.
+ *
+ * READ-ONLY admin audit of buyer-provided assets.
+ * - Reads file references from BOTH the order row (canonical fields) and order_evidence (specification stage)
+ * - Always generates signed URLs for private storage objects
  */
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,93 +14,126 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  FileImage,
-  FileSpreadsheet,
-  Eye,
+  AlertCircle,
   Download,
   ExternalLink,
-  ImageIcon,
+  Eye,
+  FileImage,
+  FileSpreadsheet,
   FileText,
-  Palette,
   FolderOpen,
-  AlertCircle,
+  ImageIcon,
+  Link as LinkIcon,
+  Palette,
+  Paperclip,
 } from "lucide-react";
 import { format } from "date-fns";
+import { getOrderEvidence } from "@/lib/evidenceStorage";
 
 interface AdminProductionFilesViewProps {
   order: {
     id: string;
+    created_at?: string;
+
+    // Canonical order fields
     design_file_url?: string | null;
     back_design_url?: string | null;
     corrected_csv_url?: string | null;
+    size_chart_url?: string | null;
+
     mockup_image?: string | null;
     back_mockup_image?: string | null;
     generated_preview?: string | null;
-    google_drive_link?: string | null;
+
     buyer_notes?: string | null;
     design_explanation?: string | null;
-    size_chart_url?: string | null;
-    created_at?: string;
-    updated_at?: string;
+
+    // This may not exist in schema yet; keep optional for compatibility.
+    buyer_note_attachments?: string[] | null;
+
+    google_drive_link?: string | null;
   };
 }
+
+type FileKind = "image" | "csv" | "document" | "link";
 
 interface FileItemProps {
   label: string;
-  url: string | null | undefined;
-  signedUrl?: string | null;
-  type: 'image' | 'csv' | 'document' | 'link';
+  src: string;
+  kind: FileKind;
   timestamp?: string | null;
   previewOnly?: boolean;
+  signedUrl?: string | null;
   loading?: boolean;
 }
 
-const FileItem = ({ label, url, signedUrl, type, timestamp, previewOnly, loading }: FileItemProps) => {
-  if (!url) return null;
+const isHttpUrl = (value: string) => /^https?:\/\//i.test(value);
+const isDataUrl = (value: string) => /^data:/i.test(value);
 
-  // Use signed URL if available, otherwise fall back to original URL
-  const displayUrl = signedUrl || url;
-  const isExternalLink = type === 'link' || url.includes('drive.google.com');
+const getExtension = (value: string) => {
+  const clean = value.split("?")[0];
+  const last = clean.split("/").pop() ?? "";
+  const ext = last.includes(".") ? last.split(".").pop() : "";
+  return (ext ?? "").toLowerCase();
+};
 
-  const getIcon = () => {
-    switch (type) {
-      case 'image':
+const getFileTypeLabel = (kind: FileKind, src: string) => {
+  if (kind === "link") return "LINK";
+  if (kind === "csv") return "CSV";
+  const ext = getExtension(src);
+  if (!ext) return "FILE";
+  return ext.length > 5 ? "FILE" : ext.toUpperCase();
+};
+
+const getFileNameFromSrc = (src: string) => {
+  if (isDataUrl(src)) return "inline";
+  const clean = src.split("?")[0];
+  const name = clean.split("/").pop() ?? clean;
+  try {
+    const decoded = decodeURIComponent(name);
+    return decoded.length > 60 ? decoded.slice(0, 57) + "..." : decoded;
+  } catch {
+    return name;
+  }
+};
+
+// Supports either full storage URLs or raw object paths.
+const parseStorageUrl = (url: string): { bucket: string; path: string } | null => {
+  try {
+    // https://{project}/storage/v1/object/{public|sign}/bucket/path
+    const match = url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)/);
+    if (!match) return null;
+    return { bucket: match[1], path: decodeURIComponent(match[2].split("?")[0]) };
+  } catch {
+    return null;
+  }
+};
+
+const createSignedUrl = async (bucket: string, path: string): Promise<string | null> => {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+  if (error) {
+    console.error("[AdminProductionFilesView] createSignedUrl error", { bucket, path, error });
+    return null;
+  }
+  return data?.signedUrl ?? null;
+};
+
+const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, loading }: FileItemProps) => {
+  const displayUrl = signedUrl ?? src;
+  const isExternal = kind === "link";
+
+  const icon = (() => {
+    switch (kind) {
+      case "image":
         return <FileImage className="h-4 w-4 text-primary" />;
-      case 'csv':
-        return <FileSpreadsheet className="h-4 w-4 text-green-600" />;
-      case 'link':
-        return <ExternalLink className="h-4 w-4 text-blue-600" />;
+      case "csv":
+        return <FileSpreadsheet className="h-4 w-4 text-primary" />;
+      case "link":
+        return <ExternalLink className="h-4 w-4 text-primary" />;
       default:
         return <FileText className="h-4 w-4 text-muted-foreground" />;
     }
-  };
-
-  const getFileName = () => {
-    if (type === 'link') return 'External Link';
-    try {
-      const urlObj = new URL(url);
-      const path = urlObj.pathname;
-      // Handle Supabase storage URLs
-      const pathParts = path.split('/');
-      const fileName = pathParts[pathParts.length - 1] || label;
-      // Decode URL-encoded characters
-      const decodedName = decodeURIComponent(fileName);
-      return decodedName.length > 40 ? decodedName.slice(0, 37) + '...' : decodedName;
-    } catch {
-      return label;
-    }
-  };
-
-  const getFileType = () => {
-    if (type === 'link') return 'LINK';
-    if (type === 'csv') return 'CSV';
-    try {
-      const ext = url.split('.').pop()?.toUpperCase()?.split('?')[0] || 'FILE';
-      return ext.length > 5 ? 'FILE' : ext;
-    } catch {
-      return 'FILE';
-    }
-  };
+  })();
 
   if (loading) {
     return (
@@ -109,8 +141,8 @@ const FileItem = ({ label, url, signedUrl, type, timestamp, previewOnly, loading
         <div className="flex items-center gap-3 flex-1">
           <Skeleton className="h-8 w-8 rounded-md" />
           <div className="space-y-2 flex-1">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-48" />
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-56" />
           </div>
         </div>
       </div>
@@ -120,164 +152,173 @@ const FileItem = ({ label, url, signedUrl, type, timestamp, previewOnly, loading
   return (
     <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors">
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="p-2 bg-background rounded-md">
-          {getIcon()}
-        </div>
+        <div className="p-2 bg-background rounded-md">{icon}</div>
+
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-medium truncate">{label}</p>
             {previewOnly && (
-              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
-                Preview Only
+              <Badge variant="outline" className="text-xs">
+                Preview only
               </Badge>
             )}
           </div>
+
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="secondary" className="text-xs px-1.5 py-0">
-              {getFileType()}
+              {getFileTypeLabel(kind, src)}
             </Badge>
-            <span className="truncate">{getFileName()}</span>
+            <span className="truncate">{getFileNameFromSrc(src)}</span>
           </div>
+
           {timestamp && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              Uploaded: {format(new Date(timestamp), 'MMM d, yyyy HH:mm')}
+              Uploaded: {format(new Date(timestamp), "MMM d, yyyy HH:mm")}
             </p>
           )}
         </div>
       </div>
+
       <div className="flex items-center gap-1">
-        {type === 'image' && (
+        {kind === "image" && (
           <Button
             variant="ghost"
             size="sm"
             className="h-8 w-8 p-0"
-            onClick={() => window.open(displayUrl, '_blank')}
-            title="Preview"
+            onClick={() => window.open(displayUrl, "_blank")}
+            title="View"
           >
             <Eye className="h-4 w-4" />
           </Button>
         )}
+
         <Button
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          onClick={() => window.open(displayUrl, '_blank')}
-          title={isExternalLink ? "Open Link" : "Download"}
+          onClick={() => window.open(displayUrl, "_blank")}
+          title={isExternal ? "Open" : "Download"}
         >
-          {isExternalLink ? (
-            <ExternalLink className="h-4 w-4" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
+          {isExternal ? <ExternalLink className="h-4 w-4" /> : <Download className="h-4 w-4" />}
         </Button>
       </div>
     </div>
   );
 };
 
-// Helper to extract bucket and path from Supabase storage URL
-const parseStorageUrl = (url: string): { bucket: string; path: string } | null => {
-  try {
-    // Pattern: https://{project}.supabase.co/storage/v1/object/{public|sign}/bucket/path
-    const match = url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)/);
-    if (match) {
-      return { bucket: match[1], path: decodeURIComponent(match[2].split('?')[0]) };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-};
-
-// Generate signed URL for private storage
-const generateSignedUrl = async (url: string): Promise<string | null> => {
-  const parsed = parseStorageUrl(url);
-  if (!parsed) return null;
-
-  try {
-    const { data, error } = await supabase.storage
-      .from(parsed.bucket)
-      .createSignedUrl(parsed.path, 3600); // 1 hour expiry
-
-    if (error) {
-      console.error('Error generating signed URL:', error);
-      return null;
-    }
-    return data?.signedUrl || null;
-  } catch (error) {
-    console.error('Error generating signed URL:', error);
-    return null;
-  }
-};
+const DEFAULT_BUCKET_FOR_ORDER_FILES = "design-files";
 
 const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
-  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [signedBySrc, setSignedBySrc] = useState<Record<string, string>>({});
+  const [loadingSigned, setLoadingSigned] = useState(false);
+  const [specEvidence, setSpecEvidence] = useState<any[]>([]);
 
-  // Debug: Log the order object to verify data
+  // STEP 1: Verify fields actually arrive (requested one-time debug)
   useEffect(() => {
-    console.log('[AdminProductionFilesView] Order data received:', {
-      id: order.id,
-      design_file_url: order.design_file_url,
-      back_design_url: order.back_design_url,
-      corrected_csv_url: order.corrected_csv_url,
-      mockup_image: order.mockup_image,
-      back_mockup_image: order.back_mockup_image,
-      generated_preview: order.generated_preview,
-      size_chart_url: order.size_chart_url,
-      google_drive_link: order.google_drive_link,
-      buyer_notes: order.buyer_notes,
-      design_explanation: order.design_explanation,
+    // eslint-disable-next-line no-console
+    console.log("ORDER FILE FIELDS", {
+      design_file_url: (order as any).design_file_url,
+      back_design_url: (order as any).back_design_url,
+      corrected_csv_url: (order as any).corrected_csv_url,
+      mockup_image: (order as any).mockup_image,
+      back_mockup_image: (order as any).back_mockup_image,
+      generated_preview: (order as any).generated_preview,
+      buyer_note_attachments: (order as any).buyer_note_attachments,
+      google_drive_link: (order as any).google_drive_link,
     });
-  }, [order]);
+  }, [order.id]);
 
-  // Generate signed URLs for private storage files
+  // Fetch specification evidence (attachments / links / supplementary files)
   useEffect(() => {
-    const generateAllSignedUrls = async () => {
-      setLoading(true);
-      const urls: Record<string, string> = {};
-      
-      const fileFields = [
-        'design_file_url',
-        'back_design_url',
-        'corrected_csv_url',
-        'mockup_image',
-        'back_mockup_image',
-        'generated_preview',
-        'size_chart_url',
-      ] as const;
+    const run = async () => {
+      if (!order.id) return;
+      const items = await getOrderEvidence(order.id);
+      setSpecEvidence((items || []).filter((e) => e.stage === "specification"));
+    };
+    run();
+  }, [order.id]);
 
-      const promises = fileFields.map(async (field) => {
-        const url = order[field];
-        if (url && url.includes('supabase.co/storage')) {
-          const signedUrl = await generateSignedUrl(url);
-          if (signedUrl) {
-            urls[field] = signedUrl;
+  const attachmentsFromEvidence = useMemo(() => {
+    const attachmentTypes = new Set(["buyer_attachment", "buyer_note_attachment", "attachment", "buyer_note_file"]);
+    return (specEvidence || [])
+      .filter((e) => e?.file_url && typeof e.file_url === "string" && attachmentTypes.has(e.evidence_type))
+      .map((e) => e.file_url as string);
+  }, [specEvidence]);
+
+  const allAttachmentSrcs = useMemo(() => {
+    const fromOrderArray = ((order as any).buyer_note_attachments as string[] | null | undefined) ?? [];
+    const merged = [...fromOrderArray, ...attachmentsFromEvidence].filter(Boolean);
+    // de-dupe
+    return Array.from(new Set(merged));
+  }, [order, attachmentsFromEvidence]);
+
+  const sourcesNeedingSigned = useMemo(() => {
+    const candidates = [
+      order.design_file_url,
+      order.back_design_url,
+      order.corrected_csv_url,
+      order.size_chart_url,
+      order.mockup_image,
+      order.back_mockup_image,
+      order.generated_preview,
+      ...allAttachmentSrcs,
+    ].filter((v): v is string => !!v && typeof v === "string");
+
+    return candidates.filter((src) => {
+      if (isDataUrl(src)) return false;
+      if (src.includes("drive.google.com")) return false;
+      return true;
+    });
+  }, [order, allAttachmentSrcs]);
+
+  // STEP 3/4: Always sign private files for admin
+  useEffect(() => {
+    const run = async () => {
+      if (!order.id) return;
+      setLoadingSigned(true);
+
+      const next: Record<string, string> = {};
+
+      await Promise.all(
+        sourcesNeedingSigned.map(async (src) => {
+          if (signedBySrc[src]) return;
+
+          // Full storage URL
+          if (isHttpUrl(src)) {
+            const parsed = parseStorageUrl(src);
+            if (!parsed) return;
+            const signed = await createSignedUrl(parsed.bucket, parsed.path);
+            if (signed) next[src] = signed;
+            return;
           }
-        }
-      });
 
-      await Promise.all(promises);
-      setSignedUrls(urls);
-      setLoading(false);
+          // Raw object path (assume design-files bucket)
+          const signed = await createSignedUrl(DEFAULT_BUCKET_FOR_ORDER_FILES, src);
+          if (signed) next[src] = signed;
+        })
+      );
 
-      console.log('[AdminProductionFilesView] Signed URLs generated:', urls);
+      if (Object.keys(next).length > 0) {
+        setSignedBySrc((prev) => ({ ...prev, ...next }));
+      }
+
+      setLoadingSigned(false);
     };
 
-    if (order.id) {
-      generateAllSignedUrls();
-    }
-  }, [order.id, order.design_file_url, order.back_design_url, order.corrected_csv_url, 
-      order.mockup_image, order.back_mockup_image, order.generated_preview, order.size_chart_url]);
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id, sourcesNeedingSigned.join("|")]);
 
-  const hasDesigns = order.design_file_url || order.back_design_url;
-  const hasCSV = order.corrected_csv_url || order.size_chart_url;
-  const hasMockups = order.mockup_image || order.back_mockup_image || order.generated_preview;
-  const hasBuyerInputs = order.buyer_notes || order.design_explanation || order.google_drive_link;
+  const hasDesigns = !!(order.design_file_url || order.back_design_url);
+  const hasCSV = !!(order.corrected_csv_url || order.size_chart_url);
+  const hasMockups = !!(order.mockup_image || order.back_mockup_image || order.generated_preview);
+  const hasNotes = !!(order.buyer_notes || order.design_explanation);
+  const hasAttachments = allAttachmentSrcs.length > 0;
+  const hasDrive = !!order.google_drive_link;
 
-  const hasAnyFiles = hasDesigns || hasCSV || hasMockups || hasBuyerInputs;
+  const hasAny = hasDesigns || hasCSV || hasMockups || hasNotes || hasAttachments || hasDrive;
 
-  if (!hasAnyFiles && !loading) {
+  if (!hasAny && !loadingSigned) {
     return (
       <Card className="border-dashed">
         <CardHeader className="pb-2">
@@ -289,198 +330,213 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
         <CardContent>
           <div className="flex items-center gap-2 text-muted-foreground">
             <AlertCircle className="h-4 w-4" />
-            <p className="text-sm">
-              No production files uploaded yet.
-            </p>
+            <p className="text-sm">No production files uploaded yet.</p>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Order ID: {order.id}
-          </p>
+          <p className="text-xs text-muted-foreground mt-2">Order ID: {order.id}</p>
         </CardContent>
       </Card>
     );
   }
 
+  const tsFallback = order.created_at ?? null;
+
   return (
-    <Card className="border-blue-200/50 bg-blue-50/30 dark:border-blue-800/50 dark:bg-blue-950/20">
+    <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
-          <FolderOpen className="h-4 w-4 text-blue-600" />
+          <FolderOpen className="h-4 w-4" />
           Production Files & Buyer Inputs
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          All files uploaded by buyer for this order (read-only)
-        </p>
+        <p className="text-xs text-muted-foreground">All buyer-provided files for this order (read-only)</p>
       </CardHeader>
+
       <CardContent className="space-y-4">
-        {/* DESIGNS SECTION */}
-        {hasDesigns && (
+        {/* Designs */}
+        {(hasDesigns || loadingSigned) && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Palette className="h-4 w-4 text-purple-600" />
-              <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-400">
-                Designs
-              </h4>
+              <Palette className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-semibold">Design Files</h4>
             </div>
             <div className="space-y-2">
-              <FileItem
-                label="Front Design"
-                url={order.design_file_url}
-                signedUrl={signedUrls['design_file_url']}
-                type="image"
-                timestamp={order.created_at}
-                loading={loading && !!order.design_file_url}
-              />
-              <FileItem
-                label="Back Design"
-                url={order.back_design_url}
-                signedUrl={signedUrls['back_design_url']}
-                type="image"
-                timestamp={order.created_at}
-                loading={loading && !!order.back_design_url}
-              />
-            </div>
-            {!order.back_design_url && order.design_file_url && (
-              <p className="text-xs text-muted-foreground italic pl-2">
-                Single-design order (front only)
-              </p>
-            )}
-          </div>
-        )}
-
-        {hasDesigns && (hasCSV || hasMockups || hasBuyerInputs) && <Separator />}
-
-        {/* CSV DATA SECTION */}
-        {hasCSV && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4 text-green-600" />
-              <h4 className="text-sm font-semibold text-green-700 dark:text-green-400">
-                CSV Data
-              </h4>
-            </div>
-            <div className="space-y-2">
-              <FileItem
-                label="Size Distribution CSV"
-                url={order.corrected_csv_url}
-                signedUrl={signedUrls['corrected_csv_url']}
-                type="csv"
-                timestamp={order.updated_at}
-                loading={loading && !!order.corrected_csv_url}
-              />
-              <FileItem
-                label="Size Chart"
-                url={order.size_chart_url}
-                signedUrl={signedUrls['size_chart_url']}
-                type="image"
-                timestamp={order.created_at}
-                loading={loading && !!order.size_chart_url}
-              />
+              {order.design_file_url && (
+                <FileItem
+                  label="Front Design"
+                  src={order.design_file_url}
+                  kind="image"
+                  timestamp={tsFallback}
+                  signedUrl={signedBySrc[order.design_file_url]}
+                  loading={loadingSigned && !signedBySrc[order.design_file_url] && !isDataUrl(order.design_file_url)}
+                />
+              )}
+              {order.back_design_url && (
+                <FileItem
+                  label="Back Design"
+                  src={order.back_design_url}
+                  kind="image"
+                  timestamp={tsFallback}
+                  signedUrl={signedBySrc[order.back_design_url]}
+                  loading={loadingSigned && !signedBySrc[order.back_design_url] && !isDataUrl(order.back_design_url)}
+                />
+              )}
+              {!order.design_file_url && !order.back_design_url && !loadingSigned && (
+                <p className="text-xs text-muted-foreground">—</p>
+              )}
             </div>
           </div>
         )}
 
-        {hasCSV && (hasMockups || hasBuyerInputs) && <Separator />}
+        {(hasDesigns || loadingSigned) && (hasCSV || hasMockups || hasNotes || hasAttachments || hasDrive) && <Separator />}
 
-        {/* MOCKUPS SECTION */}
-        {hasMockups && (
+        {/* CSV */}
+        {(hasCSV || loadingSigned) && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <ImageIcon className="h-4 w-4 text-amber-600" />
-              <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400">
-                Mockups
-              </h4>
-              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
-                Preview Only
+              <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-semibold">CSV Files</h4>
+            </div>
+            <div className="space-y-2">
+              {order.corrected_csv_url && (
+                <FileItem
+                  label="Corrected CSV"
+                  src={order.corrected_csv_url}
+                  kind="csv"
+                  timestamp={tsFallback}
+                  signedUrl={signedBySrc[order.corrected_csv_url]}
+                  loading={loadingSigned && !signedBySrc[order.corrected_csv_url] && !isDataUrl(order.corrected_csv_url)}
+                />
+              )}
+              {order.size_chart_url && (
+                <FileItem
+                  label="Size Chart"
+                  src={order.size_chart_url}
+                  kind="image"
+                  timestamp={tsFallback}
+                  signedUrl={signedBySrc[order.size_chart_url]}
+                  loading={loadingSigned && !signedBySrc[order.size_chart_url] && !isDataUrl(order.size_chart_url)}
+                />
+              )}
+              {!order.corrected_csv_url && !order.size_chart_url && !loadingSigned && (
+                <p className="text-xs text-muted-foreground">—</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(hasCSV || loadingSigned) && (hasMockups || hasNotes || hasAttachments || hasDrive) && <Separator />}
+
+        {/* Mockups */}
+        {(hasMockups || loadingSigned) && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-semibold">Mockups</h4>
+              <Badge variant="outline" className="text-xs">
+                Preview only
               </Badge>
             </div>
             <div className="space-y-2">
-              <FileItem
-                label="Front Mockup"
-                url={order.mockup_image}
-                signedUrl={signedUrls['mockup_image']}
-                type="image"
-                timestamp={order.created_at}
-                previewOnly
-                loading={loading && !!order.mockup_image}
-              />
-              <FileItem
-                label="Back Mockup"
-                url={order.back_mockup_image}
-                signedUrl={signedUrls['back_mockup_image']}
-                type="image"
-                timestamp={order.created_at}
-                previewOnly
-                loading={loading && !!order.back_mockup_image}
-              />
-              <FileItem
-                label="AI Generated Preview"
-                url={order.generated_preview}
-                signedUrl={signedUrls['generated_preview']}
-                type="image"
-                timestamp={order.created_at}
-                previewOnly
-                loading={loading && !!order.generated_preview}
-              />
+              {order.mockup_image && (
+                <FileItem
+                  label="Front Mockup"
+                  src={order.mockup_image}
+                  kind="image"
+                  timestamp={tsFallback}
+                  previewOnly
+                  signedUrl={signedBySrc[order.mockup_image]}
+                  loading={loadingSigned && !signedBySrc[order.mockup_image] && !isDataUrl(order.mockup_image)}
+                />
+              )}
+              {order.back_mockup_image && (
+                <FileItem
+                  label="Back Mockup"
+                  src={order.back_mockup_image}
+                  kind="image"
+                  timestamp={tsFallback}
+                  previewOnly
+                  signedUrl={signedBySrc[order.back_mockup_image]}
+                  loading={loadingSigned && !signedBySrc[order.back_mockup_image] && !isDataUrl(order.back_mockup_image)}
+                />
+              )}
+              {order.generated_preview && (
+                <FileItem
+                  label="AI Preview"
+                  src={order.generated_preview}
+                  kind="image"
+                  timestamp={tsFallback}
+                  previewOnly
+                  signedUrl={signedBySrc[order.generated_preview]}
+                  loading={loadingSigned && !signedBySrc[order.generated_preview] && !isDataUrl(order.generated_preview)}
+                />
+              )}
+              {!order.mockup_image && !order.back_mockup_image && !order.generated_preview && !loadingSigned && (
+                <p className="text-xs text-muted-foreground">—</p>
+              )}
             </div>
           </div>
         )}
 
-        {hasMockups && hasBuyerInputs && <Separator />}
+        {(hasMockups || loadingSigned) && (hasNotes || hasAttachments || hasDrive) && <Separator />}
 
-        {/* BUYER NOTES & ATTACHMENTS SECTION */}
-        {hasBuyerInputs && (
+        {/* Buyer notes & attachments */}
+        {(hasNotes || hasAttachments || hasDrive) && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-600" />
-              <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-400">
-                Buyer Notes & Attachments
-              </h4>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-semibold">Buyer Notes & Attachments</h4>
             </div>
+
             <div className="space-y-3">
-              {/* Google Drive Link */}
-              <FileItem
-                label="Google Drive Folder"
-                url={order.google_drive_link}
-                type="link"
-              />
-
-              {/* Design Explanation */}
-              {order.design_explanation && (
-                <div className="p-3 bg-background/80 rounded-lg border border-border/50">
-                  <p className="text-xs font-medium text-muted-foreground mb-1">
-                    Order Explanation
-                  </p>
-                  <p className="text-sm whitespace-pre-wrap">
-                    {order.design_explanation}
-                  </p>
+              {order.google_drive_link && (
+                <div className="flex items-start gap-2 text-sm">
+                  <LinkIcon className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <a
+                    href={order.google_drive_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline break-all"
+                  >
+                    {order.google_drive_link}
+                  </a>
                 </div>
               )}
 
-              {/* Buyer Notes */}
+              {order.design_explanation && (
+                <div className="p-3 bg-muted/30 rounded-lg border border-border/50">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Order Explanation</p>
+                  <p className="text-sm whitespace-pre-wrap">{order.design_explanation}</p>
+                </div>
+              )}
+
               {order.buyer_notes && (
-                <div className="p-3 bg-background/80 rounded-lg border border-border/50">
-                  <p className="text-xs font-medium text-muted-foreground mb-1">
-                    Buyer Notes
-                  </p>
-                  <p className="text-sm whitespace-pre-wrap">
-                    {order.buyer_notes}
-                  </p>
+                <div className="p-3 bg-muted/30 rounded-lg border border-border/50">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Buyer Notes</p>
+                  <p className="text-sm whitespace-pre-wrap">{order.buyer_notes}</p>
+                </div>
+              )}
+
+              {allAttachmentSrcs.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-sm font-medium">Attachments</p>
+                  </div>
+                  <div className="space-y-2">
+                    {allAttachmentSrcs.map((src, i) => (
+                      <FileItem
+                        key={`${src}-${i}`}
+                        label={`Attachment ${i + 1}`}
+                        src={src}
+                        kind={src.includes(".csv") ? "csv" : isDataUrl(src) ? "image" : "document"}
+                        timestamp={tsFallback}
+                        signedUrl={signedBySrc[src]}
+                        loading={loadingSigned && !signedBySrc[src] && !isDataUrl(src) && !src.includes("drive.google.com")}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-        )}
-
-        {/* Debug info (only in development) */}
-        {!hasAnyFiles && (
-          <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-200 dark:border-yellow-800">
-            <p className="text-xs text-yellow-700 dark:text-yellow-400 font-medium mb-1">
-              Debug: No files detected
-            </p>
-            <p className="text-xs text-yellow-600 dark:text-yellow-500">
-              Check browser console for order data details.
-            </p>
           </div>
         )}
       </CardContent>

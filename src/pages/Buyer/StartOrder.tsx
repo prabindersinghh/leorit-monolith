@@ -61,10 +61,14 @@ const StartOrder = () => {
   const [buyerNotes, setBuyerNotes] = useState<string>("");
   const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
   const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
-  // New states for design files submission
+
+  // Design Files Submission (buyer inputs)
   const [designExplanation, setDesignExplanation] = useState<string>("");
   const [googleDriveLink, setGoogleDriveLink] = useState<string>("");
-  
+
+  // Optional: additional buyer attachment (stored to storage + evidence)
+  const [buyerAttachmentFile, setBuyerAttachmentFile] = useState<File | null>(null);
+
   const fabricSectionRef = useRef<HTMLDivElement>(null);
 
   // Flow routing helpers based on buyer_purpose
@@ -851,6 +855,7 @@ const StartOrder = () => {
                     onGoogleDriveLinkChange={setGoogleDriveLink}
                     hasDesignFile={!!designFile}
                     hasMockup={!!mockupImage}
+                    onAdditionalFileSelect={setBuyerAttachmentFile}
                   />
                 )}
 
