@@ -1115,9 +1115,84 @@ const StartOrder = () => {
                       setIsProcessingPayment(true);
                       toast.loading("Submitting order for review...", { id: "payment-processing" });
                       
-                      // Brief processing delay for UX
-                      await new Promise(resolve => setTimeout(resolve, 1500));
-                      // END: Order Submission Processing
+                      // =====================================================
+                      // UPLOAD FILES TO STORAGE - CRITICAL FOR ADMIN VISIBILITY
+                      // =====================================================
+                      let uploadedDesignUrl: string | null = null;
+                      let uploadedBackDesignUrl: string | null = null;
+                      let uploadedCsvUrl: string | null = null;
+                      let uploadedMockupUrl: string | null = null;
+                      let uploadedBackMockupUrl: string | null = null;
+
+                      const timestamp = Date.now();
+                      const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9.-]/g, '_');
+
+                      // Upload front design file if exists
+                      if (designFile) {
+                        const filePath = `${user.id}/${timestamp}_front_${sanitizeFileName(designFile.name)}`;
+                        const { data: uploadData, error: uploadError } = await supabase.storage
+                          .from('design-files')
+                          .upload(filePath, designFile);
+                        
+                        if (uploadError) {
+                          console.error('Error uploading front design:', uploadError);
+                        } else if (uploadData) {
+                          uploadedDesignUrl = uploadData.path;
+                        }
+                      }
+
+                      // Upload back design file if exists
+                      if (backDesignFile) {
+                        const filePath = `${user.id}/${timestamp}_back_${sanitizeFileName(backDesignFile.name)}`;
+                        const { data: uploadData, error: uploadError } = await supabase.storage
+                          .from('design-files')
+                          .upload(filePath, backDesignFile);
+                        
+                        if (uploadError) {
+                          console.error('Error uploading back design:', uploadError);
+                        } else if (uploadData) {
+                          uploadedBackDesignUrl = uploadData.path;
+                        }
+                      }
+
+                      // Upload CSV file if exists
+                      if (csvFile) {
+                        const filePath = `${user.id}/${timestamp}_csv_${sanitizeFileName(csvFile.name)}`;
+                        const { data: uploadData, error: uploadError } = await supabase.storage
+                          .from('design-files')
+                          .upload(filePath, csvFile);
+                        
+                        if (uploadError) {
+                          console.error('Error uploading CSV:', uploadError);
+                        } else if (uploadData) {
+                          uploadedCsvUrl = uploadData.path;
+                        }
+                      }
+
+                      // Store mockup images (they are data URLs from AI generation)
+                      // Save them as-is since they're already base64 data URLs
+                      if (mockupImage) {
+                        uploadedMockupUrl = mockupImage;
+                      }
+                      if (backMockupImage) {
+                        uploadedBackMockupUrl = backMockupImage;
+                      }
+
+                      // Upload buyer attachment if exists
+                      let uploadedAttachments: string[] = [];
+                      if (buyerAttachmentFile) {
+                        const filePath = `${user.id}/${timestamp}_attachment_${sanitizeFileName(buyerAttachmentFile.name)}`;
+                        const { data: uploadData, error: uploadError } = await supabase.storage
+                          .from('design-files')
+                          .upload(filePath, buyerAttachmentFile);
+                        
+                        if (!uploadError && uploadData) {
+                          uploadedAttachments.push(uploadData.path);
+                        }
+                      }
+                      // =====================================================
+                      // END: FILE UPLOADS
+                      // =====================================================
 
                       // =====================================================
                       // ADMIN-APPROVAL-FIRST MODEL
@@ -1162,7 +1237,26 @@ const StartOrder = () => {
                         // New design files submission fields
                         design_explanation: buyerPurpose !== "fabric_only" ? designExplanation.trim() : null,
                         google_drive_link: buyerPurpose !== "fabric_only" ? (googleDriveLink.trim() || null) : null,
+                        // =====================================================
+                        // FILE URLS - CRITICAL FOR ADMIN VISIBILITY
+                        // These paths are stored so admin can view buyer uploads
+                        // =====================================================
+                        design_file_url: uploadedDesignUrl,
+                        back_design_url: uploadedBackDesignUrl,
+                        corrected_csv_url: uploadedCsvUrl,
+                        mockup_image: uploadedMockupUrl,
+                        back_mockup_image: uploadedBackMockupUrl,
                       };
+
+                      // Log what we're saving for debugging
+                      console.log('[StartOrder] Saving order with file URLs:', {
+                        design_file_url: uploadedDesignUrl,
+                        back_design_url: uploadedBackDesignUrl,
+                        corrected_csv_url: uploadedCsvUrl,
+                        mockup_image: uploadedMockupUrl ? 'data URL present' : null,
+                        back_mockup_image: uploadedBackMockupUrl ? 'data URL present' : null,
+                        google_drive_link: googleDriveLink.trim() || null,
+                      });
 
                       const { data: orderResponse, error } = await supabase
                         .from('orders')
