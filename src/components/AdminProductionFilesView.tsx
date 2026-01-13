@@ -55,7 +55,7 @@ interface AdminProductionFilesViewProps {
   };
 }
 
-type FileKind = "image" | "csv" | "document" | "link";
+type FileKind = "image" | "csv" | "document" | "link" | "model3d";
 
 interface FileItemProps {
   label: string;
@@ -64,6 +64,7 @@ interface FileItemProps {
   timestamp?: string | null;
   previewOnly?: boolean;
   signedUrl?: string | null;
+  downloadUrl?: string | null;
   loading?: boolean;
 }
 
@@ -109,8 +110,12 @@ const parseStorageUrl = (url: string): { bucket: string; path: string } | null =
   }
 };
 
-const createSignedUrl = async (bucket: string, path: string): Promise<string | null> => {
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+const createSignedUrl = async (
+  bucket: string, 
+  path: string, 
+  options?: { download?: boolean }
+): Promise<string | null> => {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600, options);
   if (error) {
     console.error("[AdminProductionFilesView] createSignedUrl error", { bucket, path, error });
     return null;
@@ -118,9 +123,47 @@ const createSignedUrl = async (bucket: string, path: string): Promise<string | n
   return data?.signedUrl ?? null;
 };
 
-const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, loading }: FileItemProps) => {
+// Check if file is a 3D model
+const is3DModel = (src: string): boolean => {
+  const ext = getExtension(src);
+  return ["glb", "gltf"].includes(ext);
+};
+
+// 3D Model Viewer Component using Google's model-viewer
+const ModelViewer3D = ({ src, alt }: { src: string; alt?: string }) => {
+  useEffect(() => {
+    // Dynamically load model-viewer script if not already loaded
+    const existingScript = document.querySelector('script[src*="model-viewer"]');
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.type = "module";
+      script.src = "https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js";
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  return (
+    <div className="w-full h-[400px] bg-muted/30 rounded-lg overflow-hidden border border-border/50 mt-2">
+      {/* @ts-ignore - model-viewer is a web component */}
+      <model-viewer
+        src={src}
+        alt={alt || "3D Model Preview"}
+        camera-controls
+        auto-rotate
+        shadow-intensity="1"
+        style={{ width: "100%", height: "100%" }}
+      />
+    </div>
+  );
+};
+
+const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, downloadUrl, loading }: FileItemProps) => {
   const displayUrl = signedUrl ?? src;
+  const dlUrl = downloadUrl ?? displayUrl;
   const isExternal = kind === "link";
+  const isModel = kind === "model3d";
+  const isImage = kind === "image";
+  const isCsv = kind === "csv";
 
   const icon = (() => {
     switch (kind) {
@@ -130,6 +173,8 @@ const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, loading
         return <FileSpreadsheet className="h-4 w-4 text-primary" />;
       case "link":
         return <ExternalLink className="h-4 w-4 text-primary" />;
+      case "model3d":
+        return <FileImage className="h-4 w-4 text-purple-600" />;
       default:
         return <FileText className="h-4 w-4 text-muted-foreground" />;
     }
@@ -150,58 +195,89 @@ const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, loading
   }
 
   return (
-    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="p-2 bg-background rounded-md">{icon}</div>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="p-2 bg-background rounded-md">{icon}</div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-medium truncate">{label}</p>
-            {previewOnly && (
-              <Badge variant="outline" className="text-xs">
-                Preview only
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-medium truncate">{label}</p>
+              {previewOnly && (
+                <Badge variant="outline" className="text-xs">
+                  Preview only
+                </Badge>
+              )}
+              {isModel && (
+                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
+                  3D Model
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {getFileTypeLabel(kind, src)}
               </Badge>
+              <span className="truncate">{getFileNameFromSrc(src)}</span>
+            </div>
+
+            {timestamp && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Uploaded: {format(new Date(timestamp), "MMM d, yyyy HH:mm")}
+              </p>
             )}
           </div>
+        </div>
 
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Badge variant="secondary" className="text-xs px-1.5 py-0">
-              {getFileTypeLabel(kind, src)}
-            </Badge>
-            <span className="truncate">{getFileNameFromSrc(src)}</span>
-          </div>
+        <div className="flex items-center gap-1">
+          {/* Preview button for images and 3D models */}
+          {(isImage || isModel) && displayUrl && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => window.open(displayUrl, "_blank")}
+              title="Preview"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )}
 
-          {timestamp && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Uploaded: {format(new Date(timestamp), "MMM d, yyyy HH:mm")}
-            </p>
+          {/* Download button - uses download URL with Content-Disposition header */}
+          {!isExternal && dlUrl && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              asChild
+              title="Download"
+            >
+              <a href={dlUrl} download target="_blank" rel="noopener noreferrer">
+                <Download className="h-4 w-4" />
+              </a>
+            </Button>
+          )}
+
+          {/* External link button */}
+          {isExternal && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => window.open(displayUrl, "_blank")}
+              title="Open"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
-        {kind === "image" && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => window.open(displayUrl, "_blank")}
-            title="View"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-        )}
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={() => window.open(displayUrl, "_blank")}
-          title={isExternal ? "Open" : "Download"}
-        >
-          {isExternal ? <ExternalLink className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-        </Button>
-      </div>
+      {/* Inline 3D Model Viewer */}
+      {isModel && displayUrl && !loading && (
+        <ModelViewer3D src={displayUrl} alt={label} />
+      )}
     </div>
   );
 };
@@ -210,6 +286,7 @@ const DEFAULT_BUCKET_FOR_ORDER_FILES = "design-files";
 
 const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
   const [signedBySrc, setSignedBySrc] = useState<Record<string, string>>({});
+  const [downloadBySrc, setDownloadBySrc] = useState<Record<string, string>>({});
   const [loadingSigned, setLoadingSigned] = useState(false);
   const [specEvidence, setSpecEvidence] = useState<any[]>([]);
 
@@ -271,36 +348,47 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
     });
   }, [order, allAttachmentSrcs]);
 
-  // STEP 3/4: Always sign private files for admin
+  // STEP 3/4: Always sign private files for admin - generate BOTH preview and download URLs
   useEffect(() => {
     const run = async () => {
       if (!order.id) return;
       setLoadingSigned(true);
 
-      const next: Record<string, string> = {};
+      const nextSigned: Record<string, string> = {};
+      const nextDownload: Record<string, string> = {};
 
       await Promise.all(
         sourcesNeedingSigned.map(async (src) => {
           if (signedBySrc[src]) return;
 
-          // Full storage URL
+          let bucket = DEFAULT_BUCKET_FOR_ORDER_FILES;
+          let path = src;
+
+          // Full storage URL - parse bucket and path
           if (isHttpUrl(src)) {
             const parsed = parseStorageUrl(src);
             if (!parsed) return;
-            const signed = await createSignedUrl(parsed.bucket, parsed.path);
-            if (signed) next[src] = signed;
-            return;
+            bucket = parsed.bucket;
+            path = parsed.path;
           }
 
-          // Raw object path (assume design-files bucket)
-          const signed = await createSignedUrl(DEFAULT_BUCKET_FOR_ORDER_FILES, src);
-          if (signed) next[src] = signed;
+          // Create preview URL (inline viewing)
+          const previewUrl = await createSignedUrl(bucket, path);
+          if (previewUrl) nextSigned[src] = previewUrl;
+
+          // Create download URL with Content-Disposition: attachment header
+          const dlUrl = await createSignedUrl(bucket, path, { download: true });
+          if (dlUrl) nextDownload[src] = dlUrl;
         })
       );
 
-      if (Object.keys(next).length > 0) {
-        setSignedBySrc((prev) => ({ ...prev, ...next }));
+      if (Object.keys(nextSigned).length > 0) {
+        setSignedBySrc((prev) => ({ ...prev, ...nextSigned }));
       }
+      if (Object.keys(nextDownload).length > 0) {
+        setDownloadBySrc((prev) => ({ ...prev, ...nextDownload }));
+      }
+
 
       setLoadingSigned(false);
     };
@@ -366,6 +454,7 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
                   kind="image"
                   timestamp={tsFallback}
                   signedUrl={signedBySrc[order.design_file_url]}
+                  downloadUrl={downloadBySrc[order.design_file_url]}
                   loading={loadingSigned && !signedBySrc[order.design_file_url] && !isDataUrl(order.design_file_url)}
                 />
               )}
@@ -376,6 +465,7 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
                   kind="image"
                   timestamp={tsFallback}
                   signedUrl={signedBySrc[order.back_design_url]}
+                  downloadUrl={downloadBySrc[order.back_design_url]}
                   loading={loadingSigned && !signedBySrc[order.back_design_url] && !isDataUrl(order.back_design_url)}
                 />
               )}
@@ -398,11 +488,12 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
             <div className="space-y-2">
               {order.corrected_csv_url && (
                 <FileItem
-                  label="Corrected CSV"
+                  label="Size Distribution CSV"
                   src={order.corrected_csv_url}
                   kind="csv"
                   timestamp={tsFallback}
                   signedUrl={signedBySrc[order.corrected_csv_url]}
+                  downloadUrl={downloadBySrc[order.corrected_csv_url]}
                   loading={loadingSigned && !signedBySrc[order.corrected_csv_url] && !isDataUrl(order.corrected_csv_url)}
                 />
               )}
@@ -413,6 +504,7 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
                   kind="image"
                   timestamp={tsFallback}
                   signedUrl={signedBySrc[order.size_chart_url]}
+                  downloadUrl={downloadBySrc[order.size_chart_url]}
                   loading={loadingSigned && !signedBySrc[order.size_chart_url] && !isDataUrl(order.size_chart_url)}
                 />
               )}
@@ -440,10 +532,11 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
                 <FileItem
                   label="Front Mockup"
                   src={order.mockup_image}
-                  kind="image"
+                  kind={is3DModel(order.mockup_image) ? "model3d" : "image"}
                   timestamp={tsFallback}
                   previewOnly
                   signedUrl={signedBySrc[order.mockup_image]}
+                  downloadUrl={downloadBySrc[order.mockup_image]}
                   loading={loadingSigned && !signedBySrc[order.mockup_image] && !isDataUrl(order.mockup_image)}
                 />
               )}
@@ -451,10 +544,11 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
                 <FileItem
                   label="Back Mockup"
                   src={order.back_mockup_image}
-                  kind="image"
+                  kind={is3DModel(order.back_mockup_image) ? "model3d" : "image"}
                   timestamp={tsFallback}
                   previewOnly
                   signedUrl={signedBySrc[order.back_mockup_image]}
+                  downloadUrl={downloadBySrc[order.back_mockup_image]}
                   loading={loadingSigned && !signedBySrc[order.back_mockup_image] && !isDataUrl(order.back_mockup_image)}
                 />
               )}
@@ -466,6 +560,7 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
                   timestamp={tsFallback}
                   previewOnly
                   signedUrl={signedBySrc[order.generated_preview]}
+                  downloadUrl={downloadBySrc[order.generated_preview]}
                   loading={loadingSigned && !signedBySrc[order.generated_preview] && !isDataUrl(order.generated_preview)}
                 />
               )}
@@ -530,6 +625,7 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
                         kind={src.includes(".csv") ? "csv" : isDataUrl(src) ? "image" : "document"}
                         timestamp={tsFallback}
                         signedUrl={signedBySrc[src]}
+                        downloadUrl={downloadBySrc[src]}
                         loading={loadingSigned && !signedBySrc[src] && !isDataUrl(src) && !src.includes("drive.google.com")}
                       />
                     ))}
