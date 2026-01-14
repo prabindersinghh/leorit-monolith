@@ -130,18 +130,8 @@ const is3DModel = (src: string): boolean => {
 };
 
 // 3D Model Viewer Component using Google's model-viewer
+// Script is loaded in index.html for reliability
 const ModelViewer3D = ({ src, alt }: { src: string; alt?: string }) => {
-  useEffect(() => {
-    // Dynamically load model-viewer script if not already loaded
-    const existingScript = document.querySelector('script[src*="model-viewer"]');
-    if (!existingScript) {
-      const script = document.createElement("script");
-      script.type = "module";
-      script.src = "https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js";
-      document.head.appendChild(script);
-    }
-  }, []);
-
   return (
     <div className="w-full h-[400px] bg-muted/30 rounded-lg overflow-hidden border border-border/50 mt-2">
       {/* @ts-ignore - model-viewer is a web component */}
@@ -293,17 +283,22 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
   // STEP 1: Verify fields actually arrive (requested one-time debug)
   useEffect(() => {
     // eslint-disable-next-line no-console
-    console.log("ORDER FILE FIELDS", {
-      design_file_url: (order as any).design_file_url,
-      back_design_url: (order as any).back_design_url,
-      corrected_csv_url: (order as any).corrected_csv_url,
-      mockup_image: (order as any).mockup_image,
-      back_mockup_image: (order as any).back_mockup_image,
-      generated_preview: (order as any).generated_preview,
+    console.log("[AdminProductionFilesView] ORDER FILE FIELDS", {
+      order_id: order.id,
+      design_file_url: order.design_file_url,
+      back_design_url: order.back_design_url,
+      corrected_csv_url: order.corrected_csv_url,
+      mockup_image: order.mockup_image,
+      back_mockup_image: order.back_mockup_image,
+      generated_preview: order.generated_preview,
       buyer_note_attachments: (order as any).buyer_note_attachments,
-      google_drive_link: (order as any).google_drive_link,
+      google_drive_link: order.google_drive_link,
     });
-  }, [order.id]);
+    
+    // CSV-specific debug log
+    // eslint-disable-next-line no-console
+    console.log("[AdminProductionFilesView] CSV URL:", order.corrected_csv_url);
+  }, [order.id, order.corrected_csv_url]);
 
   // Fetch specification evidence (attachments / links / supplementary files)
   useEffect(() => {
