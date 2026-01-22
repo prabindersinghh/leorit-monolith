@@ -154,13 +154,17 @@ const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, downloa
   const isModel = kind === "model3d";
   const isImage = kind === "image";
   const isCsv = kind === "csv";
+  const isDocument = kind === "document";
+
+  // Can be viewed in browser (images, CSV, documents, 3D models)
+  const canPreview = isImage || isModel || isCsv || isDocument;
 
   const icon = (() => {
     switch (kind) {
       case "image":
         return <FileImage className="h-4 w-4 text-primary" />;
       case "csv":
-        return <FileSpreadsheet className="h-4 w-4 text-primary" />;
+        return <FileSpreadsheet className="h-4 w-4 text-green-600" />;
       case "link":
         return <ExternalLink className="h-4 w-4 text-primary" />;
       case "model3d":
@@ -203,6 +207,11 @@ const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, downloa
                   3D Model
                 </Badge>
               )}
+              {isCsv && (
+                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                  CSV
+                </Badge>
+              )}
             </div>
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -220,17 +229,18 @@ const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, downloa
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          {/* Preview button for images and 3D models */}
-          {(isImage || isModel) && displayUrl && (
+        <div className="flex items-center gap-2">
+          {/* View/Preview button - opens in new tab for images, CSV, documents */}
+          {canPreview && displayUrl && !isModel && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0"
+              className="h-8 px-2 gap-1"
               onClick={() => window.open(displayUrl, "_blank")}
-              title="Preview"
+              title="View in new tab"
             >
               <Eye className="h-4 w-4" />
+              <span className="text-xs">View</span>
             </Button>
           )}
 
@@ -239,12 +249,13 @@ const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, downloa
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0"
+              className="h-8 px-2 gap-1"
               asChild
-              title="Download"
+              title="Download file"
             >
               <a href={dlUrl} download target="_blank" rel="noopener noreferrer">
                 <Download className="h-4 w-4" />
+                <span className="text-xs">Download</span>
               </a>
             </Button>
           )}
@@ -254,19 +265,35 @@ const FileItem = ({ label, src, kind, timestamp, previewOnly, signedUrl, downloa
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0"
+              className="h-8 px-2 gap-1"
               onClick={() => window.open(displayUrl, "_blank")}
-              title="Open"
+              title="Open external link"
             >
               <ExternalLink className="h-4 w-4" />
+              <span className="text-xs">Open</span>
             </Button>
           )}
         </div>
       </div>
 
-      {/* Inline 3D Model Viewer */}
+      {/* Inline 3D Model Viewer - renders below the file row for 3D models */}
       {isModel && displayUrl && !loading && (
-        <ModelViewer3D src={displayUrl} alt={label} />
+        <div className="space-y-2">
+          <ModelViewer3D src={displayUrl} alt={label} />
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              asChild
+            >
+              <a href={dlUrl} download target="_blank" rel="noopener noreferrer">
+                <Download className="h-4 w-4" />
+                Download 3D File
+              </a>
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
