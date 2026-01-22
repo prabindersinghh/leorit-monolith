@@ -740,6 +740,9 @@ export type Database = {
           email: string
           id: string
           on_time_deliveries: number | null
+          onboarding_completed: boolean | null
+          onboarding_completed_at: string | null
+          onboarding_type: string | null
           performance_score: number | null
           qc_pass_rate: number | null
           total_disputes: number | null
@@ -751,6 +754,9 @@ export type Database = {
           email: string
           id: string
           on_time_deliveries?: number | null
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
+          onboarding_type?: string | null
           performance_score?: number | null
           qc_pass_rate?: number | null
           total_disputes?: number | null
@@ -762,10 +768,46 @@ export type Database = {
           email?: string
           id?: string
           on_time_deliveries?: number | null
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
+          onboarding_type?: string | null
           performance_score?: number | null
           qc_pass_rate?: number | null
           total_disputes?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      system_logs: {
+        Row: {
+          actor_id: string | null
+          actor_role: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          event_type: string
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_role: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_role?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
         }
         Relationships: []
       }

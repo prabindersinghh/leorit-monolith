@@ -4,13 +4,19 @@ import DashboardCard from "@/components/DashboardCard";
 import DataTable from "@/components/DataTable";
 import { Package, Clock, TrendingUp, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import ManufacturerOnboardingModal from "@/components/ManufacturerOnboardingModal";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const ManufacturerDashboard = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchOrders();
+    checkOnboardingAndFetchOrders();
 
     // Setup realtime subscription
     const channel = supabase
@@ -33,6 +39,31 @@ const ManufacturerDashboard = () => {
     };
   }, []);
 
+  const checkOnboardingAndFetchOrders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      setUserId(user.id);
+
+      // Check if onboarding is completed
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_completed, onboarding_type')
+        .eq('id', user.id)
+        .single();
+
+      if (profile && !profile.onboarding_completed) {
+        setShowOnboarding(true);
+      }
+
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error checking onboarding:', error);
+      setLoading(false);
+    }
+  };
+
   const fetchOrders = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -53,15 +84,82 @@ const ManufacturerDashboard = () => {
     }
   };
 
+  const handleAcceptOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          status: 'accepted',
+          detailed_status: 'accepted_by_manufacturer',
+          manufacturer_accept_time: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Order accepted successfully");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error accepting order:', error);
+      toast.error("Failed to accept order");
+    }
+  };
+
+  const handleDeclineOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          status: 'rejected_by_manufacturer',
+          detailed_status: 'rejected_by_manufacturer',
+          manufacturer_id: null,
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Order declined");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error declining order:', error);
+      toast.error("Failed to decline order");
+    }
+  };
+
   const pendingOrders = orders.filter(o => o.status === 'pending').slice(0, 5);
 
+  // Calculate real stats
+  const activeOrders = orders.filter(o => 
+    ['accepted', 'sample_in_production', 'bulk_in_production'].includes(o.status) ||
+    ['SAMPLE_IN_PROGRESS', 'BULK_IN_PRODUCTION', 'BULK_QC_UPLOADED', 'PAYMENT_CONFIRMED'].includes(o.order_state)
+  ).length;
+
+  const pendingCount = orders.filter(o => 
+    o.status === 'pending' || o.order_state === 'MANUFACTURER_ASSIGNED'
+  ).length;
+
+  // Calculate on-time rate from actual order data
+  const completedOrders = orders.filter(o => 
+    o.order_state === 'COMPLETED' || o.status === 'completed'
+  );
+  const onTimeOrders = completedOrders.filter(o => {
+    if (!o.delivered_at || !o.estimated_delivery_date) return true;
+    return new Date(o.delivered_at) <= new Date(o.estimated_delivery_date);
+  });
+  const onTimeRate = completedOrders.length > 0 
+    ? Math.round((onTimeOrders.length / completedOrders.length) * 100)
+    : 100;
+
+  // Calculate escrow released (completed orders)
+  const releasedAmount = orders
+    .filter(o => o.order_state === 'COMPLETED' || o.escrow_status === 'fake_released')
+    .reduce((sum, o) => sum + (o.total_amount || 0), 0);
+
   const stats = [
-    { title: "Active Orders", value: orders.filter(o => o.status === 'accepted').length.toString(), icon: Package, description: "In progress" },
-    { title: "Pending Acceptance", value: orders.filter(o => o.status === 'pending').length.toString(), icon: Clock, description: "New requests" },
-    { title: "On-Time Rate", value: "96%", icon: TrendingUp, description: "+2% this month" },
+    { title: "Active Orders", value: activeOrders.toString(), icon: Package, description: "In progress" },
+    { title: "Pending Acceptance", value: pendingCount.toString(), icon: Clock, description: "New requests" },
+    { title: "On-Time Rate", value: `${onTimeRate}%`, icon: TrendingUp, description: completedOrders.length > 0 ? `${onTimeOrders.length}/${completedOrders.length} orders` : "No completed orders" },
     { 
       title: "Escrow Released", 
-      value: `₹${orders.filter(o => o.escrow_status === 'fake_released').reduce((sum, o) => sum + (o.total_amount || 0), 0).toLocaleString()}`, 
+      value: `₹${releasedAmount.toLocaleString()}`, 
       icon: DollarSign, 
       description: "Completed orders" 
     },
@@ -79,12 +177,18 @@ const ManufacturerDashboard = () => {
     {
       header: "Actions",
       accessor: "id",
-      cell: () => (
+      cell: (value: string) => (
         <div className="flex gap-2">
-          <button className="px-4 py-1 bg-foreground text-background rounded-lg text-sm hover:bg-gray-800">
+          <button 
+            className="px-4 py-1 bg-foreground text-background rounded-lg text-sm hover:bg-foreground/80"
+            onClick={() => handleAcceptOrder(value)}
+          >
             Accept
           </button>
-          <button className="px-4 py-1 border border-border rounded-lg text-sm hover:bg-gray-50">
+          <button 
+            className="px-4 py-1 border border-border rounded-lg text-sm hover:bg-muted"
+            onClick={() => handleDeclineOrder(value)}
+          >
             Decline
           </button>
         </div>
@@ -119,6 +223,15 @@ const ManufacturerDashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Manufacturer Onboarding Modal */}
+      {userId && (
+        <ManufacturerOnboardingModal
+          isOpen={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          userId={userId}
+        />
+      )}
     </div>
   );
 };

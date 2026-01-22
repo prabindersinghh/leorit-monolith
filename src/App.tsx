@@ -36,6 +36,7 @@ import AdminOrderDetails from "./pages/Admin/OrderDetails";
 import Manufacturers from "./pages/Admin/Manufacturers";
 import CommandCenter from "./pages/Admin/CommandCenter";
 import ManufacturerOnboarding from "./pages/Admin/ManufacturerOnboarding";
+import SystemLogs from "./pages/Admin/SystemLogs";
 
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
@@ -153,6 +154,11 @@ const App = () => (
           <Route path="/admin/manufacturer-onboarding" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <ManufacturerOnboarding />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/system-logs" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <SystemLogs />
             </ProtectedRoute>
           } />
 

@@ -4,13 +4,16 @@ import DashboardCard from "@/components/DashboardCard";
 import DataTable from "@/components/DataTable";
 import { Package, Clock, CheckCircle, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import BuyerOnboardingModal from "@/components/BuyerOnboardingModal";
 
 const DashboardHome = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    fetchOrders();
+    checkOnboardingAndFetchOrders();
 
     // Setup realtime subscription
     const channel = supabase
@@ -33,6 +36,31 @@ const DashboardHome = () => {
     };
   }, []);
 
+  const checkOnboardingAndFetchOrders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      setUserId(user.id);
+
+      // Check if onboarding is completed
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_completed, onboarding_type')
+        .eq('id', user.id)
+        .single();
+
+      if (profile && !profile.onboarding_completed) {
+        setShowOnboarding(true);
+      }
+
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error checking onboarding:', error);
+      setLoading(false);
+    }
+  };
+
   const fetchOrders = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -54,13 +82,32 @@ const DashboardHome = () => {
     }
   };
 
+  // Calculate real stats from orders
+  const activeOrders = orders.filter(o => 
+    ['accepted', 'sample_in_production', 'bulk_in_production'].includes(o.status) ||
+    ['SAMPLE_IN_PROGRESS', 'BULK_IN_PRODUCTION', 'BULK_QC_UPLOADED'].includes(o.order_state)
+  ).length;
+
+  const pendingSamples = orders.filter(o => 
+    o.sample_status === 'qc_submitted' || o.order_state === 'SAMPLE_QC_UPLOADED'
+  ).length;
+
+  const completedOrders = orders.filter(o => 
+    o.status === 'completed' || o.order_state === 'COMPLETED'
+  ).length;
+
+  // Calculate escrow from orders with payment held
+  const escrowAmount = orders
+    .filter(o => o.payment_state === 'PAYMENT_HELD' || o.escrow_status === 'fake_paid')
+    .reduce((sum, o) => sum + (o.escrow_amount || o.total_amount || 0), 0);
+
   const stats = [
-    { title: "Active Orders", value: orders.filter(o => o.status === 'accepted').length.toString(), icon: Package, description: "In production" },
-    { title: "Pending Samples", value: orders.filter(o => o.sample_status === 'qc_submitted').length.toString(), icon: Clock, description: "Awaiting QC" },
-    { title: "Completed", value: orders.filter(o => o.status === 'completed').length.toString(), icon: CheckCircle, description: "This month" },
+    { title: "Active Orders", value: activeOrders.toString(), icon: Package, description: "In production" },
+    { title: "Pending Samples", value: pendingSamples.toString(), icon: Clock, description: "Awaiting QC" },
+    { title: "Completed", value: completedOrders.toString(), icon: CheckCircle, description: "All time" },
     { 
       title: "In Escrow", 
-      value: `₹${orders.filter(o => o.escrow_status === 'fake_paid').reduce((sum, o) => sum + (o.escrow_amount || 0), 0).toLocaleString()}`, 
+      value: `₹${escrowAmount.toLocaleString()}`, 
       icon: DollarSign, 
       description: "Protected funds" 
     },
@@ -72,10 +119,10 @@ const DashboardHome = () => {
     { header: "Quantity", accessor: "quantity" },
     { 
       header: "Status", 
-      accessor: "status",
-      cell: (value: string) => (
-        <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-foreground">
-          {value}
+      accessor: "order_state",
+      cell: (value: string, row: any) => (
+        <span className="px-3 py-1 rounded-full text-xs font-medium bg-muted text-foreground">
+          {value || row.status || 'pending'}
         </span>
       )
     },
@@ -122,6 +169,15 @@ const DashboardHome = () => {
           </div>
         </div>
       </main>
+
+      {/* Buyer Onboarding Modal */}
+      {userId && (
+        <BuyerOnboardingModal
+          isOpen={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          userId={userId}
+        />
+      )}
     </div>
   );
 };

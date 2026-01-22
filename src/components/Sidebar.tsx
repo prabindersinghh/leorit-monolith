@@ -1,4 +1,4 @@
-import { Home, Package, ClipboardList, Settings, Shield, Users, FileCheck, Building2, Terminal, UserPlus } from "lucide-react";
+import { Home, Package, ClipboardList, Settings, Shield, Users, FileCheck, Building2, Terminal, UserPlus, ScrollText } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/leorit-logo.png";
@@ -45,6 +45,7 @@ const Sidebar = ({ userRole }: SidebarProps) => {
     { to: "/admin/analytics", icon: ClipboardList, label: "Analytics" },
     { to: "/admin/manufacturers", icon: Building2, label: "Manufacturers" },
     { to: "/admin/manufacturer-onboarding", icon: UserPlus, label: "Onboarding Requests" },
+    { to: "/admin/system-logs", icon: ScrollText, label: "System Logs" },
   ];
 
   const links = userRole === "buyer" ? buyerLinks : userRole === "manufacturer" ? manufacturerLinks : adminLinks;

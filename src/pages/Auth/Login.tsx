@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import logo from "@/assets/leorit-logo.png";
+import { logAuthEvent } from "@/lib/systemLogger";
 
 // Hardcoded allowed emails for privileged roles
 const ALLOWED_ADMIN_EMAIL = "prabhsingh@leorit.ai";
@@ -43,6 +44,10 @@ const Login = () => {
         // SECURITY: Validate privileged role access by email
         if (userRole === "admin" && userEmail !== ALLOWED_ADMIN_EMAIL) {
           await supabase.auth.signOut();
+          await logAuthEvent('login_blocked', data.user.id, 'admin', { 
+            email: userEmail, 
+            reason: 'Admin email not allowed' 
+          });
           toast.error("Admin access restricted");
           setLoading(false);
           return;
@@ -50,10 +55,19 @@ const Login = () => {
         
         if (userRole === "manufacturer" && userEmail !== ALLOWED_MANUFACTURER_EMAIL) {
           await supabase.auth.signOut();
-          toast.error("Manufacturer access restricted");
+          await logAuthEvent('login_blocked', data.user.id, 'manufacturer', { 
+            email: userEmail, 
+            reason: 'Manufacturer onboarding is currently closed' 
+          });
+          toast.error("Manufacturer onboarding is currently closed");
           setLoading(false);
           return;
         }
+        
+        // Log successful login
+        await logAuthEvent('login', data.user.id, userRole as 'buyer' | 'manufacturer' | 'admin', { 
+          email: userEmail 
+        });
         
         toast.success("Login successful!");
         
