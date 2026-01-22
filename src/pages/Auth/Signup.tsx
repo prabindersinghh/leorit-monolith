@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import logo from "@/assets/leorit-logo.png";
+import { logAuthEvent } from "@/lib/systemLogger";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -36,6 +37,14 @@ const Signup = () => {
       });
 
       if (error) throw error;
+
+      // Log signup event
+      if (data.user) {
+        await logAuthEvent('signup', data.user.id, 'buyer', { 
+          email, 
+          company_name: companyName 
+        });
+      }
 
       toast.success("Account created successfully! You can now sign in.");
       navigate("/login");
