@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { getOrderEvidence } from "@/lib/evidenceStorage";
+import OrderFilesSection from "@/components/OrderFilesSection";
 
 interface AdminProductionFilesViewProps {
   order: {
@@ -657,6 +658,10 @@ const AdminProductionFilesView = ({ order }: AdminProductionFilesViewProps) => {
             </div>
           </div>
         )}
+
+        {/* Structured Order Files Section */}
+        <Separator className="my-4" />
+        <OrderFilesSection orderId={order.id} showEmpty />
       </CardContent>
     </Card>
   );
