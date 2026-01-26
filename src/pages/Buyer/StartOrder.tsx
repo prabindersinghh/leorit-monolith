@@ -24,6 +24,7 @@ import { OrderDetailedStatus } from "@/lib/orderStateMachine";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 import { trackOrderCreated } from "@/lib/analyticsLogger";
 import { storeSpecificationEvidence, storeGoogleDriveEvidence } from "@/lib/evidenceStorage";
+import { trackExistingFile } from "@/lib/orderFileStorage";
 import { calculateDeliveryCost } from "@/lib/deliveryCostCalculator";
 import { getFabricsForProduct, getDefaultFabric, getFabricById, FabricOption } from "@/lib/fabrics";
 import { format, addDays } from "date-fns";
@@ -1315,6 +1316,39 @@ const StartOrder = () => {
                       // Store Google Drive link as evidence
                       if (googleDriveLink) {
                         await storeGoogleDriveEvidence(orderResponse.id, user.id, googleDriveLink);
+                      }
+
+                      // Track files in the new structured order_files table
+                      // This provides organized file storage alongside the legacy evidence system
+                      const fileTrackingPromises: Promise<any>[] = [];
+                      
+                      if (orderResponse.design_file_url && designFile) {
+                        fileTrackingPromises.push(
+                          trackExistingFile(orderResponse.id, 'spec', orderResponse.design_file_url, designFile.name, 'buyer')
+                        );
+                      }
+                      if (orderResponse.back_design_url && backDesignFile) {
+                        fileTrackingPromises.push(
+                          trackExistingFile(orderResponse.id, 'spec', orderResponse.back_design_url, backDesignFile.name, 'buyer')
+                        );
+                      }
+                      if (orderResponse.corrected_csv_url && csvFile) {
+                        fileTrackingPromises.push(
+                          trackExistingFile(orderResponse.id, 'spec', orderResponse.corrected_csv_url, csvFile.name, 'buyer')
+                        );
+                      }
+                      if (buyerAttachmentFile && uploadedAttachments.length > 0) {
+                        fileTrackingPromises.push(
+                          trackExistingFile(orderResponse.id, 'spec', uploadedAttachments[0], buyerAttachmentFile.name, 'buyer')
+                        );
+                      }
+                      
+                      // Execute all file tracking in parallel
+                      if (fileTrackingPromises.length > 0) {
+                        await Promise.all(fileTrackingPromises).catch(err => {
+                          console.warn('[StartOrder] Some file tracking failed:', err);
+                          // Non-blocking - order is still created successfully
+                        });
                       }
                       
                       // Show confirmation screen instead of toast + redirect

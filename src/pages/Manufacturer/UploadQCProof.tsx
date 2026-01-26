@@ -10,6 +10,7 @@ import { Upload, Video, Info } from "lucide-react";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 import { storeQCEvidence } from "@/lib/evidenceStorage";
 import { getOrderMode, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
+import { uploadOrderFile, trackExistingFile } from "@/lib/orderFileStorage";
 
 const UploadQCProof = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -78,7 +79,12 @@ const UploadQCProof = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Upload video to Supabase Storage
+      // Determine QC type (sample or bulk) based on order mode
+      const selectedOrderData = orders.find(o => o.id === selectedOrder);
+      const qcType = selectedOrderData ? getManufacturerQCUploadType(selectedOrderData) : 'sample';
+      const fileType = qcType === 'bulk' ? 'qc_bulk' : 'qc_sample';
+
+      // Upload video to legacy qc-videos bucket (backward compatibility)
       const fileExt = qcVideo.name.split('.').pop();
       const filePath = `${user.id}/${selectedOrder}.${fileExt}`;
       
@@ -90,10 +96,23 @@ const UploadQCProof = () => {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
+      // Get public URL from legacy bucket
       const { data: { publicUrl } } = supabase.storage
         .from('qc-videos')
         .getPublicUrl(filePath);
+
+      // Also upload to structured orders bucket for new file tracking
+      const structuredUpload = await uploadOrderFile(
+        selectedOrder,
+        fileType as 'qc_sample' | 'qc_bulk',
+        qcVideo,
+        'manufacturer'
+      );
+
+      if (!structuredUpload.success) {
+        console.warn('[UploadQCProof] Structured upload failed:', structuredUpload.error);
+        // Continue anyway - legacy upload succeeded
+      }
 
       // Get existing qc_files array
       const { data: existingOrder } = await supabase
@@ -125,11 +144,12 @@ const UploadQCProof = () => {
       // Log QC upload event for analytics with evidence metadata
       await logOrderEvent(selectedOrder, 'qc_uploaded', { 
         url: publicUrl, 
-        uploaded_by: 'manufacturer' 
+        uploaded_by: 'manufacturer',
+        structured_path: structuredUpload.fileUrl
       });
       
       // Store QC video as evidence
-      await storeQCEvidence(selectedOrder, user.id, publicUrl, 'sample');
+      await storeQCEvidence(selectedOrder, user.id, publicUrl, qcType as 'sample' | 'bulk');
 
       // Get order details to notify buyer
       const { data: orderData } = await supabase

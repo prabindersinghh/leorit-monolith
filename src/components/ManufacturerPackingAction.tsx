@@ -18,6 +18,7 @@ import { Package, Upload, CheckCircle2, Video, AlertTriangle } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { uploadOrderFile } from "@/lib/orderFileStorage";
 import {
   canManufacturerMarkPacked,
   validatePackagingVideoUploaded,
@@ -86,7 +87,7 @@ const ManufacturerPackingAction = ({ order, onUpdate }: ManufacturerPackingActio
 
     setSubmitting(true);
     try {
-      // Upload video to storage
+      // Upload video to legacy qc-videos storage (backward compatibility)
       const fileExt = videoFile.name.split('.').pop();
       const fileName = `${order.id}/packaging_${Date.now()}.${fileExt}`;
       
@@ -99,10 +100,23 @@ const ManufacturerPackingAction = ({ order, onUpdate }: ManufacturerPackingActio
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
+      // Get public URL from legacy bucket
       const { data: { publicUrl } } = supabase.storage
         .from('qc-videos')
         .getPublicUrl(fileName);
+
+      // Also upload to structured orders bucket for new file tracking
+      const structuredUpload = await uploadOrderFile(
+        order.id,
+        'delivery',
+        videoFile,
+        'manufacturer'
+      );
+
+      if (!structuredUpload.success) {
+        console.warn('[ManufacturerPackingAction] Structured upload failed:', structuredUpload.error);
+        // Continue anyway - legacy upload succeeded
+      }
 
       const now = new Date().toISOString();
 
@@ -122,6 +136,7 @@ const ManufacturerPackingAction = ({ order, onUpdate }: ManufacturerPackingActio
       // Log events
       await logOrderEvent(order.id, 'packaging_video_uploaded', {
         packaging_video_url: publicUrl,
+        structured_path: structuredUpload.fileUrl,
         actor: 'manufacturer',
         timestamp: now,
       });
