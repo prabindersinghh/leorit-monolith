@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload, Video, Info } from "lucide-react";
@@ -11,6 +12,7 @@ import { logOrderEvent } from "@/lib/orderEventLogger";
 import { storeQCEvidence } from "@/lib/evidenceStorage";
 import { getOrderMode, getManufacturerQCUploadType } from "@/lib/orderModeUtils";
 import { uploadOrderFile, trackExistingFile } from "@/lib/orderFileStorage";
+import ManufacturerQCUploadForm from "@/components/ManufacturerQCUploadForm";
 
 const UploadQCProof = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -196,9 +198,9 @@ const UploadQCProof = () => {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-6 space-y-6">
-            {orders.length === 0 ? (
+          {orders.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                   <Upload className="w-8 h-8 text-muted-foreground" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">No Orders Available</h3>
@@ -210,109 +212,159 @@ const UploadQCProof = () => {
                 </p>
               </div>
             ) : (
-              <>
-                <div>
-                  <Label className="text-foreground">Select Order</Label>
-                  <Select value={selectedOrder} onValueChange={setSelectedOrder}>
-                    <SelectTrigger className="mt-2 bg-background">
-                      <SelectValue placeholder="Choose an order..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border z-50">
-                      {orders.map((order) => {
-                        const orderMode = getOrderMode(order);
-                        const qcType = getManufacturerQCUploadType(order);
-                        const modeLabel = orderMode === 'sample_only' ? '(Sample Only)' : 
-                                         orderMode === 'direct_bulk' ? '(Direct Bulk)' : 
-                                         '(Sample → Bulk)';
-                        return (
-                          <SelectItem key={order.id} value={order.id}>
-                            Order {order.id.slice(0, 8)} - {order.product_type} (Qty: {order.quantity}) {modeLabel}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <Tabs defaultValue="structured" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                  <TabsTrigger value="structured">Structured QC (Recommended)</TabsTrigger>
+                  <TabsTrigger value="legacy">Quick Video Upload</TabsTrigger>
+                </TabsList>
 
-                {/* Order mode-specific guidance */}
-                {selectedOrder && (() => {
-                  const selectedOrderData = orders.find(o => o.id === selectedOrder);
-                  if (!selectedOrderData) return null;
-                  
-                  const orderMode = getOrderMode(selectedOrderData);
-                  const qcType = getManufacturerQCUploadType(selectedOrderData);
-                  
-                  return (
-                    <div className="p-3 rounded-lg border flex items-start gap-2 text-sm bg-muted/50">
-                      <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                      <div>
-                        {orderMode === 'sample_only' && (
-                          <p><strong>Sample-only order:</strong> Upload the sample QC video. This order ends after buyer approval - no bulk production.</p>
-                        )}
-                        {orderMode === 'sample_then_bulk' && qcType === 'sample' && (
-                          <p><strong>Sample → Bulk order:</strong> Upload sample QC video. After buyer approval, you'll upload a separate bulk QC video.</p>
-                        )}
-                        {orderMode === 'sample_then_bulk' && qcType === 'bulk' && (
-                          <p><strong>Bulk QC required:</strong> Sample was approved. Now upload the bulk production QC video.</p>
-                        )}
-                        {orderMode === 'direct_bulk' && qcType === 'sample' && (
-                          <p><strong>Direct bulk order:</strong> Sample QC is optional and informational. Bulk production continues regardless.</p>
-                        )}
-                        {orderMode === 'direct_bulk' && qcType === 'bulk' && (
-                          <p><strong>Bulk QC required:</strong> Upload the bulk production QC video. This is mandatory for order completion.</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <div>
-                  <Label className="text-foreground">QC Video</Label>
-                  <div className="mt-2">
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        {qcVideo ? (
-                          <>
-                            <Video className="w-8 h-8 text-green-600 mb-2" />
-                            <p className="text-sm text-foreground font-medium">{qcVideo.name}</p>
-                            <p className="text-xs text-muted-foreground">{(qcVideo.size / 1024 / 1024).toFixed(2)} MB</p>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                            <p className="text-sm text-muted-foreground">Click to upload QC video</p>
-                            <p className="text-xs text-muted-foreground">MP4, WebM or MOV (max 100MB)</p>
-                          </>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="video/mp4,video/webm,video/quicktime"
-                        onChange={handleVideoChange}
-                      />
-                    </label>
+                {/* Structured QC Upload Form */}
+                <TabsContent value="structured" className="space-y-4">
+                  <div>
+                    <Label className="text-foreground">Select Order</Label>
+                    <Select value={selectedOrder} onValueChange={setSelectedOrder}>
+                      <SelectTrigger className="mt-2 bg-background">
+                        <SelectValue placeholder="Choose an order..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border z-50">
+                        {orders.map((order) => {
+                          const orderMode = getOrderMode(order);
+                          const modeLabel = orderMode === 'sample_only' ? '(Sample Only)' : 
+                                           orderMode === 'direct_bulk' ? '(Direct Bulk)' : 
+                                           '(Sample → Bulk)';
+                          return (
+                            <SelectItem key={order.id} value={order.id}>
+                              Order {order.id.slice(0, 8)} - {order.product_type} (Qty: {order.quantity}) {modeLabel}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
 
-                <div>
-                  <Label className="text-foreground">QC Notes (Optional)</Label>
-                  <Textarea
-                    placeholder="Add any notes about the sample quality..."
-                    value={qcNotes}
-                    onChange={(e) => setQcNotes(e.target.value)}
-                    className="mt-2 min-h-[100px]"
-                  />
-                </div>
+                  {selectedOrder && (() => {
+                    const selectedOrderData = orders.find(o => o.id === selectedOrder);
+                    if (!selectedOrderData) return null;
+                    const qcType = getManufacturerQCUploadType(selectedOrderData);
+                    
+                    return (
+                      <ManufacturerQCUploadForm
+                        orderId={selectedOrder}
+                        stage={qcType as 'sample' | 'bulk'}
+                        onUploadComplete={() => {
+                          setSelectedOrder("");
+                          fetchInProductionOrders();
+                        }}
+                      />
+                    );
+                  })()}
+                </TabsContent>
 
-                <Button
-                  onClick={handleUploadQC}
-                  disabled={uploading || !selectedOrder || !qcVideo}
-                  className="w-full bg-foreground text-background hover:bg-foreground/90"
-                >
-                  {uploading ? "Uploading..." : "Upload QC Proof"}
-                </Button>
-              </>
+                {/* Legacy Quick Upload */}
+                <TabsContent value="legacy" className="space-y-6">
+                  <div>
+                    <Label className="text-foreground">Select Order</Label>
+                    <Select value={selectedOrder} onValueChange={setSelectedOrder}>
+                      <SelectTrigger className="mt-2 bg-background">
+                        <SelectValue placeholder="Choose an order..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border z-50">
+                        {orders.map((order) => {
+                          const orderMode = getOrderMode(order);
+                          const qcType = getManufacturerQCUploadType(order);
+                          const modeLabel = orderMode === 'sample_only' ? '(Sample Only)' : 
+                                           orderMode === 'direct_bulk' ? '(Direct Bulk)' : 
+                                           '(Sample → Bulk)';
+                          return (
+                            <SelectItem key={order.id} value={order.id}>
+                              Order {order.id.slice(0, 8)} - {order.product_type} (Qty: {order.quantity}) {modeLabel}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Order mode-specific guidance */}
+                  {selectedOrder && (() => {
+                    const selectedOrderData = orders.find(o => o.id === selectedOrder);
+                    if (!selectedOrderData) return null;
+                    
+                    const orderMode = getOrderMode(selectedOrderData);
+                    const qcType = getManufacturerQCUploadType(selectedOrderData);
+                    
+                    return (
+                      <div className="p-3 rounded-lg border flex items-start gap-2 text-sm bg-muted/50">
+                        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <div>
+                          {orderMode === 'sample_only' && (
+                            <p><strong>Sample-only order:</strong> Upload the sample QC video. This order ends after buyer approval - no bulk production.</p>
+                          )}
+                          {orderMode === 'sample_then_bulk' && qcType === 'sample' && (
+                            <p><strong>Sample → Bulk order:</strong> Upload sample QC video. After buyer approval, you'll upload a separate bulk QC video.</p>
+                          )}
+                          {orderMode === 'sample_then_bulk' && qcType === 'bulk' && (
+                            <p><strong>Bulk QC required:</strong> Sample was approved. Now upload the bulk production QC video.</p>
+                          )}
+                          {orderMode === 'direct_bulk' && qcType === 'sample' && (
+                            <p><strong>Direct bulk order:</strong> Sample QC is optional and informational. Bulk production continues regardless.</p>
+                          )}
+                          {orderMode === 'direct_bulk' && qcType === 'bulk' && (
+                            <p><strong>Bulk QC required:</strong> Upload the bulk production QC video. This is mandatory for order completion.</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div>
+                    <Label className="text-foreground">QC Video</Label>
+                    <div className="mt-2">
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          {qcVideo ? (
+                            <>
+                              <Video className="w-8 h-8 text-green-600 mb-2" />
+                              <p className="text-sm text-foreground font-medium">{qcVideo.name}</p>
+                              <p className="text-xs text-muted-foreground">{(qcVideo.size / 1024 / 1024).toFixed(2)} MB</p>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                              <p className="text-sm text-muted-foreground">Click to upload QC video</p>
+                              <p className="text-xs text-muted-foreground">MP4, WebM or MOV (max 100MB)</p>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="video/mp4,video/webm,video/quicktime"
+                          onChange={handleVideoChange}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-foreground">QC Notes (Optional)</Label>
+                    <Textarea
+                      placeholder="Add any notes about the sample quality..."
+                      value={qcNotes}
+                      onChange={(e) => setQcNotes(e.target.value)}
+                      className="mt-2 min-h-[100px]"
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleUploadQC}
+                    disabled={uploading || !selectedOrder || !qcVideo}
+                    className="w-full"
+                  >
+                    {uploading ? "Uploading..." : "Upload QC Proof"}
+                  </Button>
+                </TabsContent>
+              </Tabs>
             )}
           </div>
         </div>

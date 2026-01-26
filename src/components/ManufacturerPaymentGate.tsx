@@ -73,6 +73,7 @@ export const canManufacturerStartProduction = (order: {
   order_state: string | null;
   payment_state: string | null;
   payment_received_at: string | null;
+  specs_locked?: boolean | null;
 }): { allowed: boolean; reason?: string } => {
   // Check if payment is confirmed
   const isPaymentConfirmed = 
@@ -94,12 +95,20 @@ export const canManufacturerStartProduction = (order: {
     'COMPLETED'
   ].includes(order.order_state || '');
 
-  if (isPaymentConfirmed || isPastPaymentState) {
-    return { allowed: true };
+  if (!isPaymentConfirmed && !isPastPaymentState) {
+    return { 
+      allowed: false, 
+      reason: "Payment has not been confirmed. Please wait for Leorit.ai to confirm payment before starting production." 
+    };
   }
 
-  return { 
-    allowed: false, 
-    reason: "Payment has not been confirmed. Please wait for Leorit.ai to confirm payment before starting production." 
-  };
+  // Check if specs are locked (new gate)
+  if (order.specs_locked === false) {
+    return {
+      allowed: false,
+      reason: "Specs must be locked by admin before production can start. Please wait for admin to lock specifications."
+    };
+  }
+
+  return { allowed: true };
 };

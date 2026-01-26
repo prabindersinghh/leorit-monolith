@@ -2,6 +2,8 @@
  * Admin Order Control Panel
  * 
  * Provides admin controls for:
+ * - Spec locking (required before production)
+ * - Admin QC decision (required before delivery/payment)
  * - Assigning manufacturer to order
  * - Assigning courier + tracking ID
  * - Manual state transitions (resolve stuck orders with reason)
@@ -42,6 +44,8 @@ import { OrderState } from "@/lib/orderStateMachineV2";
 import { DeliveryState } from "@/lib/deliveryStateMachine";
 import OrderDelayFlags from "@/components/OrderDelayFlags";
 import AdminOrderApproval from "@/components/AdminOrderApproval";
+import AdminSpecLocking from "@/components/AdminSpecLocking";
+import AdminQCDecision from "@/components/AdminQCDecision";
 
 interface AdminOrderControlPanelProps {
   order: any;
@@ -373,6 +377,12 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
     <div className="space-y-6">
       {/* Order Approval Section - New approval workflow */}
       <AdminOrderApproval order={order} onUpdate={onUpdate} />
+
+      {/* Spec Locking - Required before production */}
+      <AdminSpecLocking order={order} onUpdate={onUpdate} />
+
+      {/* Admin QC Decision - Required before delivery/payment */}
+      <AdminQCDecision order={order} onUpdate={onUpdate} />
 
       {/* Delay Metrics - Admin visibility into manufacturer discipline */}
       <Card className="border-muted">
