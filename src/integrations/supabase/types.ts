@@ -403,6 +403,71 @@ export type Database = {
           },
         ]
       }
+      order_qc: {
+        Row: {
+          admin_decision: string | null
+          admin_decision_at: string | null
+          admin_decision_by: string | null
+          admin_notes: string | null
+          created_at: string | null
+          decision: string
+          defect_severity: number | null
+          defect_type: string | null
+          file_urls: string[] | null
+          id: string
+          notes: string | null
+          order_id: string
+          reason_code: string | null
+          reviewer: string
+          reviewer_id: string | null
+          stage: string
+        }
+        Insert: {
+          admin_decision?: string | null
+          admin_decision_at?: string | null
+          admin_decision_by?: string | null
+          admin_notes?: string | null
+          created_at?: string | null
+          decision: string
+          defect_severity?: number | null
+          defect_type?: string | null
+          file_urls?: string[] | null
+          id?: string
+          notes?: string | null
+          order_id: string
+          reason_code?: string | null
+          reviewer: string
+          reviewer_id?: string | null
+          stage: string
+        }
+        Update: {
+          admin_decision?: string | null
+          admin_decision_at?: string | null
+          admin_decision_by?: string | null
+          admin_notes?: string | null
+          created_at?: string | null
+          decision?: string
+          defect_severity?: number | null
+          defect_type?: string | null
+          file_urls?: string[] | null
+          id?: string
+          notes?: string | null
+          order_id?: string
+          reason_code?: string | null
+          reviewer?: string
+          reviewer_id?: string | null
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_qc_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_shipping_info: {
         Row: {
           address_line1: string
@@ -453,12 +518,68 @@ export type Database = {
           },
         ]
       }
+      order_specs: {
+        Row: {
+          approved_sample_url: string | null
+          color: string
+          created_at: string | null
+          fabric_type: string
+          gsm: number
+          id: string
+          locked_by: string | null
+          order_id: string
+          print_position: string
+          print_size: string
+          print_type: string
+          tolerance_mm: number
+        }
+        Insert: {
+          approved_sample_url?: string | null
+          color: string
+          created_at?: string | null
+          fabric_type: string
+          gsm: number
+          id?: string
+          locked_by?: string | null
+          order_id: string
+          print_position: string
+          print_size: string
+          print_type: string
+          tolerance_mm: number
+        }
+        Update: {
+          approved_sample_url?: string | null
+          color?: string
+          created_at?: string | null
+          fabric_type?: string
+          gsm?: number
+          id?: string
+          locked_by?: string | null
+          order_id?: string
+          print_position?: string
+          print_size?: string
+          print_type?: string
+          tolerance_mm?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_specs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           acceptance_delay_hours: number | null
           admin_approved_at: string | null
           admin_approved_by: string | null
           admin_notes: string | null
+          admin_qc_approved: boolean | null
+          admin_qc_approved_at: string | null
+          admin_qc_approved_by: string | null
           assigned_at: string | null
           back_design_url: string | null
           back_mockup_image: string | null
@@ -538,6 +659,9 @@ export type Database = {
           sample_to_bulk_conversion: boolean | null
           selected_color: string | null
           size_chart_url: string | null
+          specs_locked: boolean | null
+          specs_locked_at: string | null
+          specs_locked_by: string | null
           state_updated_at: string | null
           status: string
           total_amount: number | null
@@ -551,6 +675,9 @@ export type Database = {
           admin_approved_at?: string | null
           admin_approved_by?: string | null
           admin_notes?: string | null
+          admin_qc_approved?: boolean | null
+          admin_qc_approved_at?: string | null
+          admin_qc_approved_by?: string | null
           assigned_at?: string | null
           back_design_url?: string | null
           back_mockup_image?: string | null
@@ -630,6 +757,9 @@ export type Database = {
           sample_to_bulk_conversion?: boolean | null
           selected_color?: string | null
           size_chart_url?: string | null
+          specs_locked?: boolean | null
+          specs_locked_at?: string | null
+          specs_locked_by?: string | null
           state_updated_at?: string | null
           status?: string
           total_amount?: number | null
@@ -643,6 +773,9 @@ export type Database = {
           admin_approved_at?: string | null
           admin_approved_by?: string | null
           admin_notes?: string | null
+          admin_qc_approved?: boolean | null
+          admin_qc_approved_at?: string | null
+          admin_qc_approved_by?: string | null
           assigned_at?: string | null
           back_design_url?: string | null
           back_mockup_image?: string | null
@@ -722,6 +855,9 @@ export type Database = {
           sample_to_bulk_conversion?: boolean | null
           selected_color?: string | null
           size_chart_url?: string | null
+          specs_locked?: boolean | null
+          specs_locked_at?: string | null
+          specs_locked_by?: string | null
           state_updated_at?: string | null
           status?: string
           total_amount?: number | null

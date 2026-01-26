@@ -51,7 +51,12 @@ export type OrderEventType =
   | 'payment_received'                // Payment marked as received by admin
   // Payment gate events
   | 'payment_requested'               // Admin requested payment from buyer
-  | 'payment_confirmed';              // Admin confirmed payment received
+  | 'payment_confirmed'               // Admin confirmed payment received
+  // Spec locking events
+  | 'specs_locked'                    // Admin locked specs before production
+  // Admin QC decision events
+  | 'admin_qc_approved'               // Admin approved QC
+  | 'admin_qc_rejected';              // Admin rejected QC
 
 /**
  * Logs an order event to the order_events table for analytics.
