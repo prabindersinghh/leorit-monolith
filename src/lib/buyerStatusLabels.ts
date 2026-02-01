@@ -178,13 +178,24 @@ export function getBuyerDisplayStatus(order: {
 } {
   const orderState = order.order_state || '';
   
-  // CRITICAL: PAYMENT_REQUESTED state ALWAYS shows payment button if link exists
+  // CRITICAL FIX: PAYMENT_REQUESTED state ALWAYS shows payment button if link exists
   if (orderState === 'PAYMENT_REQUESTED') {
     return {
       label: orderStateLabels[orderState] || 'Payment Required',
       color: orderStateColors[orderState] || 'bg-yellow-100 text-yellow-700',
       showPaymentPending: true,
       showPayNow: !!order.payment_link,
+    };
+  }
+  
+  // CRITICAL FIX: If payment_link exists, admin has approved, and payment not received
+  // FORCE show payment button regardless of order_state (fallback for state machine issues)
+  if (order.payment_link && order.admin_approved_at && !order.payment_received_at) {
+    return {
+      label: 'Payment Required',
+      color: 'bg-yellow-100 text-yellow-700',
+      showPaymentPending: true,
+      showPayNow: true,
     };
   }
   
