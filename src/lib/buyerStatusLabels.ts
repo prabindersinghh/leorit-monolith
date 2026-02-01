@@ -178,14 +178,23 @@ export function getBuyerDisplayStatus(order: {
 } {
   const orderState = order.order_state || '';
   
+  // CRITICAL: PAYMENT_REQUESTED state ALWAYS shows payment button if link exists
+  if (orderState === 'PAYMENT_REQUESTED') {
+    return {
+      label: orderStateLabels[orderState] || 'Payment Required',
+      color: orderStateColors[orderState] || 'bg-yellow-100 text-yellow-700',
+      showPaymentPending: true,
+      showPayNow: !!order.payment_link,
+    };
+  }
+  
   // Use order_state (v2 state machine) if available
   if (orderState && orderStateLabels[orderState]) {
-    const isPaymentStage = orderState === 'PAYMENT_REQUESTED';
     return {
       label: orderStateLabels[orderState],
       color: orderStateColors[orderState] || 'bg-gray-100 text-gray-700',
-      showPaymentPending: isPaymentStage,
-      showPayNow: isPaymentStage && !!order.payment_link,
+      showPaymentPending: false,
+      showPayNow: false,
     };
   }
   
