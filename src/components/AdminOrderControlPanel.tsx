@@ -52,10 +52,14 @@ interface AdminOrderControlPanelProps {
   onUpdate: () => void;
 }
 
-const ORDER_STATES: OrderState[] = [
+// Using string array for manual override - includes all possible states
+const OVERRIDE_ORDER_STATES = [
   'DRAFT',
   'SUBMITTED',
+  'ADMIN_APPROVED',
   'MANUFACTURER_ASSIGNED',
+  'PAYMENT_REQUESTED',
+  'PAYMENT_CONFIRMED',
   'SAMPLE_IN_PROGRESS',
   'SAMPLE_QC_UPLOADED',
   'SAMPLE_APPROVED',
@@ -66,7 +70,7 @@ const ORDER_STATES: OrderState[] = [
   'DISPATCHED',
   'DELIVERED',
   'COMPLETED',
-];
+] as const;
 
 const DELIVERY_STATES: DeliveryState[] = [
   'NOT_STARTED',
@@ -610,7 +614,7 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">— No change —</SelectItem>
-                  {ORDER_STATES.map((state) => (
+                  {OVERRIDE_ORDER_STATES.map((state) => (
                     <SelectItem key={state} value={state}>
                       {state.replace(/_/g, ' ')}
                     </SelectItem>

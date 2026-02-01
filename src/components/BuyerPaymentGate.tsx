@@ -1,12 +1,13 @@
 /**
  * Buyer Payment Gate Component
  * 
- * Shows payment request status to buyer
+ * Shows payment request status to buyer with clear messages at each stage.
+ * CRITICAL: This component ensures buyer can see payment link when PAYMENT_REQUESTED
  */
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { CreditCard, Clock, CheckCircle2 } from "lucide-react";
+import { CreditCard, Clock, CheckCircle2, FileCheck, Package, Truck } from "lucide-react";
 import { format } from "date-fns";
 
 interface BuyerPaymentGateProps {
@@ -16,33 +17,137 @@ interface BuyerPaymentGateProps {
     payment_link: string | null;
     payment_received_at: string | null;
     total_order_value: number | null;
+    admin_approved_at: string | null;
+    manufacturer_id: string | null;
   };
 }
 
-const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
-  const isPaymentRequested = order.order_state === 'PAYMENT_REQUESTED';
-  const isPaymentConfirmed = order.order_state === 'PAYMENT_CONFIRMED' || order.payment_state === 'PAYMENT_HELD' || !!order.payment_received_at;
-  const isPastPaymentConfirmed = ['SAMPLE_IN_PROGRESS', 'SAMPLE_QC_UPLOADED', 'SAMPLE_APPROVED', 'BULK_UNLOCKED', 'BULK_IN_PRODUCTION', 'BULK_QC_UPLOADED', 'READY_FOR_DISPATCH', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(order.order_state || '');
+/**
+ * Buyer Status Messages - Clear communication at each stage
+ */
+const ORDER_STATE_MESSAGES: Record<string, { title: string; description: string; icon: 'clock' | 'credit' | 'check' | 'file' | 'package' | 'truck' }> = {
+  SUBMITTED: {
+    title: "Order Submitted for Review",
+    description: "Your order is being reviewed by our team. We'll notify you once it's approved.",
+    icon: 'clock',
+  },
+  ADMIN_APPROVED: {
+    title: "Order Approved",
+    description: "Your order has been approved. Payment details will be shared shortly.",
+    icon: 'file',
+  },
+  MANUFACTURER_ASSIGNED: {
+    title: "Manufacturer Assigned",
+    description: "A manufacturer has been assigned to your order. Payment details will be shared soon.",
+    icon: 'clock',
+  },
+  PAYMENT_REQUESTED: {
+    title: "Payment Required",
+    description: "Payment is required to start production. Click below to complete payment.",
+    icon: 'credit',
+  },
+  PAYMENT_CONFIRMED: {
+    title: "Payment Received",
+    description: "Your payment has been confirmed. Production will begin shortly.",
+    icon: 'check',
+  },
+  SAMPLE_IN_PROGRESS: {
+    title: "Sample in Production",
+    description: "Your sample is being produced. We'll notify you when it's ready for review.",
+    icon: 'package',
+  },
+  SAMPLE_QC_UPLOADED: {
+    title: "Quality Check Ready",
+    description: "Your sample quality check is ready for review.",
+    icon: 'file',
+  },
+  SAMPLE_APPROVED: {
+    title: "Sample Approved",
+    description: "Your sample has been approved. Bulk production can now begin.",
+    icon: 'check',
+  },
+  BULK_IN_PRODUCTION: {
+    title: "Bulk Production in Progress",
+    description: "Your bulk order is being produced.",
+    icon: 'package',
+  },
+  BULK_QC_UPLOADED: {
+    title: "Bulk Quality Check Ready",
+    description: "Your bulk order quality check is ready for review.",
+    icon: 'file',
+  },
+  READY_FOR_DISPATCH: {
+    title: "Ready for Dispatch",
+    description: "Your order is packed and ready for shipping.",
+    icon: 'package',
+  },
+  DISPATCHED: {
+    title: "Order Shipped",
+    description: "Your order is on its way!",
+    icon: 'truck',
+  },
+  DELIVERED: {
+    title: "Order Delivered",
+    description: "Your order has been delivered.",
+    icon: 'check',
+  },
+  COMPLETED: {
+    title: "Order Completed",
+    description: "Thank you for your order!",
+    icon: 'check',
+  },
+};
 
-  // Payment requested - show pay now
-  if (isPaymentRequested && order.payment_link) {
+const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
+  const orderState = order.order_state || '';
+  
+  // CRITICAL: Check if payment is requested - buyer MUST see payment link
+  const isPaymentRequested = orderState === 'PAYMENT_REQUESTED';
+  const hasPaymentLink = !!order.payment_link;
+  
+  // Check if payment is confirmed
+  const isPaymentConfirmed = orderState === 'PAYMENT_CONFIRMED' || 
+    order.payment_state === 'PAYMENT_HELD' || 
+    !!order.payment_received_at;
+
+  // Check if we're past payment (production has started)
+  const isPastPaymentStage = [
+    'SAMPLE_IN_PROGRESS', 
+    'SAMPLE_QC_UPLOADED', 
+    'SAMPLE_APPROVED', 
+    'BULK_UNLOCKED', 
+    'BULK_IN_PRODUCTION', 
+    'BULK_QC_UPLOADED', 
+    'READY_FOR_DISPATCH', 
+    'DISPATCHED', 
+    'DELIVERED', 
+    'COMPLETED'
+  ].includes(orderState);
+
+  // CASE 1: Payment Requested - Show prominent payment button
+  if (isPaymentRequested && hasPaymentLink) {
     return (
-      <Alert className="border-yellow-200 bg-yellow-50">
-        <CreditCard className="h-4 w-4 text-yellow-600" />
-        <AlertDescription className="text-yellow-800">
-          <div className="flex items-center justify-between">
+      <Alert className="border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 shadow-md">
+        <CreditCard className="h-5 w-5 text-yellow-600" />
+        <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+          <div className="flex flex-col gap-3">
             <div>
-              <strong>Payment requested by Leorit.ai</strong>
+              <strong className="text-lg">Payment Required to Start Production</strong>
+              <p className="text-sm mt-1">
+                Payment requested by Leorit.ai to proceed with production.
+              </p>
               {order.total_order_value && (
-                <p className="text-sm mt-1">Amount: ₹{order.total_order_value.toLocaleString()}</p>
+                <p className="text-base font-semibold mt-2">
+                  Amount: ₹{order.total_order_value.toLocaleString()}
+                </p>
               )}
             </div>
             <Button
-              size="sm"
-              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              size="lg"
+              className="bg-yellow-600 hover:bg-yellow-700 text-white w-full sm:w-auto"
               onClick={() => window.open(order.payment_link!, '_blank')}
             >
-              <CreditCard className="w-4 h-4 mr-2" />
+              <CreditCard className="w-5 h-5 mr-2" />
               Pay Now
             </Button>
           </div>
@@ -51,30 +156,84 @@ const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
     );
   }
 
-  // Payment confirmed
-  if (isPaymentConfirmed || isPastPaymentConfirmed) {
+  // CASE 2: Payment Confirmed - Show success message
+  if (isPaymentConfirmed || isPastPaymentStage) {
+    // Only show payment confirmation for first time
+    if (orderState === 'PAYMENT_CONFIRMED') {
+      return (
+        <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30">
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <AlertDescription className="text-green-800 dark:text-green-200">
+            <strong>Payment Received!</strong>
+            {order.payment_received_at && (
+              <span className="text-sm ml-2">
+                on {format(new Date(order.payment_received_at), "dd MMM yyyy")}
+              </span>
+            )}
+            <p className="text-sm mt-1">
+              Your payment has been confirmed. Production will begin shortly.
+            </p>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    
+    // For production stages, show the stage-specific message
+    const stageInfo = ORDER_STATE_MESSAGES[orderState];
+    if (stageInfo) {
+      const IconComponent = stageInfo.icon === 'package' ? Package : 
+                           stageInfo.icon === 'truck' ? Truck : 
+                           stageInfo.icon === 'check' ? CheckCircle2 : 
+                           stageInfo.icon === 'file' ? FileCheck : Clock;
+      
+      return (
+        <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+          <IconComponent className="h-5 w-5 text-blue-600" />
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
+            <strong>{stageInfo.title}</strong>
+            <p className="text-sm mt-1">{stageInfo.description}</p>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    
+    return null;
+  }
+
+  // CASE 3: Waiting for approval or manufacturer assignment
+  if (orderState === 'SUBMITTED') {
     return (
-      <Alert className="border-green-200 bg-green-50">
-        <CheckCircle2 className="h-4 w-4 text-green-600" />
-        <AlertDescription className="text-green-800">
-          <strong>Payment Received!</strong>
-          {order.payment_received_at && (
-            <span className="text-sm ml-2">
-              on {format(new Date(order.payment_received_at), "dd MMM yyyy")}
-            </span>
-          )}
-          <p className="text-sm mt-1">Your order is now being processed.</p>
+      <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+        <Clock className="h-4 w-4 text-amber-600" />
+        <AlertDescription className="text-amber-800 dark:text-amber-200">
+          <strong>Order Submitted for Review</strong>
+          <p className="text-sm mt-1">
+            Your order is being reviewed by our team. Payment will be enabled after approval.
+          </p>
         </AlertDescription>
       </Alert>
     );
   }
 
-  // Waiting for payment to be requested (manufacturer assigned but no payment yet)
-  if (order.order_state === 'MANUFACTURER_ASSIGNED') {
+  if (orderState === 'ADMIN_APPROVED') {
     return (
-      <Alert className="border-blue-200 bg-blue-50">
+      <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+        <CheckCircle2 className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-800 dark:text-blue-200">
+          <strong>Order Approved</strong>
+          <p className="text-sm mt-1">
+            Your order has been approved. Manufacturer assignment in progress.
+          </p>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (orderState === 'MANUFACTURER_ASSIGNED') {
+    return (
+      <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
         <Clock className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-blue-800">
+        <AlertDescription className="text-blue-800 dark:text-blue-200">
           <strong>Manufacturer Assigned</strong>
           <p className="text-sm mt-1">
             A manufacturer has been assigned to your order. Payment details will be shared soon.

@@ -13,7 +13,10 @@ import { BuyerPurpose, isCsvRequiredForBulk } from './buyerPurposeValidation';
 export type OrderState =
   | 'DRAFT'
   | 'SUBMITTED'
+  | 'ADMIN_APPROVED'
   | 'MANUFACTURER_ASSIGNED'
+  | 'PAYMENT_REQUESTED'
+  | 'PAYMENT_CONFIRMED'
   | 'SAMPLE_IN_PROGRESS'
   | 'SAMPLE_QC_UPLOADED'
   | 'SAMPLE_APPROVED'
@@ -29,7 +32,10 @@ export type OrderState =
 export const ORDER_STATES: OrderState[] = [
   'DRAFT',
   'SUBMITTED',
+  'ADMIN_APPROVED',
   'MANUFACTURER_ASSIGNED',
+  'PAYMENT_REQUESTED',
+  'PAYMENT_CONFIRMED',
   'SAMPLE_IN_PROGRESS',
   'SAMPLE_QC_UPLOADED',
   'SAMPLE_APPROVED',
@@ -45,14 +51,17 @@ export const ORDER_STATES: OrderState[] = [
 // Valid transitions map (mirrors server-side logic)
 const VALID_TRANSITIONS: Record<OrderState, OrderState[]> = {
   DRAFT: ['SUBMITTED'],
-  SUBMITTED: ['MANUFACTURER_ASSIGNED'],
-  MANUFACTURER_ASSIGNED: ['SAMPLE_IN_PROGRESS'],
+  SUBMITTED: ['ADMIN_APPROVED'],
+  ADMIN_APPROVED: ['MANUFACTURER_ASSIGNED'],
+  MANUFACTURER_ASSIGNED: ['PAYMENT_REQUESTED'],
+  PAYMENT_REQUESTED: ['PAYMENT_CONFIRMED'],
+  PAYMENT_CONFIRMED: ['SAMPLE_IN_PROGRESS', 'BULK_IN_PRODUCTION'], // Can go to sample or direct bulk
   SAMPLE_IN_PROGRESS: ['SAMPLE_QC_UPLOADED'],
-  SAMPLE_QC_UPLOADED: ['SAMPLE_APPROVED'],
+  SAMPLE_QC_UPLOADED: ['SAMPLE_APPROVED', 'SAMPLE_IN_PROGRESS'], // Allow rejection loop
   SAMPLE_APPROVED: ['BULK_UNLOCKED', 'COMPLETED'], // Can complete if sample-only order
   BULK_UNLOCKED: ['BULK_IN_PRODUCTION'],
   BULK_IN_PRODUCTION: ['BULK_QC_UPLOADED'],
-  BULK_QC_UPLOADED: ['READY_FOR_DISPATCH'],
+  BULK_QC_UPLOADED: ['READY_FOR_DISPATCH', 'BULK_IN_PRODUCTION'], // Allow rejection loop
   READY_FOR_DISPATCH: ['DISPATCHED'],
   DISPATCHED: ['DELIVERED'],
   DELIVERED: ['COMPLETED'],
@@ -63,7 +72,10 @@ const VALID_TRANSITIONS: Record<OrderState, OrderState[]> = {
 export const STATE_LABELS: Record<OrderState, string> = {
   DRAFT: 'Draft',
   SUBMITTED: 'Submitted',
+  ADMIN_APPROVED: 'Admin Approved',
   MANUFACTURER_ASSIGNED: 'Manufacturer Assigned',
+  PAYMENT_REQUESTED: 'Payment Requested',
+  PAYMENT_CONFIRMED: 'Payment Confirmed',
   SAMPLE_IN_PROGRESS: 'Sample In Progress',
   SAMPLE_QC_UPLOADED: 'Sample QC Uploaded',
   SAMPLE_APPROVED: 'Sample Approved',
@@ -79,8 +91,11 @@ export const STATE_LABELS: Record<OrderState, string> = {
 // State colors for UI badges
 export const STATE_COLORS: Record<OrderState, string> = {
   DRAFT: 'bg-gray-100 text-gray-700 border-gray-300',
-  SUBMITTED: 'bg-blue-100 text-blue-700 border-blue-300',
+  SUBMITTED: 'bg-amber-100 text-amber-700 border-amber-300',
+  ADMIN_APPROVED: 'bg-blue-100 text-blue-700 border-blue-300',
   MANUFACTURER_ASSIGNED: 'bg-indigo-100 text-indigo-700 border-indigo-300',
+  PAYMENT_REQUESTED: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+  PAYMENT_CONFIRMED: 'bg-green-100 text-green-700 border-green-300',
   SAMPLE_IN_PROGRESS: 'bg-purple-100 text-purple-700 border-purple-300',
   SAMPLE_QC_UPLOADED: 'bg-yellow-100 text-yellow-700 border-yellow-300',
   SAMPLE_APPROVED: 'bg-green-100 text-green-700 border-green-300',
