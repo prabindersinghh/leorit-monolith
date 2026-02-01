@@ -73,6 +73,8 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
           admin_approved_by: user?.id,
           payment_link: paymentLink.trim(),
           admin_notes: null, // Clear any previous change request notes
+          order_state: 'PAYMENT_REQUESTED', // Critical: Set state so buyer sees payment link
+          state_updated_at: now,
           updated_at: now,
         })
         .eq('id', order.id);
@@ -146,9 +148,12 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
         .update({
           payment_received_at: now,
           payment_status: 'paid',
+          payment_state: 'PAYMENT_HELD',
           escrow_status: 'fake_paid',
           fake_payment_timestamp: now,
           escrow_locked_timestamp: now,
+          order_state: 'PAYMENT_CONFIRMED', // Critical: Enables manufacturer production
+          state_updated_at: now,
           updated_at: now,
         })
         .eq('id', order.id);
