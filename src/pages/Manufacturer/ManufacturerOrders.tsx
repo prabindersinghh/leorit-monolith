@@ -320,6 +320,10 @@ const ManufacturerOrders = () => {
         const qcUploadType = getManufacturerQCUploadType(row);
         const showBulkButton = shouldShowStartBulkButton(row);
         
+        // CRITICAL: Check if production is enabled (PAYMENT_CONFIRMED)
+        const productionCheck = canManufacturerStartProduction(row);
+        const isProductionEnabled = productionCheck.allowed;
+        
         return (
           <div className="flex gap-2 flex-wrap">
             {currentStatus === 'submitted_to_manufacturer' && (
@@ -342,7 +346,8 @@ const ManufacturerOrders = () => {
                 </Button>
               </>
             )}
-            {currentStatus === 'accepted_by_manufacturer' && (
+            {/* Start Sample Production - ONLY if payment is confirmed */}
+            {currentStatus === 'accepted_by_manufacturer' && isProductionEnabled && (
               <Button
                 size="sm"
                 onClick={() => handleStartSampleProduction(value, currentStatus, row)}
@@ -350,6 +355,12 @@ const ManufacturerOrders = () => {
               >
                 {getActionLabel('sample_in_production')}
               </Button>
+            )}
+            {/* Show waiting message if payment not confirmed */}
+            {currentStatus === 'accepted_by_manufacturer' && !isProductionEnabled && (
+              <span className="text-xs text-amber-600 px-2 py-1 bg-amber-50 rounded">
+                Awaiting payment
+              </span>
             )}
             {/* QC Upload - order_mode aware */}
             {currentStatus === 'sample_in_production' && qcUploadType === 'sample' && (
@@ -371,8 +382,8 @@ const ManufacturerOrders = () => {
                 Upload Bulk QC
               </Button>
             )}
-            {/* Start Bulk Production - only for sample_then_bulk after sample approval */}
-            {showBulkButton && currentStatus === 'sample_approved_by_buyer' && (
+            {/* Start Bulk Production - only for sample_then_bulk after sample approval AND payment confirmed */}
+            {showBulkButton && currentStatus === 'sample_approved_by_buyer' && isProductionEnabled && (
               <Button
                 size="sm"
                 onClick={() => handleStartBulkProduction(value, currentStatus, row)}

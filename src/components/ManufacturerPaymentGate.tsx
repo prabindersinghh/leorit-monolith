@@ -113,6 +113,11 @@ export default ManufacturerPaymentGate;
  * Helper to check if manufacturer can start production
  * CRITICAL: Production is BLOCKED until PAYMENT_CONFIRMED
  */
+/**
+ * CRITICAL: Check if manufacturer can start production
+ * Production is BLOCKED until order_state == PAYMENT_CONFIRMED
+ * This is the single source of truth for production enablement.
+ */
 export const canManufacturerStartProduction = (order: {
   order_state: string | null;
   payment_state: string | null;
@@ -121,14 +126,9 @@ export const canManufacturerStartProduction = (order: {
 }): { allowed: boolean; reason?: string } => {
   const orderState = order.order_state || '';
   
-  // Must have payment confirmed
-  const isPaymentConfirmed = 
-    orderState === 'PAYMENT_CONFIRMED' ||
-    order.payment_state === 'PAYMENT_HELD' || 
-    !!order.payment_received_at;
-
-  // Or be past payment confirmation state
-  const isPastPaymentState = [
+  // CRITICAL: Production states that indicate payment was already confirmed
+  const productionEnabledStates = [
+    'PAYMENT_CONFIRMED',
     'SAMPLE_IN_PROGRESS', 
     'SAMPLE_QC_UPLOADED', 
     'SAMPLE_APPROVED', 
@@ -139,20 +139,31 @@ export const canManufacturerStartProduction = (order: {
     'DISPATCHED', 
     'DELIVERED', 
     'COMPLETED'
-  ].includes(orderState);
+  ];
 
-  if (!isPaymentConfirmed && !isPastPaymentState) {
+  // Check if we're in a production-enabled state
+  const isProductionEnabled = productionEnabledStates.includes(orderState);
+  
+  // Also check payment_received_at as fallback
+  const hasPaymentTimestamp = !!order.payment_received_at;
+
+  if (!isProductionEnabled && !hasPaymentTimestamp) {
+    // Provide specific message based on current state
+    if (orderState === 'PAYMENT_REQUESTED') {
+      return { 
+        allowed: false, 
+        reason: "Awaiting buyer payment. Production will be enabled once payment is confirmed by Leorit.ai." 
+      };
+    }
+    if (orderState === 'MANUFACTURER_ASSIGNED') {
+      return { 
+        allowed: false, 
+        reason: "Awaiting payment request. Admin needs to request payment from buyer first." 
+      };
+    }
     return { 
       allowed: false, 
       reason: "Payment has not been confirmed. Please wait for Leorit.ai to confirm payment before starting production." 
-    };
-  }
-
-  // Check if specs are locked (production gate)
-  if (order.specs_locked === false) {
-    return {
-      allowed: false,
-      reason: "Specs must be locked by admin before production can start. Please wait for admin to lock specifications."
     };
   }
 
