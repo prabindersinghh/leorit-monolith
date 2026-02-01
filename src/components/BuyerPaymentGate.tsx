@@ -19,6 +19,8 @@ interface BuyerPaymentGateProps {
     total_order_value: number | null;
     admin_approved_at: string | null;
     manufacturer_id: string | null;
+    escrow_amount?: number | null;
+    total_amount?: number | null;
   };
 }
 
@@ -101,9 +103,16 @@ const ORDER_STATE_MESSAGES: Record<string, { title: string; description: string;
 const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
   const orderState = order.order_state || '';
   
-  // CRITICAL: Check if payment is requested - buyer MUST see payment link
+  // CRITICAL FIX: Check if payment is requested - buyer MUST see payment link
+  // Primary check: order_state === 'PAYMENT_REQUESTED'
+  // Fallback check: payment_link exists AND payment not yet received
   const isPaymentRequested = orderState === 'PAYMENT_REQUESTED';
   const hasPaymentLink = !!order.payment_link;
+  const paymentNotReceived = !order.payment_received_at;
+  
+  // FORCE visibility: Show payment section if link exists and payment not received
+  // This ensures buyer ALWAYS sees payment option regardless of state machine issues
+  const shouldShowPaymentSection = (isPaymentRequested || (hasPaymentLink && paymentNotReceived && order.admin_approved_at));
   
   // Check if payment is confirmed
   const isPaymentConfirmed = orderState === 'PAYMENT_CONFIRMED' || 
@@ -125,7 +134,9 @@ const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
   ].includes(orderState);
 
   // CASE 1: Payment Requested - Show prominent payment button
-  if (isPaymentRequested && hasPaymentLink) {
+  // CRITICAL: Use shouldShowPaymentSection for robust visibility
+  if (shouldShowPaymentSection && hasPaymentLink) {
+    const displayAmount = order.total_order_value || order.escrow_amount || order.total_amount;
     return (
       <Alert className="border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 shadow-md">
         <CreditCard className="h-5 w-5 text-yellow-600" />
@@ -136,9 +147,9 @@ const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
               <p className="text-sm mt-1">
                 Payment requested by Leorit.ai to proceed with production.
               </p>
-              {order.total_order_value && (
+              {displayAmount && (
                 <p className="text-base font-semibold mt-2">
-                  Amount: ₹{order.total_order_value.toLocaleString()}
+                  Amount: ₹{displayAmount.toLocaleString()}
                 </p>
               )}
             </div>
