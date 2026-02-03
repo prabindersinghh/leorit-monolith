@@ -52,18 +52,23 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
   const [isRequesting, setIsRequesting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
 
-  // Determine current state
-  const isAdminApproved = order.order_state === 'ADMIN_APPROVED' || !!order.admin_approved_at;
-  const isManufacturerAssigned = order.order_state === 'MANUFACTURER_ASSIGNED' || !!order.manufacturer_id;
-  const isPaymentRequested = order.order_state === 'PAYMENT_REQUESTED';
-  const isPaymentConfirmed = order.order_state === 'PAYMENT_CONFIRMED' || !!order.payment_received_at;
-  const isPastPaymentConfirmed = ['SAMPLE_IN_PROGRESS', 'SAMPLE_QC_UPLOADED', 'SAMPLE_APPROVED', 'BULK_UNLOCKED', 'BULK_IN_PRODUCTION', 'BULK_QC_UPLOADED', 'READY_FOR_DISPATCH', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(order.order_state || '');
-
-  // Can request payment only after manufacturer is assigned
-  const canRequestPayment = isManufacturerAssigned && !isPaymentRequested && !isPaymentConfirmed && !isPastPaymentConfirmed;
+  const orderState = order.order_state || '';
   
-  // Can confirm payment only after payment is requested
-  const canConfirmPayment = isPaymentRequested && !isPaymentConfirmed;
+  /**
+   * STRICT STATE MACHINE:
+   * - Payment link can ONLY be added when order_state === 'MANUFACTURER_ASSIGNED'
+   * - Payment can ONLY be confirmed when order_state === 'PAYMENT_REQUESTED'
+   */
+  const isManufacturerAssigned = orderState === 'MANUFACTURER_ASSIGNED';
+  const isPaymentRequested = orderState === 'PAYMENT_REQUESTED';
+  const isPaymentConfirmed = orderState === 'PAYMENT_CONFIRMED';
+  const isPastPaymentConfirmed = ['SAMPLE_IN_PROGRESS', 'SAMPLE_QC_UPLOADED', 'SAMPLE_APPROVED', 'BULK_UNLOCKED', 'BULK_IN_PRODUCTION', 'BULK_QC_UPLOADED', 'READY_FOR_DISPATCH', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(orderState);
+
+  // STRICT: Can request payment only when order_state === 'MANUFACTURER_ASSIGNED'
+  const canRequestPayment = isManufacturerAssigned;
+  
+  // STRICT: Can confirm payment only when order_state === 'PAYMENT_REQUESTED'
+  const canConfirmPayment = isPaymentRequested;
 
   const handleRequestPayment = async () => {
     if (!paymentLink.trim()) {
@@ -155,7 +160,7 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
     if (isManufacturerAssigned) {
       return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">Ready to Request Payment</Badge>;
     }
-    return <Badge variant="outline">Payment Not Started</Badge>;
+    return <Badge variant="outline">Assign Manufacturer First</Badge>;
   };
 
   return (

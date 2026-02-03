@@ -86,12 +86,17 @@ const CommandCenterActions = ({ order, manufacturers, onUpdate }: CommandCenterA
       return;
     }
 
-    // CORRECT RULE: Assignment requires ADMIN_APPROVED state (not payment)
-    // Admin can assign manufacturer AFTER order is approved, BEFORE payment
-    const approvedStates = ['ADMIN_APPROVED', 'MANUFACTURER_ASSIGNED', 'PAYMENT_REQUESTED', 'PAYMENT_CONFIRMED', 'SAMPLE_IN_PROGRESS', 'SAMPLE_QC_UPLOADED', 'SAMPLE_APPROVED', 'BULK_UNLOCKED', 'BULK_IN_PRODUCTION', 'BULK_QC_UPLOADED', 'READY_FOR_DISPATCH', 'DISPATCHED', 'DELIVERED', 'COMPLETED'];
-    if (!approvedStates.includes(order.order_state || '') && !order.admin_approved_at) {
-      toast.error("Cannot assign manufacturer: Order must be approved by admin first.");
-      return;
+    /**
+     * STRICT STATE MACHINE:
+     * Manufacturer can ONLY be assigned when order_state === 'ADMIN_APPROVED'
+     * After assignment, order_state becomes 'MANUFACTURER_ASSIGNED'
+     */
+    if (order.order_state !== 'ADMIN_APPROVED') {
+      // Allow re-assignment if already assigned (for admin overrides)
+      if (order.order_state !== 'MANUFACTURER_ASSIGNED') {
+        toast.error("Cannot assign manufacturer: Order must be in ADMIN_APPROVED state.");
+        return;
+      }
     }
 
     setAssigningManufacturer(true);
