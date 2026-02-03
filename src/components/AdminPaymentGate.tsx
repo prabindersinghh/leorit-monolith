@@ -31,6 +31,7 @@ import { CreditCard, Clock, CheckCircle2, AlertTriangle, ExternalLink } from "lu
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { logStateChange, validateStateTransition } from "@/lib/stateChangeLogger";
 import { format } from "date-fns";
 
 interface AdminPaymentGateProps {
@@ -58,16 +59,29 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
    * STRICT STATE MACHINE:
    * - Payment link can ONLY be added when order_state === 'MANUFACTURER_ASSIGNED'
    * - Payment can ONLY be confirmed when order_state === 'PAYMENT_REQUESTED'
+   * 
+   * This is the SINGLE SOURCE OF TRUTH for payment flow gating.
    */
   const isManufacturerAssigned = orderState === 'MANUFACTURER_ASSIGNED';
   const isPaymentRequested = orderState === 'PAYMENT_REQUESTED';
   const isPaymentConfirmed = orderState === 'PAYMENT_CONFIRMED';
-  const isPastPaymentConfirmed = ['SAMPLE_IN_PROGRESS', 'SAMPLE_QC_UPLOADED', 'SAMPLE_APPROVED', 'BULK_UNLOCKED', 'BULK_IN_PRODUCTION', 'BULK_QC_UPLOADED', 'READY_FOR_DISPATCH', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(orderState);
+  const isPastPaymentConfirmed = [
+    'SAMPLE_IN_PROGRESS', 
+    'SAMPLE_QC_UPLOADED', 
+    'SAMPLE_APPROVED', 
+    'BULK_UNLOCKED', 
+    'BULK_IN_PRODUCTION', 
+    'BULK_QC_UPLOADED', 
+    'READY_FOR_DISPATCH', 
+    'DISPATCHED', 
+    'DELIVERED', 
+    'COMPLETED'
+  ].includes(orderState);
 
-  // STRICT: Can request payment only when order_state === 'MANUFACTURER_ASSIGNED'
-  const canRequestPayment = isManufacturerAssigned;
+  // STRICT: Can request payment ONLY when order_state === 'MANUFACTURER_ASSIGNED'
+  const canRequestPayment = isManufacturerAssigned && !!order.manufacturer_id;
   
-  // STRICT: Can confirm payment only when order_state === 'PAYMENT_REQUESTED'
+  // STRICT: Can confirm payment ONLY when order_state === 'PAYMENT_REQUESTED'
   const canConfirmPayment = isPaymentRequested;
 
   const handleRequestPayment = async () => {
@@ -81,8 +95,22 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
       return;
     }
 
+    // STRICT VALIDATION: Can only request payment from MANUFACTURER_ASSIGNED state
+    if (orderState !== 'MANUFACTURER_ASSIGNED') {
+      toast.error(`Cannot request payment: Order must be in MANUFACTURER_ASSIGNED state. Current: ${orderState}`);
+      return;
+    }
+
+    // Validate state transition
+    const validationError = validateStateTransition(orderState, 'PAYMENT_REQUESTED');
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     setIsRequesting(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       const now = new Date().toISOString();
 
       const { error } = await supabase
@@ -94,18 +122,24 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
           state_updated_at: now,
           updated_at: now,
         })
-        .eq('id', order.id);
+        .eq('id', order.id)
+        .eq('order_state', 'MANUFACTURER_ASSIGNED'); // Double-check state
 
       if (error) throw error;
+
+      // Log state change
+      await logStateChange(order.id, 'MANUFACTURER_ASSIGNED', 'PAYMENT_REQUESTED', user?.id || 'admin', 'payment_request');
 
       await logOrderEvent(order.id, 'payment_requested', {
         payment_link: paymentLink.trim(),
         requested_by: 'admin',
+        previous_state: 'MANUFACTURER_ASSIGNED',
+        new_state: 'PAYMENT_REQUESTED',
         total_value: order.total_order_value,
         timestamp: now,
       });
 
-      toast.success("Payment requested from buyer");
+      toast.success("Payment requested → Buyer can now see payment link");
       onUpdate();
     } catch (error: any) {
       console.error('Error requesting payment:', error);
@@ -116,8 +150,22 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
   };
 
   const handleConfirmPayment = async () => {
+    // STRICT VALIDATION: Can only confirm payment from PAYMENT_REQUESTED state
+    if (orderState !== 'PAYMENT_REQUESTED') {
+      toast.error(`Cannot confirm payment: Order must be in PAYMENT_REQUESTED state. Current: ${orderState}`);
+      return;
+    }
+
+    // Validate state transition
+    const validationError = validateStateTransition(orderState, 'PAYMENT_CONFIRMED');
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     setIsConfirming(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       const now = new Date().toISOString();
 
       const { error } = await supabase
@@ -129,17 +177,23 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
           state_updated_at: now,
           updated_at: now,
         })
-        .eq('id', order.id);
+        .eq('id', order.id)
+        .eq('order_state', 'PAYMENT_REQUESTED'); // Double-check state
 
       if (error) throw error;
 
+      // Log state change
+      await logStateChange(order.id, 'PAYMENT_REQUESTED', 'PAYMENT_CONFIRMED', user?.id || 'admin', 'payment_confirm');
+
       await logOrderEvent(order.id, 'payment_confirmed', {
         confirmed_by: 'admin',
+        previous_state: 'PAYMENT_REQUESTED',
+        new_state: 'PAYMENT_CONFIRMED',
         payment_state: 'PAYMENT_HELD',
         timestamp: now,
       });
 
-      toast.success("Payment confirmed - Manufacturer can now start production");
+      toast.success("Payment confirmed → Manufacturer can now start production");
       onUpdate();
     } catch (error: any) {
       console.error('Error confirming payment:', error);

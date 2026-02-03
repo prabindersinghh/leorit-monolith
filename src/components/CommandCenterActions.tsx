@@ -38,6 +38,7 @@ import { Factory, Truck, RefreshCw, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { logStateChange, validateStateTransition } from "@/lib/stateChangeLogger";
 import {
   canAdminSchedulePickup,
   canAdminMarkInTransit,
@@ -86,47 +87,69 @@ const CommandCenterActions = ({ order, manufacturers, onUpdate }: CommandCenterA
       return;
     }
 
+    const currentState = order.order_state || 'SUBMITTED';
+    const isReassign = !!order.manufacturer_id && currentState === 'MANUFACTURER_ASSIGNED';
+
     /**
      * STRICT STATE MACHINE:
-     * Manufacturer can ONLY be assigned when order_state === 'ADMIN_APPROVED'
-     * After assignment, order_state becomes 'MANUFACTURER_ASSIGNED'
+     * - New assignment: ADMIN_APPROVED → MANUFACTURER_ASSIGNED
+     * - Re-assignment: MANUFACTURER_ASSIGNED → MANUFACTURER_ASSIGNED (same state, different manufacturer)
      */
-    if (order.order_state !== 'ADMIN_APPROVED') {
-      // Allow re-assignment if already assigned (for admin overrides)
-      if (order.order_state !== 'MANUFACTURER_ASSIGNED') {
-        toast.error("Cannot assign manufacturer: Order must be in ADMIN_APPROVED state.");
+    if (currentState !== 'ADMIN_APPROVED' && currentState !== 'MANUFACTURER_ASSIGNED') {
+      toast.error(`Cannot assign manufacturer: Order must be in ADMIN_APPROVED state. Current: ${currentState}`);
+      return;
+    }
+
+    // Validate the transition (new assignment only)
+    if (!isReassign) {
+      const validationError = validateStateTransition(currentState, 'MANUFACTURER_ASSIGNED');
+      if (validationError) {
+        toast.error(validationError);
         return;
       }
     }
 
     setAssigningManufacturer(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       const now = new Date().toISOString();
-      const isReassign = !!order.manufacturer_id;
+
+      const updateData: any = {
+        manufacturer_id: selectedManufacturer,
+        assigned_at: now,
+        detailed_status: 'submitted_to_manufacturer',
+        state_updated_at: now,
+        updated_at: now,
+      };
+
+      // Only change state if not already MANUFACTURER_ASSIGNED (new assignment)
+      if (currentState === 'ADMIN_APPROVED') {
+        updateData.order_state = 'MANUFACTURER_ASSIGNED';
+      }
 
       const { error } = await supabase
         .from('orders')
-        .update({
-          manufacturer_id: selectedManufacturer,
-          assigned_at: now,
-          order_state: 'MANUFACTURER_ASSIGNED',
-          detailed_status: 'submitted_to_manufacturer',
-          state_updated_at: now,
-          updated_at: now,
-        })
+        .update(updateData)
         .eq('id', order.id);
 
       if (error) throw error;
+
+      // Log state change only for new assignments
+      if (currentState === 'ADMIN_APPROVED') {
+        await logStateChange(order.id, 'ADMIN_APPROVED', 'MANUFACTURER_ASSIGNED', user?.id || 'admin', 'manufacturer_assignment');
+      }
 
       await logOrderEvent(order.id, 'manufacturer_assigned', {
         manufacturer_id: selectedManufacturer,
         previous_manufacturer_id: order.manufacturer_id,
         is_reassignment: isReassign,
+        previous_state: currentState,
+        new_state: isReassign ? 'MANUFACTURER_ASSIGNED' : 'MANUFACTURER_ASSIGNED',
         assigned_by: 'admin_command_center',
         timestamp: now,
       });
 
-      toast.success(isReassign ? "Manufacturer reassigned" : "Manufacturer assigned");
+      toast.success(isReassign ? "Manufacturer reassigned" : "Manufacturer assigned → Next: Add payment link");
       setSelectedManufacturer("");
       onUpdate();
     } catch (error: any) {

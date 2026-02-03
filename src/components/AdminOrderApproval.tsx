@@ -5,6 +5,12 @@
  * - Approve Order: SUBMITTED → ADMIN_APPROVED (no payment link required)
  * - Payment link is added AFTER manufacturer assignment via AdminPaymentGate
  * - Request Changes: Sends notes to buyer, keeps order in SUBMITTED
+ * 
+ * STATE TRANSITIONS:
+ * - SUBMITTED → ADMIN_APPROVED (this component)
+ * - ADMIN_APPROVED → MANUFACTURER_ASSIGNED (CommandCenterActions)
+ * - MANUFACTURER_ASSIGNED → PAYMENT_REQUESTED (AdminPaymentGate)
+ * - PAYMENT_REQUESTED → PAYMENT_CONFIRMED (AdminPaymentGate)
  */
 
 import { useState } from "react";
@@ -28,6 +34,7 @@ import { CheckCircle, XCircle, AlertTriangle, ExternalLink } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logOrderEvent } from "@/lib/orderEventLogger";
+import { logStateChange } from "@/lib/stateChangeLogger";
 
 interface AdminOrderApprovalProps {
   order: any;
@@ -39,18 +46,44 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isRequestingChanges, setIsRequestingChanges] = useState(false);
 
-  // STRICT STATE CHECKS - only use order_state
+  // STRICT STATE CHECKS - only use order_state as single source of truth
   const orderState = order.order_state || 'SUBMITTED';
-  const isAwaitingReview = orderState === 'SUBMITTED' && !order.admin_notes;
-  const isAdminApproved = orderState === 'ADMIN_APPROVED' || ['MANUFACTURER_ASSIGNED', 'PAYMENT_REQUESTED', 'PAYMENT_CONFIRMED'].includes(orderState);
+  
+  // Order is awaiting review only if state is SUBMITTED
+  const isAwaitingReview = orderState === 'SUBMITTED';
+  
+  // Order is approved if state is ADMIN_APPROVED or any later state
+  const isAdminApproved = [
+    'ADMIN_APPROVED', 
+    'MANUFACTURER_ASSIGNED', 
+    'PAYMENT_REQUESTED', 
+    'PAYMENT_CONFIRMED',
+    'SAMPLE_IN_PROGRESS',
+    'SAMPLE_QC_UPLOADED',
+    'SAMPLE_APPROVED',
+    'BULK_UNLOCKED',
+    'BULK_IN_PRODUCTION',
+    'BULK_QC_UPLOADED',
+    'READY_FOR_DISPATCH',
+    'DISPATCHED',
+    'DELIVERED',
+    'COMPLETED'
+  ].includes(orderState);
+  
   const hasChangesRequested = order.admin_notes && orderState === 'SUBMITTED';
 
   /**
-   * STRICT RULE: Approve Order ONLY sets order_state to ADMIN_APPROVED
+   * STRICT RULE: Approve Order ONLY sets order_state from SUBMITTED → ADMIN_APPROVED
    * Payment link is NOT required at this stage
-   * Payment link can only be added AFTER manufacturer is assigned
+   * Payment link can only be added AFTER manufacturer is assigned (MANUFACTURER_ASSIGNED state)
    */
   const handleApproveOrder = async () => {
+    // STRICT VALIDATION: Can only approve if current state is SUBMITTED
+    if (orderState !== 'SUBMITTED') {
+      toast.error(`Cannot approve: Order must be in SUBMITTED state. Current state: ${orderState}`);
+      return;
+    }
+
     setIsApproving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -66,12 +99,18 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
           state_updated_at: now,
           updated_at: now,
         })
-        .eq('id', order.id);
+        .eq('id', order.id)
+        .eq('order_state', 'SUBMITTED'); // Double-check state hasn't changed
 
       if (error) throw error;
 
+      // Log state change for debugging
+      await logStateChange(order.id, 'SUBMITTED', 'ADMIN_APPROVED', user?.id || 'admin', 'admin_approval');
+
       await logOrderEvent(order.id, 'admin_approved', {
         approved_by: user?.id,
+        previous_state: 'SUBMITTED',
+        new_state: 'ADMIN_APPROVED',
         timestamp: now,
       });
 
