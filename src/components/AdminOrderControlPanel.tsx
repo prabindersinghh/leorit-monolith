@@ -404,18 +404,16 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Payment Gate - Manufacturer assignment only after payment */}
-          {!order.payment_received_at && !order.manufacturer_id && (
+          {/* Admin Approval Gate - Manufacturer assignment only after admin approval */}
+          {!order.admin_approved_at && !order.manufacturer_id && (
             <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg flex items-start gap-2">
               <PauseCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
-                  Awaiting Payment
+                  Awaiting Admin Approval
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Manufacturer can only be assigned after buyer payment is received.
-                  {!order.admin_approved_at && " Please approve the order and add payment link first."}
-                  {order.admin_approved_at && !order.payment_received_at && " Waiting for buyer to complete payment."}
+                  Please approve the order first before assigning a manufacturer.
                 </p>
               </div>
             </div>
@@ -430,7 +428,7 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
                 ID: {order.manufacturer_id.slice(0, 8)}...
               </p>
             </div>
-          ) : order.payment_received_at ? (
+          ) : order.admin_approved_at ? (
             <>
               <div className="space-y-2">
                 <Label>Select Manufacturer</Label>
@@ -455,6 +453,11 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
                   </SelectContent>
                 </Select>
               </div>
+              {!order.payment_received_at && order.manufacturer_id && (
+                <div className="p-2 bg-blue-50 dark:bg-blue-950/30 rounded text-xs text-blue-700 dark:text-blue-400">
+                  Note: Manufacturer assigned. Production will unlock after payment is confirmed.
+                </div>
+              )}
               <Button 
                 onClick={handleAssignManufacturer} 
                 disabled={!selectedManufacturer || assigningManufacturer}

@@ -86,9 +86,11 @@ const CommandCenterActions = ({ order, manufacturers, onUpdate }: CommandCenterA
       return;
     }
 
-    // ADMIN-FIRST: Payment must be received before manufacturer assignment
-    if (!order.payment_received_at) {
-      toast.error("Cannot assign manufacturer: Payment has not been received yet. Admin must first approve the order and mark payment as received.");
+    // CORRECT RULE: Assignment requires ADMIN_APPROVED state (not payment)
+    // Admin can assign manufacturer AFTER order is approved, BEFORE payment
+    const approvedStates = ['ADMIN_APPROVED', 'MANUFACTURER_ASSIGNED', 'PAYMENT_REQUESTED', 'PAYMENT_CONFIRMED', 'SAMPLE_IN_PROGRESS', 'SAMPLE_QC_UPLOADED', 'SAMPLE_APPROVED', 'BULK_UNLOCKED', 'BULK_IN_PRODUCTION', 'BULK_QC_UPLOADED', 'READY_FOR_DISPATCH', 'DISPATCHED', 'DELIVERED', 'COMPLETED'];
+    if (!approvedStates.includes(order.order_state || '') && !order.admin_approved_at) {
+      toast.error("Cannot assign manufacturer: Order must be approved by admin first.");
       return;
     }
 
