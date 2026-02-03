@@ -113,7 +113,8 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       const now = new Date().toISOString();
 
-      const { error } = await supabase
+      // CRITICAL FIX: Use .select() to verify update happened
+      const { data, error } = await supabase
         .from('orders')
         .update({
           order_state: 'PAYMENT_REQUESTED',
@@ -123,12 +124,24 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
           updated_at: now,
         })
         .eq('id', order.id)
-        .eq('order_state', 'MANUFACTURER_ASSIGNED'); // Double-check state
+        .select('order_state, payment_link')
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AdminPaymentGate] Request payment error:', error);
+        throw error;
+      }
 
-      // Log state change
-      await logStateChange(order.id, 'MANUFACTURER_ASSIGNED', 'PAYMENT_REQUESTED', user?.id || 'admin', 'payment_request');
+      // Verify the update actually happened
+      if (!data || data.order_state !== 'PAYMENT_REQUESTED') {
+        console.error('[AdminPaymentGate] State did not update:', data);
+        throw new Error('Payment request failed - please refresh and try again');
+      }
+
+      console.log('[AdminPaymentGate] Successfully updated to PAYMENT_REQUESTED:', data);
+
+      // Log state change (use valid actor_role)
+      await logStateChange(order.id, 'MANUFACTURER_ASSIGNED', 'PAYMENT_REQUESTED', user?.id || 'admin', 'admin');
 
       await logOrderEvent(order.id, 'payment_requested', {
         payment_link: paymentLink.trim(),
@@ -168,7 +181,8 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       const now = new Date().toISOString();
 
-      const { error } = await supabase
+      // CRITICAL FIX: Use .select() to verify update happened
+      const { data, error } = await supabase
         .from('orders')
         .update({
           order_state: 'PAYMENT_CONFIRMED',
@@ -178,12 +192,24 @@ const AdminPaymentGate = ({ order, onUpdate }: AdminPaymentGateProps) => {
           updated_at: now,
         })
         .eq('id', order.id)
-        .eq('order_state', 'PAYMENT_REQUESTED'); // Double-check state
+        .select('order_state, payment_received_at')
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AdminPaymentGate] Confirm payment error:', error);
+        throw error;
+      }
 
-      // Log state change
-      await logStateChange(order.id, 'PAYMENT_REQUESTED', 'PAYMENT_CONFIRMED', user?.id || 'admin', 'payment_confirm');
+      // Verify the update actually happened
+      if (!data || data.order_state !== 'PAYMENT_CONFIRMED') {
+        console.error('[AdminPaymentGate] State did not update:', data);
+        throw new Error('Payment confirmation failed - please refresh and try again');
+      }
+
+      console.log('[AdminPaymentGate] Successfully updated to PAYMENT_CONFIRMED:', data);
+
+      // Log state change (use valid actor_role)
+      await logStateChange(order.id, 'PAYMENT_REQUESTED', 'PAYMENT_CONFIRMED', user?.id || 'admin', 'admin');
 
       await logOrderEvent(order.id, 'payment_confirmed', {
         confirmed_by: 'admin',

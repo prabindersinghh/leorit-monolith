@@ -127,16 +127,30 @@ const CommandCenterActions = ({ order, manufacturers, onUpdate }: CommandCenterA
         updateData.order_state = 'MANUFACTURER_ASSIGNED';
       }
 
-      const { error } = await supabase
+      // CRITICAL FIX: Use .select() to verify update happened
+      const { data, error } = await supabase
         .from('orders')
         .update(updateData)
-        .eq('id', order.id);
+        .eq('id', order.id)
+        .select('order_state, manufacturer_id')
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[CommandCenterActions] Update error:', error);
+        throw error;
+      }
 
-      // Log state change only for new assignments
+      // Verify the update actually happened
+      if (!data || data.manufacturer_id !== selectedManufacturer) {
+        console.error('[CommandCenterActions] Manufacturer assignment failed:', data);
+        throw new Error('Manufacturer assignment failed - please refresh and try again');
+      }
+
+      console.log('[CommandCenterActions] Successfully assigned manufacturer:', data);
+
+      // Log state change only for new assignments (use valid actor_role)
       if (currentState === 'ADMIN_APPROVED') {
-        await logStateChange(order.id, 'ADMIN_APPROVED', 'MANUFACTURER_ASSIGNED', user?.id || 'admin', 'manufacturer_assignment');
+        await logStateChange(order.id, 'ADMIN_APPROVED', 'MANUFACTURER_ASSIGNED', user?.id || 'admin', 'admin');
       }
 
       await logOrderEvent(order.id, 'manufacturer_assigned', {
@@ -144,7 +158,7 @@ const CommandCenterActions = ({ order, manufacturers, onUpdate }: CommandCenterA
         previous_manufacturer_id: order.manufacturer_id,
         is_reassignment: isReassign,
         previous_state: currentState,
-        new_state: isReassign ? 'MANUFACTURER_ASSIGNED' : 'MANUFACTURER_ASSIGNED',
+        new_state: 'MANUFACTURER_ASSIGNED',
         assigned_by: 'admin_command_center',
         timestamp: now,
       });

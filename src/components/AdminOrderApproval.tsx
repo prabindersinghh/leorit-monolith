@@ -89,7 +89,8 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       const now = new Date().toISOString();
 
-      const { error } = await supabase
+      // CRITICAL FIX: Use .select() to get returned data and verify update happened
+      const { data, error } = await supabase
         .from('orders')
         .update({
           admin_approved_at: now,
@@ -100,12 +101,24 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
           updated_at: now,
         })
         .eq('id', order.id)
-        .eq('order_state', 'SUBMITTED'); // Double-check state hasn't changed
+        .select('order_state')
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AdminOrderApproval] Update error:', error);
+        throw error;
+      }
 
-      // Log state change for debugging
-      await logStateChange(order.id, 'SUBMITTED', 'ADMIN_APPROVED', user?.id || 'admin', 'admin_approval');
+      // Verify the update actually happened
+      if (!data || data.order_state !== 'ADMIN_APPROVED') {
+        console.error('[AdminOrderApproval] State did not update:', data);
+        throw new Error('State update failed - please refresh and try again');
+      }
+
+      console.log('[AdminOrderApproval] Successfully updated to ADMIN_APPROVED:', data);
+
+      // Log state change for debugging (use valid actor_role)
+      await logStateChange(order.id, 'SUBMITTED', 'ADMIN_APPROVED', user?.id || 'admin', 'admin');
 
       await logOrderEvent(order.id, 'admin_approved', {
         approved_by: user?.id,

@@ -29,7 +29,7 @@ export async function logStateChange(
   oldState: string | null,
   newState: string,
   actorId: string,
-  actorType: 'admin_approval' | 'manufacturer_assignment' | 'payment_request' | 'payment_confirm' | 'production_start' | 'qc_upload' | 'qc_approval' | 'dispatch' | 'delivery' | 'system'
+  actorType: 'admin' | 'buyer' | 'manufacturer' | 'system'
 ): Promise<void> {
   try {
     const now = new Date().toISOString();
@@ -38,7 +38,7 @@ export async function logStateChange(
       .from('system_logs')
       .insert({
         actor_id: actorId,
-        actor_role: actorType,
+        actor_role: actorType, // Must be 'admin', 'buyer', 'manufacturer', or 'system'
         event_type: 'order_state_change',
         entity_type: 'order',
         entity_id: orderId,
