@@ -56,7 +56,9 @@ export type OrderEventType =
   | 'specs_locked'                    // Admin locked specs before production
   // Admin QC decision events
   | 'admin_qc_approved'               // Admin approved QC
-  | 'admin_qc_rejected';              // Admin rejected QC
+  | 'admin_qc_rejected'               // Admin rejected QC
+  // State machine transition events
+  | 'state_transition';               // Generic state transition event
 
 /**
  * Logs an order event to the order_events table for analytics.

@@ -2,12 +2,16 @@
  * Manufacturer Payment Gate Component
  * 
  * Shows payment status to manufacturer and blocks production until payment confirmed.
- * CRITICAL: Manufacturer can SEE order after MANUFACTURER_ASSIGNED but
- * CANNOT START PRODUCTION until PAYMENT_CONFIRMED
+ * 
+ * STRICT STATE MACHINE:
+ * - Manufacturer can SEE order after MANUFACTURER_ASSIGNED
+ * - Manufacturer can ACCEPT/REJECT order after MANUFACTURER_ASSIGNED
+ * - Manufacturer CANNOT START PRODUCTION until order_state === 'PAYMENT_CONFIRMED'
  */
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Clock, CheckCircle2, CreditCard, Lock, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface ManufacturerPaymentGateProps {
   order: {
@@ -22,14 +26,18 @@ interface ManufacturerPaymentGateProps {
 const ManufacturerPaymentGate = ({ order }: ManufacturerPaymentGateProps) => {
   const orderState = order.order_state || '';
   
-  // Check if payment is confirmed (production can start)
-  const isPaymentConfirmed = 
-    orderState === 'PAYMENT_CONFIRMED' ||
-    order.payment_state === 'PAYMENT_HELD' || 
-    !!order.payment_received_at;
-
-  // Check if we're in a production-enabled state
-  const isPastPaymentConfirmed = [
+  /**
+   * STRICT STATE MACHINE:
+   * Production is ONLY enabled when order_state === 'PAYMENT_CONFIRMED' or later states.
+   * 
+   * States where production is enabled:
+   * - PAYMENT_CONFIRMED (just unlocked)
+   * - SAMPLE_IN_PROGRESS, SAMPLE_QC_UPLOADED, SAMPLE_APPROVED
+   * - BULK_UNLOCKED, BULK_IN_PRODUCTION, BULK_QC_UPLOADED
+   * - READY_FOR_DISPATCH, DISPATCHED, DELIVERED, COMPLETED
+   */
+  const productionEnabledStates = [
+    'PAYMENT_CONFIRMED',
     'SAMPLE_IN_PROGRESS', 
     'SAMPLE_QC_UPLOADED', 
     'SAMPLE_APPROVED', 
@@ -40,12 +48,16 @@ const ManufacturerPaymentGate = ({ order }: ManufacturerPaymentGateProps) => {
     'DISPATCHED', 
     'DELIVERED', 
     'COMPLETED'
-  ].includes(orderState);
+  ];
 
-  // If payment confirmed or past that stage, show success or nothing
-  if (isPaymentConfirmed || isPastPaymentConfirmed) {
-    // Only show message at PAYMENT_CONFIRMED stage
-    if (orderState === 'PAYMENT_CONFIRMED') {
+  const isProductionEnabled = productionEnabledStates.includes(orderState);
+  const isPaymentConfirmed = orderState === 'PAYMENT_CONFIRMED';
+  const isPaymentRequested = orderState === 'PAYMENT_REQUESTED';
+  const isManufacturerAssigned = orderState === 'MANUFACTURER_ASSIGNED';
+
+  // If production is enabled (past payment confirmation), show success at PAYMENT_CONFIRMED only
+  if (isProductionEnabled) {
+    if (isPaymentConfirmed) {
       return (
         <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30">
           <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -63,22 +75,28 @@ const ManufacturerPaymentGate = ({ order }: ManufacturerPaymentGateProps) => {
         </Alert>
       );
     }
+    // For later states, don't show the gate
     return null;
   }
 
   // Show waiting for payment message for PAYMENT_REQUESTED state
-  if (orderState === 'PAYMENT_REQUESTED') {
+  if (isPaymentRequested) {
     return (
       <Alert className="border-yellow-200 bg-yellow-50 dark:bg-yellow-950/30">
         <Clock className="h-4 w-4 text-yellow-600" />
         <AlertDescription className="text-yellow-800 dark:text-yellow-200">
           <strong>Awaiting Buyer Payment</strong>
           <p className="text-sm mt-1">
-            Payment has been requested from the buyer. Production will be enabled once payment is confirmed by Leorit.ai.
+            Payment has been requested from the buyer. Production will be enabled once payment is confirmed.
           </p>
           <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900/50 rounded flex items-center gap-2">
             <Lock className="h-4 w-4 text-yellow-700" />
             <span className="text-sm font-medium">Production actions are locked</span>
+          </div>
+          <div className="mt-2">
+            <Badge variant="outline" className="text-yellow-700 border-yellow-300">
+              Current State: PAYMENT_REQUESTED
+            </Badge>
           </div>
         </AlertDescription>
       </Alert>
@@ -86,18 +104,23 @@ const ManufacturerPaymentGate = ({ order }: ManufacturerPaymentGateProps) => {
   }
 
   // Show manufacturer assigned but payment not yet requested
-  if (orderState === 'MANUFACTURER_ASSIGNED') {
+  if (isManufacturerAssigned) {
     return (
       <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
         <CreditCard className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-800 dark:text-blue-200">
           <strong>Order Assigned – Awaiting Payment Process</strong>
           <p className="text-sm mt-1">
-            You can review the order details. Admin will request payment from buyer.
+            You can review the order details and accept/reject the order. Admin will request payment from buyer.
           </p>
           <div className="mt-3 p-2 bg-blue-100 dark:bg-blue-900/50 rounded flex items-center gap-2">
             <Lock className="h-4 w-4 text-blue-700" />
             <span className="text-sm font-medium">Production actions will be enabled after payment confirmation</span>
+          </div>
+          <div className="mt-2">
+            <Badge variant="outline" className="text-blue-700 border-blue-300">
+              Current State: MANUFACTURER_ASSIGNED
+            </Badge>
           </div>
         </AlertDescription>
       </Alert>
@@ -110,13 +133,9 @@ const ManufacturerPaymentGate = ({ order }: ManufacturerPaymentGateProps) => {
 export default ManufacturerPaymentGate;
 
 /**
- * Helper to check if manufacturer can start production
- * CRITICAL: Production is BLOCKED until PAYMENT_CONFIRMED
- */
-/**
  * CRITICAL: Check if manufacturer can start production
- * Production is BLOCKED until order_state == PAYMENT_CONFIRMED
- * This is the single source of truth for production enablement.
+ * Production is BLOCKED until order_state === 'PAYMENT_CONFIRMED' (or later production states)
+ * This is the SINGLE SOURCE OF TRUTH for production enablement.
  */
 export const canManufacturerStartProduction = (order: {
   order_state: string | null;
@@ -128,10 +147,11 @@ export const canManufacturerStartProduction = (order: {
   
   /**
    * STRICT STATE MACHINE:
-   * Manufacturer can ONLY start production when order_state === 'PAYMENT_CONFIRMED'
-   * or in a later production stage.
+   * Manufacturer can ONLY start production when order_state is in production-enabled states.
    * 
-   * This is the SINGLE SOURCE OF TRUTH for production enablement.
+   * Production-enabled states:
+   * - PAYMENT_CONFIRMED (just unlocked, can start)
+   * - SAMPLE_IN_PROGRESS through COMPLETED (already in production flow)
    */
   const productionEnabledStates = [
     'PAYMENT_CONFIRMED',
@@ -147,7 +167,6 @@ export const canManufacturerStartProduction = (order: {
     'COMPLETED'
   ];
 
-  // STRICT: Check if we're in a production-enabled state
   const isProductionEnabled = productionEnabledStates.includes(orderState);
 
   if (!isProductionEnabled) {
@@ -164,9 +183,21 @@ export const canManufacturerStartProduction = (order: {
         reason: "Awaiting payment request. Admin needs to send payment link to buyer first." 
       };
     }
+    if (orderState === 'ADMIN_APPROVED') {
+      return { 
+        allowed: false, 
+        reason: "Order approved but not yet assigned to manufacturer." 
+      };
+    }
+    if (orderState === 'SUBMITTED') {
+      return { 
+        allowed: false, 
+        reason: "Order is awaiting admin approval." 
+      };
+    }
     return { 
       allowed: false, 
-      reason: "Payment has not been confirmed. Order must be in PAYMENT_CONFIRMED state." 
+      reason: `Production is locked. Order must be in PAYMENT_CONFIRMED state. Current: ${orderState || 'UNKNOWN'}` 
     };
   }
 
