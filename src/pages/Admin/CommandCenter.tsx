@@ -662,9 +662,9 @@ const CommandCenter = () => {
                             <div>
                               <strong>Not assigned</strong>
                               <p className="mt-1">
-                                {selectedOrder.payment_received_at 
-                                  ? "Payment received. Go to Actions tab to assign manufacturer." 
-                                  : "Awaiting payment. Manufacturer will be assigned after payment."}
+                                {selectedOrder.admin_approved_at 
+                                  ? "Order approved. Go to Actions tab to assign manufacturer." 
+                                  : "Awaiting approval. Please approve the order first."}
                               </p>
                             </div>
                           </div>
