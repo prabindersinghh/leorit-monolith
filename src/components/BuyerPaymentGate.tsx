@@ -103,22 +103,22 @@ const ORDER_STATE_MESSAGES: Record<string, { title: string; description: string;
 const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
   const orderState = order.order_state || '';
   
-  // CRITICAL FIX: Check if payment is requested - buyer MUST see payment link
-  // Primary check: order_state === 'PAYMENT_REQUESTED'
-  // Fallback check: payment_link exists AND payment not yet received
+  /**
+   * STRICT RULE: Show payment section ONLY when:
+   * 1. order_state === 'PAYMENT_REQUESTED'
+   * 2. payment_link is present
+   * 
+   * This is the single source of truth for buyer payment visibility.
+   */
   const isPaymentRequested = orderState === 'PAYMENT_REQUESTED';
   const hasPaymentLink = !!order.payment_link;
-  const paymentNotReceived = !order.payment_received_at;
   
-  // FORCE visibility: Show payment section if link exists and payment not received
-  // This ensures buyer ALWAYS sees payment option regardless of state machine issues
-  const shouldShowPaymentSection = (isPaymentRequested || (hasPaymentLink && paymentNotReceived && order.admin_approved_at));
+  // Show payment section ONLY in PAYMENT_REQUESTED state with a valid link
+  const shouldShowPaymentSection = isPaymentRequested && hasPaymentLink;
   
   // Check if payment is confirmed
-  const isPaymentConfirmed = orderState === 'PAYMENT_CONFIRMED' || 
-    order.payment_state === 'PAYMENT_HELD' || 
-    !!order.payment_received_at;
-
+  const isPaymentConfirmed = orderState === 'PAYMENT_CONFIRMED';
+  
   // Check if we're past payment (production has started)
   const isPastPaymentStage = [
     'SAMPLE_IN_PROGRESS', 
@@ -134,8 +134,8 @@ const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
   ].includes(orderState);
 
   // CASE 1: Payment Requested - Show prominent payment button
-  // CRITICAL: Use shouldShowPaymentSection for robust visibility
-  if (shouldShowPaymentSection && hasPaymentLink) {
+  // STRICT: Only show when order_state === PAYMENT_REQUESTED
+  if (shouldShowPaymentSection) {
     const displayAmount = order.total_order_value || order.escrow_amount || order.total_amount;
     return (
       <Alert className="border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 shadow-md">
@@ -226,6 +226,7 @@ const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
     );
   }
 
+  // CASE 3: Admin Approved - Waiting for manufacturer assignment
   if (orderState === 'ADMIN_APPROVED') {
     return (
       <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
@@ -233,13 +234,14 @@ const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
         <AlertDescription className="text-blue-800 dark:text-blue-200">
           <strong>Order Approved</strong>
           <p className="text-sm mt-1">
-            Your order has been approved. Manufacturer assignment in progress.
+            Your order has been approved. Waiting for manufacturer assignment.
           </p>
         </AlertDescription>
       </Alert>
     );
   }
 
+  // CASE 4: Manufacturer Assigned - Waiting for payment link
   if (orderState === 'MANUFACTURER_ASSIGNED') {
     return (
       <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
@@ -247,7 +249,7 @@ const BuyerPaymentGate = ({ order }: BuyerPaymentGateProps) => {
         <AlertDescription className="text-blue-800 dark:text-blue-200">
           <strong>Manufacturer Assigned</strong>
           <p className="text-sm mt-1">
-            A manufacturer has been assigned to your order. Payment details will be shared soon.
+            A manufacturer has been assigned. Payment details will be shared soon.
           </p>
         </AlertDescription>
       </Alert>

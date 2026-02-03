@@ -178,7 +178,12 @@ export function getBuyerDisplayStatus(order: {
 } {
   const orderState = order.order_state || '';
   
-  // CRITICAL FIX: PAYMENT_REQUESTED state ALWAYS shows payment button if link exists
+  /**
+   * STRICT STATE MACHINE: Only show payment when order_state === 'PAYMENT_REQUESTED'
+   * This is the single source of truth.
+   */
+  
+  // State: PAYMENT_REQUESTED - Show payment button
   if (orderState === 'PAYMENT_REQUESTED') {
     return {
       label: orderStateLabels[orderState] || 'Payment Required',
@@ -188,18 +193,7 @@ export function getBuyerDisplayStatus(order: {
     };
   }
   
-  // CRITICAL FIX: If payment_link exists, admin has approved, and payment not received
-  // FORCE show payment button regardless of order_state (fallback for state machine issues)
-  if (order.payment_link && order.admin_approved_at && !order.payment_received_at) {
-    return {
-      label: 'Payment Required',
-      color: 'bg-yellow-100 text-yellow-700',
-      showPaymentPending: true,
-      showPayNow: true,
-    };
-  }
-  
-  // Use order_state (v2 state machine) if available
+  // Use order_state (v2 state machine) for all other states
   if (orderState && orderStateLabels[orderState]) {
     return {
       label: orderStateLabels[orderState],

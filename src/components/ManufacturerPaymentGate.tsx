@@ -126,7 +126,13 @@ export const canManufacturerStartProduction = (order: {
 }): { allowed: boolean; reason?: string } => {
   const orderState = order.order_state || '';
   
-  // CRITICAL: Production states that indicate payment was already confirmed
+  /**
+   * STRICT STATE MACHINE:
+   * Manufacturer can ONLY start production when order_state === 'PAYMENT_CONFIRMED'
+   * or in a later production stage.
+   * 
+   * This is the SINGLE SOURCE OF TRUTH for production enablement.
+   */
   const productionEnabledStates = [
     'PAYMENT_CONFIRMED',
     'SAMPLE_IN_PROGRESS', 
@@ -141,29 +147,26 @@ export const canManufacturerStartProduction = (order: {
     'COMPLETED'
   ];
 
-  // Check if we're in a production-enabled state
+  // STRICT: Check if we're in a production-enabled state
   const isProductionEnabled = productionEnabledStates.includes(orderState);
-  
-  // Also check payment_received_at as fallback
-  const hasPaymentTimestamp = !!order.payment_received_at;
 
-  if (!isProductionEnabled && !hasPaymentTimestamp) {
+  if (!isProductionEnabled) {
     // Provide specific message based on current state
     if (orderState === 'PAYMENT_REQUESTED') {
       return { 
         allowed: false, 
-        reason: "Awaiting buyer payment. Production will be enabled once payment is confirmed by Leorit.ai." 
+        reason: "Awaiting buyer payment. Production will be enabled once payment is confirmed." 
       };
     }
     if (orderState === 'MANUFACTURER_ASSIGNED') {
       return { 
         allowed: false, 
-        reason: "Awaiting payment request. Admin needs to request payment from buyer first." 
+        reason: "Awaiting payment request. Admin needs to send payment link to buyer first." 
       };
     }
     return { 
       allowed: false, 
-      reason: "Payment has not been confirmed. Please wait for Leorit.ai to confirm payment before starting production." 
+      reason: "Payment has not been confirmed. Order must be in PAYMENT_CONFIRMED state." 
     };
   }
 

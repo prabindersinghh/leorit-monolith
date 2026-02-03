@@ -1,18 +1,17 @@
 /**
  * Admin Order Approval Panel
  * 
- * Provides controls for:
- * - Approving orders with payment link
- * - Requesting changes with notes
- * - Marking payment as received
+ * STRICT STATE MACHINE: 
+ * - Approve Order: SUBMITTED → ADMIN_APPROVED (no payment link required)
+ * - Payment link is added AFTER manufacturer assignment via AdminPaymentGate
+ * - Request Changes: Sends notes to buyer, keeps order in SUBMITTED
  */
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -25,7 +24,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CheckCircle, XCircle, CreditCard, ExternalLink, Clock, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logOrderEvent } from "@/lib/orderEventLogger";
@@ -36,31 +35,22 @@ interface AdminOrderApprovalProps {
 }
 
 const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
-  const [paymentLink, setPaymentLink] = useState(order.payment_link || "");
   const [changeRequestNotes, setChangeRequestNotes] = useState("");
   const [isApproving, setIsApproving] = useState(false);
   const [isRequestingChanges, setIsRequestingChanges] = useState(false);
-  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
-  const isAwaitingReview = !order.admin_approved_at && !order.admin_notes;
-  const isApprovedPendingPayment = order.admin_approved_at && order.payment_link && !order.payment_received_at;
-  const isPaymentReceived = !!order.payment_received_at;
-  const hasChangesRequested = order.admin_notes && !order.admin_approved_at;
+  // STRICT STATE CHECKS - only use order_state
+  const orderState = order.order_state || 'SUBMITTED';
+  const isAwaitingReview = orderState === 'SUBMITTED' && !order.admin_notes;
+  const isAdminApproved = orderState === 'ADMIN_APPROVED' || ['MANUFACTURER_ASSIGNED', 'PAYMENT_REQUESTED', 'PAYMENT_CONFIRMED'].includes(orderState);
+  const hasChangesRequested = order.admin_notes && orderState === 'SUBMITTED';
 
+  /**
+   * STRICT RULE: Approve Order ONLY sets order_state to ADMIN_APPROVED
+   * Payment link is NOT required at this stage
+   * Payment link can only be added AFTER manufacturer is assigned
+   */
   const handleApproveOrder = async () => {
-    if (!paymentLink.trim()) {
-      toast.error("Please paste a payment link before approving");
-      return;
-    }
-
-    // Basic URL validation
-    try {
-      new URL(paymentLink.trim());
-    } catch {
-      toast.error("Please enter a valid payment URL");
-      return;
-    }
-
     setIsApproving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -71,9 +61,8 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
         .update({
           admin_approved_at: now,
           admin_approved_by: user?.id,
-          payment_link: paymentLink.trim(),
           admin_notes: null, // Clear any previous change request notes
-          order_state: 'PAYMENT_REQUESTED', // Critical: Set state so buyer sees payment link
+          order_state: 'ADMIN_APPROVED', // STRICT: Only set to ADMIN_APPROVED
           state_updated_at: now,
           updated_at: now,
         })
@@ -83,11 +72,10 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
 
       await logOrderEvent(order.id, 'admin_approved', {
         approved_by: user?.id,
-        payment_link: paymentLink.trim(),
         timestamp: now,
       });
 
-      toast.success("Order approved! Buyer can now proceed to payment.");
+      toast.success("Order approved! You can now assign a manufacturer.");
       onUpdate();
     } catch (error: any) {
       console.error('Error approving order:', error);
@@ -137,44 +125,7 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
     }
   };
 
-  const handleMarkPaymentReceived = async () => {
-    setIsMarkingPaid(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const now = new Date().toISOString();
-
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          payment_received_at: now,
-          payment_status: 'paid',
-          payment_state: 'PAYMENT_HELD',
-          escrow_status: 'fake_paid',
-          fake_payment_timestamp: now,
-          escrow_locked_timestamp: now,
-          order_state: 'PAYMENT_CONFIRMED', // Critical: Enables manufacturer production
-          state_updated_at: now,
-          updated_at: now,
-        })
-        .eq('id', order.id);
-
-      if (error) throw error;
-
-      await logOrderEvent(order.id, 'payment_received', {
-        marked_by: user?.id,
-        timestamp: now,
-        payment_link: order.payment_link,
-      });
-
-      toast.success("Payment marked as received! Order can now be routed to manufacturer.");
-      onUpdate();
-    } catch (error: any) {
-      console.error('Error marking payment received:', error);
-      toast.error(error.message || "Failed to mark payment received");
-    } finally {
-      setIsMarkingPaid(false);
-    }
-  };
+  // Payment confirmation is now handled in AdminPaymentGate after manufacturer is assigned
 
   return (
     <Card className="border-primary/20">
@@ -187,14 +138,9 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
               Awaiting Review
             </Badge>
           )}
-          {isApprovedPendingPayment && (
-            <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700">
-              Approved – Payment Pending
-            </Badge>
-          )}
-          {isPaymentReceived && (
+          {isAdminApproved && (
             <Badge variant="secondary" className="ml-2 bg-green-100 text-green-700">
-              Payment Received
+              Approved
             </Badge>
           )}
           {hasChangesRequested && (
@@ -205,54 +151,21 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Payment Already Received */}
-        {isPaymentReceived && (
+        {/* Already Approved */}
+        {isAdminApproved && (
           <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
             <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-medium">
               <CheckCircle className="w-5 h-5" />
-              Payment Received
+              Order Approved
             </div>
-            <p className="text-sm text-green-600 dark:text-green-300 mt-1">
-              Received at: {new Date(order.payment_received_at).toLocaleString()}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Order can now be routed to manufacturer for production.
-            </p>
-          </div>
-        )}
-
-        {/* Approved - Pending Payment */}
-        {isApprovedPendingPayment && (
-          <div className="space-y-4">
-            <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
-                <Clock className="w-5 h-5" />
-                Waiting for Buyer Payment
-              </div>
-              <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+            {order.admin_approved_at && (
+              <p className="text-sm text-green-600 dark:text-green-300 mt-1">
                 Approved at: {new Date(order.admin_approved_at).toLocaleString()}
               </p>
-              {order.payment_link && (
-                <a 
-                  href={order.payment_link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mt-2"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  View Payment Link
-                </a>
-              )}
-            </div>
-
-            <Button 
-              onClick={handleMarkPaymentReceived}
-              disabled={isMarkingPaid}
-              className="w-full bg-green-600 hover:bg-green-700"
-            >
-              <CreditCard className="w-4 h-4 mr-2" />
-              {isMarkingPaid ? "Processing..." : "Mark Payment as Received"}
-            </Button>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Next step: Assign a manufacturer below.
+            </p>
           </div>
         )}
 
@@ -272,28 +185,18 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
         {/* Awaiting Review - Show approval controls */}
         {(isAwaitingReview || hasChangesRequested) && (
           <>
-            {/* Approve Order Section */}
+            {/* Approve Order Section - NO payment link required */}
             <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
               <h4 className="font-medium text-foreground flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600" />
                 Approve Order
               </h4>
-              <div className="space-y-2">
-                <Label>Razorpay Payment Link</Label>
-                <Input
-                  type="url"
-                  value={paymentLink}
-                  onChange={(e) => setPaymentLink(e.target.value)}
-                  placeholder="https://rzp.io/l/..."
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Create a payment link in Razorpay dashboard and paste it here
-                </p>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Approving will allow manufacturer assignment. Payment link can be added after manufacturer is assigned.
+              </p>
               <Button 
                 onClick={handleApproveOrder}
-                disabled={!paymentLink.trim() || isApproving}
+                disabled={isApproving}
                 className="w-full bg-green-600 hover:bg-green-700"
               >
                 {isApproving ? "Approving..." : "Approve Order"}
