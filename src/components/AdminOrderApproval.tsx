@@ -89,7 +89,7 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       const now = new Date().toISOString();
 
-      // CRITICAL FIX: Use .select() to get returned data and verify update happened
+      // CRITICAL FIX: Use .maybeSingle() to handle 0 or 1 row without throwing
       const { data, error } = await supabase
         .from('orders')
         .update({
@@ -101,18 +101,24 @@ const AdminOrderApproval = ({ order, onUpdate }: AdminOrderApprovalProps) => {
           updated_at: now,
         })
         .eq('id', order.id)
-        .select('order_state')
-        .single();
+        .select('id, order_state')
+        .maybeSingle();
 
       if (error) {
         console.error('[AdminOrderApproval] Update error:', error);
         throw error;
       }
 
-      // Verify the update actually happened
-      if (!data || data.order_state !== 'ADMIN_APPROVED') {
-        console.error('[AdminOrderApproval] State did not update:', data);
-        throw new Error('State update failed - please refresh and try again');
+      // Check if no row was updated (order not found or RLS blocked)
+      if (!data) {
+        console.error('[AdminOrderApproval] No row updated - order not found or access denied');
+        throw new Error('Order not found or you do not have permission to approve it');
+      }
+
+      // Verify the state actually changed
+      if (data.order_state !== 'ADMIN_APPROVED') {
+        console.error('[AdminOrderApproval] State did not update to ADMIN_APPROVED:', data);
+        throw new Error('State update failed - order may have already been modified. Please refresh and try again.');
       }
 
       console.log('[AdminOrderApproval] Successfully updated to ADMIN_APPROVED:', data);
