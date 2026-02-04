@@ -63,6 +63,11 @@ const ManufacturerList = () => {
       ),
     },
     {
+      header: "Email",
+      accessor: "email",
+      cell: (value: string) => value || <span className="text-muted-foreground italic">Not set</span>,
+    },
+    {
       header: "City",
       accessor: "city",
     },
