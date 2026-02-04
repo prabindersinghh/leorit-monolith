@@ -34,6 +34,7 @@ const AddManufacturerForm = ({ onSuccess }: AddManufacturerFormProps) => {
     try {
       const { error } = await supabase.from("manufacturer_verifications").insert({
         company_name: formData.company_name,
+        email: formData.email, // Store email for identity mapping
         user_id: crypto.randomUUID(), // Generate a temporary UUID for soft-onboarded manufacturers
         location: `${formData.city}, ${formData.state}`,
         city: formData.city,

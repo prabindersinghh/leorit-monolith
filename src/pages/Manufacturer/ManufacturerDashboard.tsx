@@ -65,17 +65,17 @@ const ManufacturerDashboard = () => {
       
       setUserId(user.id);
 
-      // Step 1: Find manufacturer profile by email
+      // Step 1: Find manufacturer profile by EMAIL (not user_id)
+      // This is the correct identity mapping: auth.user.email → manufacturers.email
       const { data: manufacturerProfile, error: profileError } = await supabase
         .from('manufacturer_verifications')
-        .select('user_id, company_name, verified, soft_onboarded, paused')
-        .eq('user_id', user.id)
+        .select('id, user_id, company_name, verified, soft_onboarded, paused, email')
+        .eq('email', user.email)
         .maybeSingle();
 
-      // If no profile found by user_id, try by checking if this user exists in profiles
-      // and then show not approved message
+      // If no profile found by email, manufacturer is not approved
       if (!manufacturerProfile) {
-        console.log('[ManufacturerDashboard] No manufacturer profile found for user:', user.id);
+        console.log('[ManufacturerDashboard] No manufacturer profile found for email:', user.email);
         setNotApproved(true);
         setLoading(false);
         return;
