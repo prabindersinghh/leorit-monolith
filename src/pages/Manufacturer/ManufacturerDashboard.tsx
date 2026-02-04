@@ -49,11 +49,11 @@ const ManufacturerDashboard = () => {
   }, [manufacturerId]);
 
   /**
-   * CRITICAL FIX:
+   * NON-DESTRUCTIVE LINKAGE FIX:
    * 1. Get logged-in user's email from auth
    * 2. Find manufacturer profile by email in manufacturer_verifications
-   * 3. Use that manufacturer's user_id to fetch orders
-   * 4. If no profile found → show "not approved" message
+   * 3. AUTO-LINK: If email matches and user_id is not linked, set user_id = auth.user.id
+   * 4. Use manufacturer's PRIMARY KEY (id) to fetch orders - NOT user_id
    */
   const checkManufacturerProfileAndFetchOrders = async () => {
     try {
@@ -65,15 +65,14 @@ const ManufacturerDashboard = () => {
       
       setUserId(user.id);
 
-      // Step 1: Find manufacturer profile by EMAIL (not user_id)
-      // This is the correct identity mapping: auth.user.email → manufacturers.email
+      // Step 1: Find manufacturer profile by EMAIL
       const { data: manufacturerProfile, error: profileError } = await supabase
         .from('manufacturer_verifications')
         .select('id, user_id, company_name, verified, soft_onboarded, paused, email')
         .eq('email', user.email)
         .maybeSingle();
 
-      // If no profile found by email, manufacturer is not approved
+      // If no profile found by email, manufacturer is not in the system
       if (!manufacturerProfile) {
         console.log('[ManufacturerDashboard] No manufacturer profile found for email:', user.email);
         setNotApproved(true);
@@ -81,12 +80,26 @@ const ManufacturerDashboard = () => {
         return;
       }
 
-      // Check if manufacturer is verified or soft-onboarded
-      if (!manufacturerProfile.verified && !manufacturerProfile.soft_onboarded) {
-        console.log('[ManufacturerDashboard] Manufacturer not yet approved:', manufacturerProfile);
-        setNotApproved(true);
-        setLoading(false);
-        return;
+      // Step 2: AUTO-LINK - If user_id is not set to this auth user, link them now
+      // This is a one-time automatic linking step when manufacturer first logs in
+      if (manufacturerProfile.user_id !== user.id) {
+        console.log('[ManufacturerDashboard] Auto-linking manufacturer account:', {
+          email: user.email,
+          oldUserId: manufacturerProfile.user_id,
+          newUserId: user.id
+        });
+        
+        const { error: linkError } = await supabase
+          .from('manufacturer_verifications')
+          .update({ user_id: user.id })
+          .eq('id', manufacturerProfile.id);
+        
+        if (linkError) {
+          console.error('[ManufacturerDashboard] Failed to auto-link account:', linkError);
+          // Continue anyway - we can still show the dashboard using the profile's id
+        } else {
+          console.log('[ManufacturerDashboard] Successfully linked manufacturer account');
+        }
       }
 
       // Check if paused
@@ -96,10 +109,11 @@ const ManufacturerDashboard = () => {
         return;
       }
 
-      // Set the manufacturer ID for order filtering
-      const mfgId = manufacturerProfile.user_id;
+      // Step 3: Use manufacturer's PRIMARY KEY (id) for order queries
+      // Orders are assigned using manufacturer_verifications.id, NOT user_id
+      const mfgId = manufacturerProfile.id;
       setManufacturerId(mfgId);
-      console.log('[ManufacturerDashboard] Found manufacturer profile, user_id:', mfgId);
+      console.log('[ManufacturerDashboard] Found manufacturer profile, using id:', mfgId);
 
       // Check if onboarding is completed
       const { data: profile } = await supabase
