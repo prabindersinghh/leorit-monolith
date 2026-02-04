@@ -2,80 +2,143 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import DashboardCard from "@/components/DashboardCard";
 import DataTable from "@/components/DataTable";
-import { Package, Clock, TrendingUp, DollarSign } from "lucide-react";
+import { Package, Clock, TrendingUp, DollarSign, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ManufacturerOnboardingModal from "@/components/ManufacturerOnboardingModal";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const ManufacturerDashboard = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [manufacturerId, setManufacturerId] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [notApproved, setNotApproved] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    checkOnboardingAndFetchOrders();
+    checkManufacturerProfileAndFetchOrders();
 
-    // Setup realtime subscription
-    const channel = supabase
-      .channel('manufacturer-dashboard')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-        },
-        () => {
-          fetchOrders();
-        }
-      )
-      .subscribe();
+    // Setup realtime subscription only if we have a manufacturer ID
+    let channel: any = null;
+    
+    if (manufacturerId) {
+      channel = supabase
+        .channel('manufacturer-dashboard')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'orders',
+          },
+          () => {
+            fetchOrders(manufacturerId);
+          }
+        )
+        .subscribe();
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, []);
+  }, [manufacturerId]);
 
-  const checkOnboardingAndFetchOrders = async () => {
+  /**
+   * CRITICAL FIX:
+   * 1. Get logged-in user's email from auth
+   * 2. Find manufacturer profile by email in manufacturer_verifications
+   * 3. Use that manufacturer's user_id to fetch orders
+   * 4. If no profile found → show "not approved" message
+   */
+  const checkManufacturerProfileAndFetchOrders = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || !user.email) {
+        setLoading(false);
+        return;
+      }
       
       setUserId(user.id);
+
+      // Step 1: Find manufacturer profile by email
+      const { data: manufacturerProfile, error: profileError } = await supabase
+        .from('manufacturer_verifications')
+        .select('user_id, company_name, verified, soft_onboarded, paused')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      // If no profile found by user_id, try by checking if this user exists in profiles
+      // and then show not approved message
+      if (!manufacturerProfile) {
+        console.log('[ManufacturerDashboard] No manufacturer profile found for user:', user.id);
+        setNotApproved(true);
+        setLoading(false);
+        return;
+      }
+
+      // Check if manufacturer is verified or soft-onboarded
+      if (!manufacturerProfile.verified && !manufacturerProfile.soft_onboarded) {
+        console.log('[ManufacturerDashboard] Manufacturer not yet approved:', manufacturerProfile);
+        setNotApproved(true);
+        setLoading(false);
+        return;
+      }
+
+      // Check if paused
+      if (manufacturerProfile.paused) {
+        toast.error("Your manufacturer account is currently paused");
+        setLoading(false);
+        return;
+      }
+
+      // Set the manufacturer ID for order filtering
+      const mfgId = manufacturerProfile.user_id;
+      setManufacturerId(mfgId);
+      console.log('[ManufacturerDashboard] Found manufacturer profile, user_id:', mfgId);
 
       // Check if onboarding is completed
       const { data: profile } = await supabase
         .from('profiles')
         .select('onboarding_completed, onboarding_type')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profile && !profile.onboarding_completed) {
         setShowOnboarding(true);
       }
 
-      await fetchOrders();
+      await fetchOrders(mfgId);
     } catch (error) {
-      console.error('Error checking onboarding:', error);
+      console.error('Error checking manufacturer profile:', error);
       setLoading(false);
     }
   };
 
-  const fetchOrders = async () => {
+  /**
+   * Fetch orders using the manufacturer's user_id from manufacturer_verifications
+   * NOT auth.user.id
+   */
+  const fetchOrders = async (mfgId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
+      console.log('[ManufacturerDashboard] Fetching orders for manufacturer_id:', mfgId);
+      
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .eq('manufacturer_id', user.id)
+        .eq('manufacturer_id', mfgId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ManufacturerDashboard] Error fetching orders:', error);
+        throw error;
+      }
+      
+      console.log('[ManufacturerDashboard] Found orders:', data?.length || 0);
       setOrders(data || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -97,7 +160,7 @@ const ManufacturerDashboard = () => {
 
       if (error) throw error;
       toast.success("Order accepted successfully");
-      fetchOrders();
+      if (manufacturerId) fetchOrders(manufacturerId);
     } catch (error) {
       console.error('Error accepting order:', error);
       toast.error("Failed to accept order");
@@ -117,14 +180,37 @@ const ManufacturerDashboard = () => {
 
       if (error) throw error;
       toast.success("Order declined");
-      fetchOrders();
+      if (manufacturerId) fetchOrders(manufacturerId);
     } catch (error) {
       console.error('Error declining order:', error);
       toast.error("Failed to decline order");
     }
   };
 
-  const pendingOrders = orders.filter(o => o.status === 'pending').slice(0, 5);
+  // Show "not approved" message if manufacturer profile doesn't exist
+  if (notApproved) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <Sidebar userRole="manufacturer" />
+        <main className="ml-64 flex-1 p-8">
+          <div className="max-w-2xl mx-auto mt-20">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Account Not Approved</AlertTitle>
+              <AlertDescription>
+                Your manufacturer account is not yet approved by admin. 
+                Please contact support if you believe this is an error.
+              </AlertDescription>
+            </Alert>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const pendingOrders = orders.filter(o => 
+    o.order_state === 'MANUFACTURER_ASSIGNED' || o.status === 'pending'
+  ).slice(0, 5);
 
   // Calculate real stats
   const activeOrders = orders.filter(o => 
@@ -169,6 +255,11 @@ const ManufacturerDashboard = () => {
     { header: "Order ID", accessor: "id", cell: (value: string) => value.slice(0, 8) },
     { header: "Product", accessor: "product_type" },
     { header: "Quantity", accessor: "quantity" },
+    { header: "State", accessor: "order_state", cell: (value: string) => (
+      <span className="px-2 py-1 bg-primary/10 text-primary rounded text-xs font-medium">
+        {value || 'PENDING'}
+      </span>
+    )},
     { 
       header: "Created", 
       accessor: "created_at",
@@ -177,20 +268,32 @@ const ManufacturerDashboard = () => {
     {
       header: "Actions",
       accessor: "id",
-      cell: (value: string) => (
+      cell: (value: string, row: any) => (
         <div className="flex gap-2">
-          <button 
-            className="px-4 py-1 bg-foreground text-background rounded-lg text-sm hover:bg-foreground/80"
-            onClick={() => handleAcceptOrder(value)}
-          >
-            Accept
-          </button>
-          <button 
-            className="px-4 py-1 border border-border rounded-lg text-sm hover:bg-muted"
-            onClick={() => handleDeclineOrder(value)}
-          >
-            Decline
-          </button>
+          {(row.order_state === 'MANUFACTURER_ASSIGNED' || row.status === 'pending') && (
+            <>
+              <button 
+                className="px-4 py-1 bg-foreground text-background rounded-lg text-sm hover:bg-foreground/80"
+                onClick={() => handleAcceptOrder(value)}
+              >
+                Accept
+              </button>
+              <button 
+                className="px-4 py-1 border border-border rounded-lg text-sm hover:bg-muted"
+                onClick={() => handleDeclineOrder(value)}
+              >
+                Decline
+              </button>
+            </>
+          )}
+          {row.order_state !== 'MANUFACTURER_ASSIGNED' && row.status !== 'pending' && (
+            <button 
+              className="px-4 py-1 bg-primary/10 text-primary rounded-lg text-sm hover:bg-primary/20"
+              onClick={() => navigate(`/manufacturer/orders/${value}`)}
+            >
+              View
+            </button>
+          )}
         </div>
       ),
     },
@@ -217,6 +320,10 @@ const ManufacturerDashboard = () => {
             <h2 className="text-xl font-bold text-foreground mb-4">Pending Order Requests</h2>
             {loading ? (
               <div className="text-center py-8">Loading...</div>
+            ) : pendingOrders.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No pending orders. New orders will appear here when assigned.
+              </div>
             ) : (
               <DataTable columns={columns} data={pendingOrders} />
             )}
