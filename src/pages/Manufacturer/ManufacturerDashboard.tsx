@@ -13,40 +13,37 @@ const ManufacturerDashboard = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const [manufacturerId, setManufacturerId] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [notApproved, setNotApproved] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     checkManufacturerProfileAndFetchOrders();
+  }, []);
 
-    // Setup realtime subscription only if we have a manufacturer ID
-    let channel: any = null;
-    
-    if (manufacturerId) {
-      channel = supabase
-        .channel('manufacturer-dashboard')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'orders',
-          },
-          () => {
-            fetchOrders(manufacturerId);
-          }
-        )
-        .subscribe();
-    }
+  // Setup realtime subscription when userId is available
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('manufacturer-dashboard')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        () => {
+          fetchOrders(userId);
+        }
+      )
+      .subscribe();
 
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      supabase.removeChannel(channel);
     };
-  }, [manufacturerId]);
+  }, [userId]);
 
   /**
    * PROPER RELATIONAL LINKAGE:
@@ -118,10 +115,8 @@ const ManufacturerDashboard = () => {
         return;
       }
 
-      // Use manufacturer's PRIMARY KEY (id) for reference
-      const mfgId = manufacturerProfile.id;
-      setManufacturerId(mfgId);
-      console.log('[ManufacturerDashboard] Using approved_manufacturers.id:', mfgId);
+      // Manufacturer profile verified - log for debugging
+      console.log('[ManufacturerDashboard] Verified manufacturer:', manufacturerProfile.company_name);
 
       // Check if onboarding is completed
       const { data: profile } = await supabase
@@ -134,11 +129,9 @@ const ManufacturerDashboard = () => {
         setShowOnboarding(true);
       }
 
-      // Fetch orders - the query will match orders where manufacturer_id is:
-      // - The auth user.id (legacy assignments)
-      // - The approved_manufacturers.id
-      // We need to check both patterns
-      await fetchOrdersWithRelation(user.id, mfgId);
+      // Fetch orders where manufacturer_id = auth.user.id
+      // This is the correct pattern since admin assigns linked_user_id to orders
+      await fetchOrders(user.id);
     } catch (error) {
       console.error('Error checking manufacturer profile:', error);
       setLoading(false);
@@ -146,21 +139,17 @@ const ManufacturerDashboard = () => {
   };
 
   /**
-   * Fetch orders using multiple matching patterns:
-   * 1. manufacturer_id = auth.user.id (legacy direct assignment)
-   * 2. manufacturer_id = approved_manufacturers.id (new relational)
-   * 3. manufacturer_id = manufacturer_verifications.id (old table)
+   * Fetch orders where manufacturer_id = auth.user.id
+   * This is the correct pattern since admin assigns linked_user_id to orders
    */
-  const fetchOrdersWithRelation = async (authUserId: string, approvedMfgId: string) => {
+  const fetchOrders = async (authUserId: string) => {
     try {
-      console.log('[ManufacturerDashboard] Fetching orders for:', { authUserId, approvedMfgId });
+      console.log('[ManufacturerDashboard] Fetching orders for auth user:', authUserId);
       
-      // Query orders matching any of the valid manufacturer identifiers
-      // RLS policy handles the security, we just need to fetch all accessible orders
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .or(`manufacturer_id.eq.${authUserId},manufacturer_id.eq.${approvedMfgId}`)
+        .eq('manufacturer_id', authUserId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -177,15 +166,9 @@ const ManufacturerDashboard = () => {
     }
   };
 
-  // Keep legacy function for realtime refresh
-  const fetchOrders = async (mfgId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await fetchOrdersWithRelation(user.id, mfgId);
-    }
-  };
-
   const handleAcceptOrder = async (orderId: string) => {
+    if (!userId) return;
+    
     try {
       const { error } = await supabase
         .from('orders')
@@ -198,7 +181,7 @@ const ManufacturerDashboard = () => {
 
       if (error) throw error;
       toast.success("Order accepted successfully");
-      if (manufacturerId) fetchOrders(manufacturerId);
+      fetchOrders(userId);
     } catch (error) {
       console.error('Error accepting order:', error);
       toast.error("Failed to accept order");
@@ -206,6 +189,8 @@ const ManufacturerDashboard = () => {
   };
 
   const handleDeclineOrder = async (orderId: string) => {
+    if (!userId) return;
+    
     try {
       const { error } = await supabase
         .from('orders')
@@ -218,7 +203,7 @@ const ManufacturerDashboard = () => {
 
       if (error) throw error;
       toast.success("Order declined");
-      if (manufacturerId) fetchOrders(manufacturerId);
+      fetchOrders(userId);
     } catch (error) {
       console.error('Error declining order:', error);
       toast.error("Failed to decline order");
