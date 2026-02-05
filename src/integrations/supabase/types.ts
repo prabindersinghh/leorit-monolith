@@ -458,7 +458,7 @@ export type Database = {
           admin_decision_by: string | null
           admin_notes: string | null
           created_at: string | null
-          decision: string
+          decision: string | null
           defect_severity: number | null
           defect_type: string | null
           file_urls: string[] | null
@@ -476,7 +476,7 @@ export type Database = {
           admin_decision_by?: string | null
           admin_notes?: string | null
           created_at?: string | null
-          decision: string
+          decision?: string | null
           defect_severity?: number | null
           defect_type?: string | null
           file_urls?: string[] | null
@@ -494,7 +494,7 @@ export type Database = {
           admin_decision_by?: string | null
           admin_notes?: string | null
           created_at?: string | null
-          decision?: string
+          decision?: string | null
           defect_severity?: number | null
           defect_type?: string | null
           file_urls?: string[] | null
