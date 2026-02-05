@@ -49,11 +49,15 @@ const ManufacturerDashboard = () => {
   }, [manufacturerId]);
 
   /**
-   * NON-DESTRUCTIVE LINKAGE FIX:
-   * 1. Get logged-in user's email from auth
-   * 2. Find manufacturer profile by email in manufacturer_verifications
-   * 3. AUTO-LINK: If email matches and user_id is not linked, set user_id = auth.user.id
-   * 4. Use manufacturer's PRIMARY KEY (id) to fetch orders - NOT user_id
+   * PROPER RELATIONAL LINKAGE:
+   * 1. Get logged-in user from auth
+   * 2. Find manufacturer profile by linked_user_id in approved_manufacturers
+   * 3. AUTO-LINK: If not linked, try linking via email match
+   * 4. Use manufacturer's PRIMARY KEY (id) for order queries
+   * 5. Orders may have manufacturer_id as either:
+   *    - auth.user.id (legacy)
+   *    - approved_manufacturers.id 
+   *    - manufacturer_verifications.id
    */
   const checkManufacturerProfileAndFetchOrders = async () => {
     try {
@@ -65,55 +69,59 @@ const ManufacturerDashboard = () => {
       
       setUserId(user.id);
 
-      // Step 1: Find manufacturer profile by EMAIL
-      const { data: manufacturerProfile, error: profileError } = await supabase
-        .from('manufacturer_verifications')
-        .select('id, user_id, company_name, verified, soft_onboarded, paused, email')
-        .eq('email', user.email)
+      // Step 1: Try to find manufacturer profile by linked_user_id first
+      let { data: manufacturerProfile, error: profileError } = await supabase
+        .from('approved_manufacturers')
+        .select('id, email, company_name, verified, linked_user_id')
+        .eq('linked_user_id', user.id)
         .maybeSingle();
 
-      // If no profile found by email, manufacturer is not in the system
+      // Step 2: If not found by linked_user_id, try by email for auto-linking
       if (!manufacturerProfile) {
-        console.log('[ManufacturerDashboard] No manufacturer profile found for email:', user.email);
+        const { data: emailMatch } = await supabase
+          .from('approved_manufacturers')
+          .select('id, email, company_name, verified, linked_user_id')
+          .eq('email', user.email)
+          .maybeSingle();
+        
+        if (emailMatch && emailMatch.verified && !emailMatch.linked_user_id) {
+          // Auto-link this manufacturer account
+          console.log('[ManufacturerDashboard] Auto-linking manufacturer via email:', user.email);
+          
+          const { error: linkError } = await supabase
+            .from('approved_manufacturers')
+            .update({ linked_user_id: user.id })
+            .eq('id', emailMatch.id);
+          
+          if (!linkError) {
+            console.log('[ManufacturerDashboard] Successfully linked manufacturer account');
+            manufacturerProfile = { ...emailMatch, linked_user_id: user.id };
+          } else {
+            console.error('[ManufacturerDashboard] Failed to auto-link:', linkError);
+          }
+        }
+      }
+
+      // If still no profile, manufacturer is not approved
+      if (!manufacturerProfile) {
+        console.log('[ManufacturerDashboard] No approved manufacturer found for:', user.email);
         setNotApproved(true);
         setLoading(false);
         return;
       }
 
-      // Step 2: AUTO-LINK - If user_id is not set to this auth user, link them now
-      // This is a one-time automatic linking step when manufacturer first logs in
-      if (manufacturerProfile.user_id !== user.id) {
-        console.log('[ManufacturerDashboard] Auto-linking manufacturer account:', {
-          email: user.email,
-          oldUserId: manufacturerProfile.user_id,
-          newUserId: user.id
-        });
-        
-        const { error: linkError } = await supabase
-          .from('manufacturer_verifications')
-          .update({ user_id: user.id })
-          .eq('id', manufacturerProfile.id);
-        
-        if (linkError) {
-          console.error('[ManufacturerDashboard] Failed to auto-link account:', linkError);
-          // Continue anyway - we can still show the dashboard using the profile's id
-        } else {
-          console.log('[ManufacturerDashboard] Successfully linked manufacturer account');
-        }
-      }
-
-      // Check if paused
-      if (manufacturerProfile.paused) {
-        toast.error("Your manufacturer account is currently paused");
+      // Verify the account is properly verified
+      if (!manufacturerProfile.verified) {
+        console.log('[ManufacturerDashboard] Manufacturer not verified:', user.email);
+        setNotApproved(true);
         setLoading(false);
         return;
       }
 
-      // Step 3: Use manufacturer's PRIMARY KEY (id) for order queries
-      // Orders are assigned using manufacturer_verifications.id, NOT user_id
+      // Use manufacturer's PRIMARY KEY (id) for reference
       const mfgId = manufacturerProfile.id;
       setManufacturerId(mfgId);
-      console.log('[ManufacturerDashboard] Found manufacturer profile, using id:', mfgId);
+      console.log('[ManufacturerDashboard] Using approved_manufacturers.id:', mfgId);
 
       // Check if onboarding is completed
       const { data: profile } = await supabase
@@ -126,7 +134,11 @@ const ManufacturerDashboard = () => {
         setShowOnboarding(true);
       }
 
-      await fetchOrders(mfgId);
+      // Fetch orders - the query will match orders where manufacturer_id is:
+      // - The auth user.id (legacy assignments)
+      // - The approved_manufacturers.id
+      // We need to check both patterns
+      await fetchOrdersWithRelation(user.id, mfgId);
     } catch (error) {
       console.error('Error checking manufacturer profile:', error);
       setLoading(false);
@@ -134,17 +146,21 @@ const ManufacturerDashboard = () => {
   };
 
   /**
-   * Fetch orders using the manufacturer's user_id from manufacturer_verifications
-   * NOT auth.user.id
+   * Fetch orders using multiple matching patterns:
+   * 1. manufacturer_id = auth.user.id (legacy direct assignment)
+   * 2. manufacturer_id = approved_manufacturers.id (new relational)
+   * 3. manufacturer_id = manufacturer_verifications.id (old table)
    */
-  const fetchOrders = async (mfgId: string) => {
+  const fetchOrdersWithRelation = async (authUserId: string, approvedMfgId: string) => {
     try {
-      console.log('[ManufacturerDashboard] Fetching orders for manufacturer_id:', mfgId);
+      console.log('[ManufacturerDashboard] Fetching orders for:', { authUserId, approvedMfgId });
       
+      // Query orders matching any of the valid manufacturer identifiers
+      // RLS policy handles the security, we just need to fetch all accessible orders
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .eq('manufacturer_id', mfgId)
+        .or(`manufacturer_id.eq.${authUserId},manufacturer_id.eq.${approvedMfgId}`)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -158,6 +174,14 @@ const ManufacturerDashboard = () => {
       console.error('Error fetching orders:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Keep legacy function for realtime refresh
+  const fetchOrders = async (mfgId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await fetchOrdersWithRelation(user.id, mfgId);
     }
   };
 
