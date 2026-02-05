@@ -1,9 +1,11 @@
 /**
  * Manufacturer QC Upload Form Component
  * 
- * Structured QC upload with defect tracking.
- * Files go to qc_sample or qc_bulk folders.
- * Records stored in order_qc table.
+ * ROLE: Manufacturer uploads QC images/videos as proof of sample completion.
+ * RESPONSIBILITY: Upload only - NO approve/reject decisions.
+ * 
+ * State transition: Order moves to SAMPLE_QC_UPLOADED after submission.
+ * Buyer will then review and approve/reject the sample.
  */
 
 import { useState } from "react";
@@ -12,10 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Camera, Video, Upload, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Camera, Video, Upload, XCircle, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { uploadOrderFile } from "@/lib/orderFileStorage";
@@ -27,34 +27,10 @@ interface ManufacturerQCUploadFormProps {
   onUploadComplete: () => void;
 }
 
-const DEFECT_TYPES = [
-  { value: 'none', label: 'None - No Defects' },
-  { value: 'print_defect', label: 'Print Defect' },
-  { value: 'stitching_defect', label: 'Stitching Defect' },
-  { value: 'size_mismatch', label: 'Size Mismatch' },
-  { value: 'color_mismatch', label: 'Color Mismatch' },
-  { value: 'fabric_issue', label: 'Fabric Issue' },
-  { value: 'packaging_issue', label: 'Packaging Issue' },
-  { value: 'other', label: 'Other' },
-];
-
-const REASON_CODES = [
-  { value: 'meets_specs', label: 'Meets all specifications' },
-  { value: 'minor_deviation', label: 'Minor deviation within tolerance' },
-  { value: 'major_defect', label: 'Major defect found' },
-  { value: 'quality_below_standard', label: 'Quality below standard' },
-  { value: 'requires_rework', label: 'Requires rework' },
-  { value: 'customer_spec_issue', label: 'Customer spec issue' },
-];
-
 const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: ManufacturerQCUploadFormProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [video, setVideo] = useState<File | null>(null);
-  const [defectType, setDefectType] = useState<string>('none');
-  const [defectSeverity, setDefectSeverity] = useState<number>(1);
-  const [decision, setDecision] = useState<'approve' | 'reject'>('approve');
-  const [reasonCode, setReasonCode] = useState<string>('meets_specs');
   const [notes, setNotes] = useState<string>('');
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,19 +108,19 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
 
       const now = new Date().toISOString();
 
-      // Insert QC record
+      // Insert QC record - Manufacturer only uploads, no decision
       const { error: qcError } = await supabase
         .from('order_qc')
         .insert({
           order_id: orderId,
           stage,
-          defect_type: defectType,
-          defect_severity: defectType === 'none' ? null : defectSeverity,
-          decision,
-          reason_code: reasonCode,
+          defect_type: null, // Manufacturer does not assess defects
+          defect_severity: null,
+          decision: 'pending_buyer_review', // Buyer will decide
+          reason_code: null,
           reviewer: 'manufacturer',
           reviewer_id: user.id,
-          notes,
+          notes: notes || null,
           file_urls: uploadedUrls,
           admin_decision: 'pending',
           created_at: now,
@@ -152,8 +128,8 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
 
       if (qcError) throw qcError;
 
-      // Update order status
-      const updateData: any = {
+      // Update order status - Transition to SAMPLE_QC_UPLOADED
+      const updateData: Record<string, any> = {
         status: 'qc_uploaded',
         detailed_status: 'qc_uploaded',
         qc_uploaded_at: now,
@@ -161,11 +137,15 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
       };
 
       if (stage === 'sample') {
+        updateData.order_state = 'SAMPLE_QC_UPLOADED';
         updateData.sample_status = 'qc_uploaded';
         updateData.sample_qc_uploaded_at = now;
+        updateData.state_updated_at = now;
       } else {
+        updateData.order_state = 'BULK_QC_UPLOADED';
         updateData.bulk_status = 'qc_uploaded';
         updateData.bulk_qc_uploaded_at = now;
+        updateData.state_updated_at = now;
       }
 
       const { error: orderError } = await supabase
@@ -178,14 +158,13 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
       // Log event
       await logOrderEvent(orderId, 'qc_uploaded', {
         stage,
-        defect_type: defectType,
-        decision,
         file_count: uploadedUrls.length,
         uploaded_by: 'manufacturer',
+        awaiting_buyer_review: true,
         timestamp: now,
       });
 
-      // Notify buyer
+      // Notify buyer that QC is ready for review
       const { data: orderData } = await supabase
         .from('orders')
         .select('buyer_id, product_type')
@@ -198,13 +177,13 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
           .insert({
             user_id: orderData.buyer_id,
             order_id: orderId,
-            type: 'qc_uploaded',
-            title: `${stage === 'sample' ? 'Sample' : 'Bulk'} QC Uploaded`,
-            message: `Quality control for your ${orderData.product_type} order is ready for review.`,
+            type: 'qc_ready_for_review',
+            title: `${stage === 'sample' ? 'Sample' : 'Bulk'} Ready for Your Review`,
+            message: `The manufacturer has uploaded QC proof for your ${orderData.product_type} order. Please review and approve or reject.`,
           });
       }
 
-      toast.success("QC uploaded successfully! Awaiting admin approval.");
+      toast.success("Sample submitted for buyer review!");
       onUploadComplete();
     } catch (error: any) {
       console.error('Error uploading QC:', error);
@@ -223,6 +202,17 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Info Banner */}
+        <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-blue-700 dark:text-blue-300">
+          <Info className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-medium">Upload QC proof for buyer review</p>
+            <p className="text-blue-600 dark:text-blue-400 mt-1">
+              The buyer will review your images/video and decide whether to approve or request changes.
+            </p>
+          </div>
+        </div>
+
         {/* Image Upload */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
@@ -274,96 +264,13 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
           )}
         </div>
 
-        {/* Defect Type */}
-        <div className="space-y-2">
-          <Label>Defect Type</Label>
-          <Select value={defectType} onValueChange={setDefectType}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select defect type" />
-            </SelectTrigger>
-            <SelectContent>
-              {DEFECT_TYPES.map(type => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Defect Severity - only show if defect type is not 'none' */}
-        {defectType !== 'none' && (
-          <div className="space-y-2">
-            <Label>Defect Severity (1-5)</Label>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map(level => (
-                <Button
-                  key={level}
-                  type="button"
-                  variant={defectSeverity === level ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setDefectSeverity(level)}
-                  className="w-10"
-                >
-                  {level}
-                </Button>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              1 = Minor cosmetic, 5 = Critical/unusable
-            </p>
-          </div>
-        )}
-
-        {/* Decision */}
-        <div className="space-y-3">
-          <Label>Your Decision</Label>
-          <RadioGroup
-            value={decision}
-            onValueChange={(value) => setDecision(value as 'approve' | 'reject')}
-            className="flex gap-4"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="approve" id="approve" />
-              <Label htmlFor="approve" className="flex items-center gap-1 cursor-pointer">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                Approve
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="reject" id="reject" />
-              <Label htmlFor="reject" className="flex items-center gap-1 cursor-pointer">
-                <XCircle className="h-4 w-4 text-red-600" />
-                Reject
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
-
-        {/* Reason Code */}
-        <div className="space-y-2">
-          <Label>Reason Code</Label>
-          <Select value={reasonCode} onValueChange={setReasonCode}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select reason" />
-            </SelectTrigger>
-            <SelectContent>
-              {REASON_CODES.map(reason => (
-                <SelectItem key={reason.value} value={reason.value}>
-                  {reason.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Notes */}
         <div className="space-y-2">
-          <Label>Additional Notes</Label>
+          <Label>Additional Notes (Optional)</Label>
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Add any additional observations or notes..."
+            placeholder="Add any notes for the buyer about this sample..."
             rows={3}
           />
         </div>
@@ -375,18 +282,17 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
           className="w-full"
         >
           {isUploading ? (
-            <>Uploading QC Data...</>
+            <>Uploading...</>
           ) : (
             <>
               <Upload className="mr-2 h-4 w-4" />
-              Submit QC for Admin Approval
+              Submit Sample For Buyer Review
             </>
           )}
         </Button>
 
         <p className="text-xs text-muted-foreground text-center">
-          <AlertTriangle className="h-3 w-3 inline mr-1" />
-          QC must be approved by admin before delivery can proceed
+          After submission, the buyer will review and approve or request changes.
         </p>
       </CardContent>
     </Card>

@@ -96,22 +96,34 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
     try {
       const now = new Date().toISOString();
       
-      // First update: Transition to sample_approved_by_buyer
+      // STATE TRANSITION: SAMPLE_QC_UPLOADED → SAMPLE_APPROVED
+      // Buyer approves the sample after reviewing QC proof
       const { error: approveError } = await supabase
         .from('orders')
         .update({ 
+          order_state: 'SAMPLE_APPROVED', // PRIMARY state transition
           detailed_status: 'sample_approved_by_buyer',
-          sample_status: 'approved', // Backward compatibility
+          sample_status: 'approved',
           qc_feedback: 'Approved by buyer',
           sample_approved_at: now,
-          sample_qc_approved_at: now // Analytics timestamp for buyer QC approval
+          sample_qc_approved_at: now,
+          state_updated_at: now,
+          updated_at: now,
         })
         .eq('id', orderId);
 
       if (approveError) throw approveError;
 
       // Log QC approved event for analytics
-      await logOrderEvent(orderId, 'qc_approved', { isSample, escrowAmount: order.escrow_amount, orderIntent, orderMode });
+      await logOrderEvent(orderId, 'qc_approved', { 
+        isSample, 
+        escrowAmount: order.escrow_amount, 
+        orderIntent, 
+        orderMode,
+        previous_state: 'SAMPLE_QC_UPLOADED',
+        new_state: 'SAMPLE_APPROVED',
+        approved_by: 'buyer',
+      });
       
       // Track sample QC approved for analytics dashboard
       await trackSampleQCApproved(orderId, order.buyer_id);
@@ -119,21 +131,18 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
       // Store evidence for this decision
       await storeQCDecisionEvidence(orderId, order.buyer_id, 'sample', 'approved');
 
-      // Determine next action based on order_mode (with fallback to order_intent)
-      // sample_only: Order ends here - complete and release escrow
-      // sample_then_bulk: Unlock bulk production, wait for manufacturer to start
-      // direct_bulk: Bulk already in progress, this is just informational approval
-      
+      // Determine next action based on order_mode
       if (orderMode === 'sample_only') {
         // Sample-only flow: Complete the order and release escrow
-        // NEVER show "Start Bulk Production" - order ends here
         const { error: completeError } = await supabase
           .from('orders')
           .update({
+            order_state: 'COMPLETED',
             detailed_status: 'sample_completed',
-            status: 'completed', // Backward compatibility
+            status: 'completed',
             escrow_status: 'fake_released',
-            escrow_released_timestamp: now
+            escrow_released_timestamp: now,
+            state_updated_at: now,
           })
           .eq('id', orderId);
           
@@ -250,13 +259,18 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
     try {
       const now = createQCTimestamp();
       
+      // STATE TRANSITION: SAMPLE_QC_UPLOADED → SAMPLE_IN_PROGRESS (for re-work)
+      // Buyer rejects the sample, manufacturer needs to redo the sample
       const { error } = await supabase
         .from('orders')
         .update({ 
+          order_state: 'SAMPLE_IN_PROGRESS', // Back to production for re-work
           detailed_status: newStatus,
           sample_status: 'rejected',
           qc_feedback: `Rejected: ${rejectReason}`,
           qc_feedback_structured: structuredFeedback || null,
+          rejection_reason: rejectReason,
+          state_updated_at: now,
           updated_at: now,
         })
         .eq('id', orderId);
@@ -267,17 +281,20 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
       await logOrderEvent(orderId, 'qc_rejected', createQCActionMetadata('sample_rejected', order, {
         reason: rejectReason,
         rejection_timestamp: now,
+        previous_state: 'SAMPLE_QC_UPLOADED',
+        new_state: 'SAMPLE_IN_PROGRESS',
+        rejected_by: 'buyer',
       }));
       
       // Store rejection evidence
       await storeQCDecisionEvidence(orderId, order.buyer_id, 'sample', 'rejected', rejectReason, structuredFeedback);
       
-      // Store admin structured feedback as separate evidence if provided
+      // Store structured feedback as separate evidence if provided
       if (structuredFeedback) {
         await storeAdminQCFeedback(orderId, order.buyer_id, 'sample', structuredFeedback);
       }
       
-      toast.error("Sample QC rejected. Manufacturer will be notified.");
+      toast.error("Sample rejected. Manufacturer will redo and re-upload QC.");
       setShowRejectForm(false);
       setRejectReason("");
       setStructuredFeedback("");
@@ -320,14 +337,17 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
     try {
       const now = createQCTimestamp();
       
+      // STATE TRANSITION: SAMPLE_QC_UPLOADED → SAMPLE_IN_PROGRESS (for revision)
+      // Buyer requests revision, manufacturer needs to re-upload
       const { error } = await supabase
         .from('orders')
         .update({ 
+          order_state: 'SAMPLE_IN_PROGRESS', // Back to production for revision
           concern_notes: concernMessage,
           qc_feedback: `Revision requested: ${concernMessage}`,
-          // Stay in qc_uploaded state, manufacturer needs to re-upload
           detailed_status: 'sample_in_production',
           sample_status: 'revision_requested',
+          state_updated_at: now,
           updated_at: now,
         })
         .eq('id', orderId);
@@ -338,9 +358,12 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
       await logOrderEvent(orderId, 'concern_raised', createQCActionMetadata('sample_revision_requested', order, {
         revision_reason: concernMessage,
         revision_timestamp: now,
+        previous_state: 'SAMPLE_QC_UPLOADED',
+        new_state: 'SAMPLE_IN_PROGRESS',
+        requested_by: 'buyer',
       }));
       
-      toast.info("Revision requested. Manufacturer will review and re-upload QC video.");
+      toast.info("Revision requested. Manufacturer will make changes and re-upload.");
       setShowConcernForm(false);
       setConcernMessage("");
       fetchOrder();
