@@ -18,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Camera, Video, Upload, XCircle, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { uploadOrderFile } from "@/lib/orderFileStorage";
 import { logOrderEvent } from "@/lib/orderEventLogger";
 
 interface ManufacturerQCUploadFormProps {
@@ -76,99 +75,236 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
     }
 
     setIsUploading(true);
+    
+    // Track upload results for rollback awareness
+    const uploadedImagePaths: string[] = [];
+    let uploadedVideoPath: string | null = null;
+    let legacyVideoPath: string | null = null;
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const fileType = stage === 'bulk' ? 'qc_bulk' : 'qc_sample';
-      const uploadedUrls: string[] = [];
 
-      // Upload all images
-      for (const image of images) {
-        const result = await uploadOrderFile(orderId, fileType, image, 'manufacturer');
-        if (result.success && result.fileUrl) {
-          uploadedUrls.push(result.fileUrl);
+      // ========================================
+      // STEP 1: Upload ALL images to storage FIRST
+      // ========================================
+      console.log(`[QC Upload] Starting upload of ${images.length} images...`);
+      
+      for (let i = 0; i < images.length; i++) {
+        const image = images[i];
+        const timestamp = Date.now();
+        const sanitizedName = image.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const imagePath = `${orderId}/${fileType}/${timestamp}_image_${i}_${sanitizedName}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('orders')
+          .upload(imagePath, image, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error(`[QC Upload] Image ${i + 1} upload failed:`, uploadError);
+          throw new Error(`Failed to upload image ${i + 1}: ${uploadError.message}`);
         }
+
+        if (!uploadData?.path) {
+          throw new Error(`Failed to upload image ${i + 1}: No path returned`);
+        }
+
+        uploadedImagePaths.push(uploadData.path);
+        console.log(`[QC Upload] Image ${i + 1}/${images.length} uploaded: ${uploadData.path}`);
+        
+        // Track in order_files table
+        await supabase.from('order_files').insert({
+          order_id: orderId,
+          file_type: fileType,
+          file_url: uploadData.path,
+          file_name: image.name,
+          uploaded_by: 'manufacturer',
+        });
       }
 
-      // Upload video if provided
+      // ========================================
+      // STEP 2: Upload video to storage (required for QC)
+      // ========================================
       if (video) {
-        const videoResult = await uploadOrderFile(orderId, fileType, video, 'manufacturer');
-        if (videoResult.success && videoResult.fileUrl) {
-          uploadedUrls.push(videoResult.fileUrl);
+        console.log('[QC Upload] Uploading video...');
+        const timestamp = Date.now();
+        const sanitizedName = video.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const videoPath = `${orderId}/${fileType}/${timestamp}_video_${sanitizedName}`;
+
+        const { data: videoData, error: videoError } = await supabase.storage
+          .from('orders')
+          .upload(videoPath, video, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (videoError) {
+          console.error('[QC Upload] Video upload failed:', videoError);
+          throw new Error(`Failed to upload video: ${videoError.message}`);
         }
 
-        // Also upload to legacy bucket for backward compatibility
+        if (!videoData?.path) {
+          throw new Error('Failed to upload video: No path returned');
+        }
+
+        uploadedVideoPath = videoData.path;
+        console.log(`[QC Upload] Video uploaded: ${videoData.path}`);
+
+        // Track in order_files table
+        await supabase.from('order_files').insert({
+          order_id: orderId,
+          file_type: fileType,
+          file_url: videoData.path,
+          file_name: video.name,
+          uploaded_by: 'manufacturer',
+        });
+
+        // Also upload to legacy qc-videos bucket for backward compatibility
         const fileExt = video.name.split('.').pop();
-        const filePath = `${user.id}/${orderId}.${fileExt}`;
-        await supabase.storage
+        legacyVideoPath = `${user.id}/${orderId}.${fileExt}`;
+        
+        const { error: legacyError } = await supabase.storage
           .from('qc-videos')
-          .upload(filePath, video, { upsert: true });
+          .upload(legacyVideoPath, video, { upsert: true });
+
+        if (legacyError) {
+          console.warn('[QC Upload] Legacy video upload warning:', legacyError);
+          // Non-fatal - continue with main flow
+        }
       }
 
+      // ========================================
+      // STEP 3: Generate signed URLs for verification
+      // ========================================
+      console.log('[QC Upload] Generating signed URLs for verification...');
+      
+      const signedImageUrls: string[] = [];
+      for (const imagePath of uploadedImagePaths) {
+        const { data: signedData, error: signedError } = await supabase.storage
+          .from('orders')
+          .createSignedUrl(imagePath, 3600);
+        
+        if (signedError || !signedData?.signedUrl) {
+          console.error('[QC Upload] Failed to generate signed URL for image:', imagePath);
+          throw new Error('Failed to verify uploaded image - cannot generate access URL');
+        }
+        signedImageUrls.push(signedData.signedUrl);
+      }
+
+      let signedVideoUrl: string | null = null;
+      if (uploadedVideoPath) {
+        const { data: signedData, error: signedError } = await supabase.storage
+          .from('orders')
+          .createSignedUrl(uploadedVideoPath, 3600);
+        
+        if (signedError || !signedData?.signedUrl) {
+          console.error('[QC Upload] Failed to generate signed URL for video:', uploadedVideoPath);
+          throw new Error('Failed to verify uploaded video - cannot generate access URL');
+        }
+        signedVideoUrl = signedData.signedUrl;
+      }
+
+      console.log('[QC Upload] All files verified with signed URLs');
+
+      // ========================================
+      // STEP 4: Insert QC record with storage paths
+      // ========================================
       const now = new Date().toISOString();
 
-      // Insert QC record - Manufacturer only uploads, no decision
+      // Combine all paths for file_urls (storage paths, not signed URLs)
+      const allFilePaths = [...uploadedImagePaths];
+      if (uploadedVideoPath) {
+        allFilePaths.push(uploadedVideoPath);
+      }
+
       const { error: qcError } = await supabase
         .from('order_qc')
         .insert({
           order_id: orderId,
           stage,
-          defect_type: null, // Manufacturer does not assess defects
+          defect_type: null,
           defect_severity: null,
-          decision: 'pending_buyer_review', // Buyer will decide
+          decision: 'pending_buyer_review',
           reason_code: null,
           reviewer: 'manufacturer',
           reviewer_id: user.id,
           notes: notes || null,
-          file_urls: uploadedUrls,
+          file_urls: allFilePaths,
           admin_decision: 'pending',
           created_at: now,
         });
 
-      if (qcError) throw qcError;
+      if (qcError) {
+        console.error('[QC Upload] Failed to insert QC record:', qcError);
+        throw new Error(`Failed to save QC record: ${qcError.message}`);
+      }
 
-      // Update order status - Transition to SAMPLE_QC_UPLOADED
-      // UPDATED: Works from PAYMENT_CONFIRMED or SAMPLE_IN_PROGRESS states
+      console.log('[QC Upload] QC record inserted successfully');
+
+      // ========================================
+      // STEP 5: Update order state to SAMPLE_QC_UPLOADED
+      // ========================================
       const updateData: Record<string, any> = {
         status: 'qc_uploaded',
         detailed_status: 'qc_uploaded',
         qc_uploaded_at: now,
+        qc_files: allFilePaths,
         updated_at: now,
       };
 
       if (stage === 'sample') {
-        // Sample QC: transition to SAMPLE_QC_UPLOADED
-        // This is valid from PAYMENT_CONFIRMED or SAMPLE_IN_PROGRESS
         updateData.order_state = 'SAMPLE_QC_UPLOADED';
         updateData.sample_status = 'qc_uploaded';
         updateData.sample_qc_uploaded_at = now;
+        updateData.sample_qc_video_url = uploadedVideoPath;
         updateData.state_updated_at = now;
       } else {
-        // Bulk QC
         updateData.order_state = 'BULK_QC_UPLOADED';
         updateData.bulk_status = 'qc_uploaded';
         updateData.bulk_qc_uploaded_at = now;
+        updateData.bulk_qc_video_url = uploadedVideoPath;
         updateData.state_updated_at = now;
       }
 
-      const { error: orderError } = await supabase
+      // Use .select() to verify update succeeded
+      const { data: updatedOrder, error: orderError } = await supabase
         .from('orders')
         .update(updateData)
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .select('order_state, qc_files')
+        .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('[QC Upload] Failed to update order state:', orderError);
+        throw new Error(`Failed to update order: ${orderError.message}`);
+      }
 
-      // Log event
+      if (!updatedOrder || updatedOrder.order_state !== updateData.order_state) {
+        console.error('[QC Upload] Order state update verification failed:', updatedOrder);
+        throw new Error('Order state update failed - please refresh and try again');
+      }
+
+      console.log('[QC Upload] Order state updated successfully:', updatedOrder.order_state);
+
+      // ========================================
+      // STEP 6: Log event and notify buyer
+      // ========================================
       await logOrderEvent(orderId, 'qc_uploaded', {
         stage,
-        file_count: uploadedUrls.length,
+        image_count: uploadedImagePaths.length,
+        has_video: !!uploadedVideoPath,
+        image_paths: uploadedImagePaths,
+        video_path: uploadedVideoPath,
         uploaded_by: 'manufacturer',
         awaiting_buyer_review: true,
         timestamp: now,
       });
 
-      // Notify buyer that QC is ready for review
       const { data: orderData } = await supabase
         .from('orders')
         .select('buyer_id, product_type')
@@ -176,22 +312,23 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
         .single();
 
       if (orderData) {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: orderData.buyer_id,
-            order_id: orderId,
-            type: 'qc_ready_for_review',
-            title: `${stage === 'sample' ? 'Sample' : 'Bulk'} Ready for Your Review`,
-            message: `The manufacturer has uploaded QC proof for your ${orderData.product_type} order. Please review and approve or reject.`,
-          });
+        await supabase.from('notifications').insert({
+          user_id: orderData.buyer_id,
+          order_id: orderId,
+          type: 'qc_ready_for_review',
+          title: `${stage === 'sample' ? 'Sample' : 'Bulk'} Ready for Your Review`,
+          message: `The manufacturer has uploaded QC proof for your ${orderData.product_type} order. Please review and approve or reject.`,
+        });
       }
 
       toast.success("Sample submitted for buyer review!");
       onUploadComplete();
     } catch (error: any) {
-      console.error('Error uploading QC:', error);
+      console.error('[QC Upload] Error:', error);
       toast.error(error.message || "Failed to upload QC");
+      
+      // Note: We don't delete uploaded files on failure - they can be reused
+      // The order state was never changed, so the upload can be retried
     } finally {
       setIsUploading(false);
     }
