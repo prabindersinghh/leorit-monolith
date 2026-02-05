@@ -8,12 +8,13 @@ import OrderChat from "@/components/OrderChat";
 import DeliveryTrackingInfo from "@/components/DeliveryTrackingInfo";
 import OrderCostBreakdown from "@/components/OrderCostBreakdown";
 import OrderModeInfoBanner from "@/components/OrderModeInfoBanner";
+import SampleQCReview from "@/components/SampleQCReview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import BuyerPaymentGate from "@/components/BuyerPaymentGate";
-import { FileText, Package, MapPin, CreditCard, Info, AlertTriangle, ExternalLink, Video, Image as ImageIcon } from "lucide-react";
+import { FileText, Package, MapPin, CreditCard, Info, AlertTriangle, ExternalLink, Video, Image as ImageIcon, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { getBuyerDisplayStatus, isAwaitingReview } from "@/lib/buyerStatusLabels";
 
@@ -355,7 +356,34 @@ const OrderDetails = () => {
             </>
           )}
 
-          {/* QC Media from order_qc table */}
+          {/* Sample QC Review Section - Shows when order is in QC review state */}
+          {(order.order_state === 'SAMPLE_QC_UPLOADED' || 
+            order.order_state === 'BULK_QC_UPLOADED' ||
+            order.detailed_status === 'qc_uploaded' ||
+            order.sample_status === 'qc_uploaded') && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <CheckCircle className="h-5 w-5" />
+                  Review Sample QC
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Alert className="mb-4 border-blue-200 bg-blue-50">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800">
+                    The manufacturer has uploaded QC proof. Please review the images and video below, then approve or request changes.
+                  </AlertDescription>
+                </Alert>
+                <SampleQCReview 
+                  orderId={order.id} 
+                  onStatusChange={() => fetchOrderDetails()} 
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* QC Media from order_qc table - Display only (for reference) */}
           {qcMediaUrls.length > 0 && (
             <Card>
               <CardHeader>
