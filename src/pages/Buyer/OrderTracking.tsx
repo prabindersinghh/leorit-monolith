@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import DataTable from "@/components/DataTable";
 import SampleQCReview from "@/components/SampleQCReview";
@@ -20,9 +21,43 @@ import { PAYMENT_CONSTANTS } from "@/lib/orderStatusConstants";
 import { format, parseISO } from "date-fns";
 
 const OrderTracking = () => {
+  const navigate = useNavigate();
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  /**
+   * Check if order is in a QC review state where buyer should see QC media
+   * Routes to dedicated OrderDetails page for full QC review experience
+   */
+  const isQCReviewState = (order: any): boolean => {
+    const qcStates = [
+      'SAMPLE_QC_UPLOADED',
+      'BULK_QC_UPLOADED',
+    ];
+    const qcDetailedStatuses = [
+      'qc_uploaded',
+      'sample_qc_uploaded',
+      'bulk_qc_uploaded',
+    ];
+    return qcStates.includes(order.order_state) || 
+           qcDetailedStatuses.includes(order.detailed_status) ||
+           order.sample_status === 'qc_uploaded';
+  };
+
+  /**
+   * Handle view action - routes to OrderDetails for QC orders, 
+   * otherwise expands inline view
+   */
+  const handleViewOrder = (orderId: string, order: any) => {
+    if (isQCReviewState(order)) {
+      // Navigate to full OrderDetails page for QC review
+      navigate(`/buyer/order/${orderId}`);
+    } else {
+      // Use inline expansion for non-QC orders
+      setSelectedOrder(orderId);
+    }
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -284,15 +319,24 @@ const OrderTracking = () => {
         const currentStatus = row.detailed_status as OrderDetailedStatus;
         const displayStatus = getBuyerDisplayStatus(row);
         
+        // Check if this order needs QC review
+        const needsQCReview = 
+          row.order_state === 'SAMPLE_QC_UPLOADED' ||
+          row.order_state === 'BULK_QC_UPLOADED' ||
+          row.detailed_status === 'qc_uploaded' ||
+          row.sample_status === 'qc_uploaded';
+        
         return (
           <div className="flex gap-2">
             <Button 
-              variant="ghost" 
+              variant={needsQCReview ? "default" : "ghost"}
               size="sm"
-              onClick={() => setSelectedOrder(value)}
-              title="View Details"
+              onClick={() => handleViewOrder(value, row)}
+              title={needsQCReview ? "Review QC & Approve Sample" : "View Details"}
+              className={needsQCReview ? "bg-primary hover:bg-primary/90" : ""}
             >
               <Eye className="w-4 h-4" />
+              {needsQCReview && <span className="ml-1">Review QC</span>}
             </Button>
             {/* Show Pay Now button when order is approved and has payment link */}
             {displayStatus.showPayNow && row.payment_link && (
