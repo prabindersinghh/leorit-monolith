@@ -13,14 +13,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import BuyerPaymentGate from "@/components/BuyerPaymentGate";
-import { FileText, Package, MapPin, CreditCard, Info, AlertTriangle, ExternalLink } from "lucide-react";
+import { FileText, Package, MapPin, CreditCard, Info, AlertTriangle, ExternalLink, Video, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { getBuyerDisplayStatus, isAwaitingReview } from "@/lib/buyerStatusLabels";
+
+interface QCMediaItem {
+  url: string;
+  isVideo: boolean;
+}
 
 const OrderDetails = () => {
   const { id } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [shippingInfo, setShippingInfo] = useState<any>(null);
+  const [qcData, setQcData] = useState<any>(null);
+  const [qcMediaUrls, setQcMediaUrls] = useState<QCMediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState("");
 
@@ -32,6 +39,26 @@ const OrderDetails = () => {
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) setCurrentUserId(user.id);
+  };
+
+  /**
+   * Generate signed URL for a storage path
+   */
+  const getSignedUrl = async (storagePath: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('orders')
+        .createSignedUrl(storagePath, 3600); // 1 hour expiry
+      
+      if (error) {
+        console.error('Error generating signed URL:', error);
+        return null;
+      }
+      return data?.signedUrl || null;
+    } catch (err) {
+      console.error('Failed to get signed URL:', err);
+      return null;
+    }
   };
 
   const fetchOrderDetails = async () => {
@@ -53,8 +80,37 @@ const OrderDetails = () => {
       .eq("order_id", id)
       .single();
 
+    // Fetch QC data from order_qc table
+    const { data: qcDetails, error: qcError } = await supabase
+      .from("order_qc")
+      .select("*")
+      .eq("order_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (qcError) {
+      console.error("Error fetching QC details:", qcError);
+    }
+
+    // Generate signed URLs for QC files if they exist
+    if (qcDetails?.file_urls && Array.isArray(qcDetails.file_urls)) {
+      const mediaItems: QCMediaItem[] = [];
+      
+      for (const filePath of qcDetails.file_urls) {
+        const signedUrl = await getSignedUrl(filePath);
+        if (signedUrl) {
+          const isVideo = /\.(mp4|mov|webm|quicktime)$/i.test(filePath);
+          mediaItems.push({ url: signedUrl, isVideo });
+        }
+      }
+      
+      setQcMediaUrls(mediaItems);
+    }
+
     setOrder(orderData);
     setShippingInfo(shippingData);
+    setQcData(qcDetails);
     setLoading(false);
   };
 
@@ -299,16 +355,67 @@ const OrderDetails = () => {
             </>
           )}
 
-          {order.qc_files && order.qc_files.length > 0 && (
+          {/* QC Media from order_qc table */}
+          {qcMediaUrls.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>QC Video</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="h-5 w-5" />
+                  Sample QC Media
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <video controls className="w-full max-w-2xl mx-auto rounded">
-                  <source src={order.qc_files[0]} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
+              <CardContent className="space-y-6">
+                {/* Videos first */}
+                {qcMediaUrls.filter(m => m.isVideo).map((media, index) => (
+                  <div key={`video-${index}`} className="space-y-2">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Video className="h-4 w-4" />
+                      QC Video {qcMediaUrls.filter(m => m.isVideo).length > 1 ? index + 1 : ''}
+                    </p>
+                    <video 
+                      controls 
+                      className="w-full max-w-2xl mx-auto rounded-lg border bg-black"
+                    >
+                      <source src={media.url} type="video/mp4" />
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                ))}
+                
+                {/* Images grid */}
+                {qcMediaUrls.filter(m => !m.isVideo).length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <ImageIcon className="h-4 w-4" />
+                      QC Images ({qcMediaUrls.filter(m => !m.isVideo).length})
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {qcMediaUrls.filter(m => !m.isVideo).map((media, index) => (
+                        <a 
+                          key={`image-${index}`}
+                          href={media.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group"
+                        >
+                          <img
+                            src={media.url}
+                            alt={`QC Image ${index + 1}`}
+                            className="w-full h-40 object-cover rounded-lg border transition-transform group-hover:scale-105"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* QC Notes from manufacturer */}
+                {qcData?.notes && (
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-muted-foreground mb-1">Manufacturer Notes:</p>
+                    <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{qcData.notes}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
