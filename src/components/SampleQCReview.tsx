@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, AlertCircle, Play, RotateCcw } from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle, Play, RotateCcw, Video, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { canTransitionTo, getActionLabel, OrderDetailedStatus, isSampleOrder, canStartBulkProduction } from "@/lib/orderStateMachine";
@@ -18,6 +18,12 @@ import {
   createQCTimestamp,
   createQCActionMetadata 
 } from "@/lib/sampleQCWorkflow";
+
+interface QCMediaItem {
+  url: string;
+  isVideo: boolean;
+}
+
 interface SampleQCReviewProps {
   orderId: string;
   onStatusChange?: () => void;
@@ -31,21 +37,75 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   const [concernMessage, setConcernMessage] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [structuredFeedback, setStructuredFeedback] = useState("");
+  // QC data from order_qc table
+  const [qcData, setQcData] = useState<any>(null);
+  const [qcMediaUrls, setQcMediaUrls] = useState<QCMediaItem[]>([]);
 
   useEffect(() => {
     fetchOrder();
   }, [orderId]);
 
+  /**
+   * Generate signed URL for a storage path in 'orders' bucket
+   */
+  const getSignedUrl = async (storagePath: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('orders')
+        .createSignedUrl(storagePath, 3600); // 1 hour expiry
+      
+      if (error) {
+        console.error('[SampleQCReview] Error generating signed URL:', error);
+        return null;
+      }
+      return data?.signedUrl || null;
+    } catch (err) {
+      console.error('[SampleQCReview] Failed to get signed URL:', err);
+      return null;
+    }
+  };
+
   const fetchOrder = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch order data
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select('*')
         .eq('id', orderId)
         .single();
 
-      if (error) throw error;
-      setOrder(data);
+      if (orderError) throw orderError;
+      setOrder(orderData);
+
+      // Fetch QC data from order_qc table (relational join via order_id)
+      const { data: qcDetails, error: qcError } = await supabase
+        .from('order_qc')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (qcError) {
+        console.error('[SampleQCReview] Error fetching QC details:', qcError);
+      }
+
+      setQcData(qcDetails);
+
+      // Generate signed URLs for QC files if they exist
+      if (qcDetails?.file_urls && Array.isArray(qcDetails.file_urls)) {
+        const mediaItems: QCMediaItem[] = [];
+        
+        for (const filePath of qcDetails.file_urls) {
+          const signedUrl = await getSignedUrl(filePath);
+          if (signedUrl) {
+            const isVideo = /\.(mp4|mov|webm|quicktime)$/i.test(filePath);
+            mediaItems.push({ url: signedUrl, isVideo });
+          }
+        }
+        
+        setQcMediaUrls(mediaItems);
+      }
     } catch (error) {
       console.error('Error fetching order:', error);
       toast.error('Failed to load order details');
@@ -389,22 +449,24 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
   }
 
   const status = order.detailed_status as OrderDetailedStatus || 'created';
-  const videoUrl = order.qc_video_url;
-  const qcFiles = order.qc_files || [];
   
-  // Show QC review interface when detailed_status is qc_uploaded
-  const showQCReview = status === 'qc_uploaded';
-  const latestVideo = qcFiles.length > 0 ? qcFiles[qcFiles.length - 1] : videoUrl;
+  // Check if QC media is available from order_qc table
+  const hasQCMedia = qcMediaUrls.length > 0;
+  const qcVideos = qcMediaUrls.filter(m => m.isVideo);
+  const qcImages = qcMediaUrls.filter(m => !m.isVideo);
+  
+  // Show QC review interface when detailed_status is qc_uploaded and we have media
+  const showQCReview = status === 'qc_uploaded' && hasQCMedia;
 
   return (
     <div className="bg-card border border-border rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-foreground">Sample QC Review - {orderId}</h3>
+        <h3 className="text-lg font-semibold text-foreground">Sample QC Review - {orderId.slice(0, 8)}</h3>
         <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-          status === 'sample_approved_by_buyer' ? "bg-green-100 text-green-700" :
-          status === 'sample_rejected_by_buyer' ? "bg-red-100 text-red-700" :
-          status === 'qc_uploaded' ? "bg-yellow-100 text-yellow-700" :
-          "bg-gray-100 text-gray-700"
+          status === 'sample_approved_by_buyer' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+          status === 'sample_rejected_by_buyer' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+          status === 'qc_uploaded' ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
+          "bg-muted text-muted-foreground"
         }`}>
           {status === 'qc_uploaded' ? "Awaiting Review" : 
            status === 'sample_approved_by_buyer' ? "Approved" :
@@ -413,43 +475,69 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
         </div>
       </div>
 
-      {showQCReview && latestVideo ? (
-        <div className="space-y-4">
-          <div className="aspect-video bg-black rounded-lg overflow-hidden">
-            <video 
-              controls 
-              className="w-full h-full"
-              src={latestVideo}
-            >
-              Your browser does not support the video tag.
-            </video>
-          </div>
+      {/* No QC media available message */}
+      {status === 'qc_uploaded' && !hasQCMedia && (
+        <div className="p-4 bg-muted rounded-lg text-center">
+          <p className="text-muted-foreground">Loading QC media...</p>
+          <p className="text-xs text-muted-foreground mt-1">If this persists, the manufacturer may not have uploaded QC proof yet.</p>
+        </div>
+      )}
 
-          {/* Show all QC files if multiple */}
-          {qcFiles.length > 1 && (
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm font-medium mb-2">All QC Videos ({qcFiles.length})</p>
-              <div className="flex flex-wrap gap-2">
-                {qcFiles.map((fileUrl: string, index: number) => (
+      {showQCReview && (
+        <div className="space-y-4">
+          {/* QC Videos */}
+          {qcVideos.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium flex items-center gap-1">
+                <Video className="h-4 w-4" />
+                QC Video{qcVideos.length > 1 ? 's' : ''} ({qcVideos.length})
+              </p>
+              {qcVideos.map((media, index) => (
+                <div key={`video-${index}`} className="aspect-video bg-black rounded-lg overflow-hidden">
+                  <video 
+                    controls 
+                    className="w-full h-full"
+                  >
+                    <source src={media.url} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* QC Images Gallery */}
+          {qcImages.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium flex items-center gap-1">
+                <ImageIcon className="h-4 w-4" />
+                QC Images ({qcImages.length})
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {qcImages.map((media, index) => (
                   <a 
-                    key={index}
-                    href={fileUrl}
+                    key={`image-${index}`}
+                    href={media.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs px-2 py-1 bg-background rounded hover:bg-accent"
+                    className="group"
                   >
-                    Video {index + 1}
+                    <img
+                      src={media.url}
+                      alt={`QC Image ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border transition-transform group-hover:scale-105"
+                    />
                   </a>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Manufacturer notes */}
-          {order.qc_feedback && (
+          {/* Manufacturer notes from order_qc table */}
+          {qcData?.notes && (
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-sm font-medium mb-1">Manufacturer Notes</p>
-              <p className="text-sm text-muted-foreground">{order.qc_feedback}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{qcData.notes}</p>
             </div>
           )}
 
@@ -571,10 +659,13 @@ const SampleQCReview = ({ orderId, onStatusChange }: SampleQCReviewProps) => {
             </div>
           )}
         </div>
-      ) : (
-        <div className="aspect-video bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-border">
+      )}
+
+      {/* Fallback: No QC uploaded yet */}
+      {status !== 'qc_uploaded' && status !== 'sample_approved_by_buyer' && status !== 'sample_rejected_by_buyer' && (
+        <div className="aspect-video bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
           <div className="text-center">
-            <Play className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+            <Play className="w-12 h-12 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">
               Waiting for manufacturer to upload QC video
             </p>
