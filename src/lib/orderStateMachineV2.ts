@@ -49,13 +49,15 @@ export const ORDER_STATES: OrderState[] = [
 ];
 
 // Valid transitions map (mirrors server-side logic)
+// UPDATED: Allow sample QC upload directly after payment (no production start required)
 const VALID_TRANSITIONS: Record<OrderState, OrderState[]> = {
   DRAFT: ['SUBMITTED'],
   SUBMITTED: ['ADMIN_APPROVED'],
   ADMIN_APPROVED: ['MANUFACTURER_ASSIGNED'],
   MANUFACTURER_ASSIGNED: ['PAYMENT_REQUESTED'],
   PAYMENT_REQUESTED: ['PAYMENT_CONFIRMED'],
-  PAYMENT_CONFIRMED: ['SAMPLE_IN_PROGRESS', 'BULK_IN_PRODUCTION'], // Can go to sample or direct bulk
+  // SAMPLE QC workflow: Can upload sample QC directly after payment OR start production first
+  PAYMENT_CONFIRMED: ['SAMPLE_QC_UPLOADED', 'SAMPLE_IN_PROGRESS', 'BULK_IN_PRODUCTION'],
   SAMPLE_IN_PROGRESS: ['SAMPLE_QC_UPLOADED'],
   SAMPLE_QC_UPLOADED: ['SAMPLE_APPROVED', 'SAMPLE_IN_PROGRESS'], // Allow rejection loop
   SAMPLE_APPROVED: ['BULK_UNLOCKED', 'COMPLETED'], // Can complete if sample-only order
