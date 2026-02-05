@@ -129,6 +129,7 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
       if (qcError) throw qcError;
 
       // Update order status - Transition to SAMPLE_QC_UPLOADED
+      // UPDATED: Works from PAYMENT_CONFIRMED or SAMPLE_IN_PROGRESS states
       const updateData: Record<string, any> = {
         status: 'qc_uploaded',
         detailed_status: 'qc_uploaded',
@@ -137,11 +138,14 @@ const ManufacturerQCUploadForm = ({ orderId, stage, onUploadComplete }: Manufact
       };
 
       if (stage === 'sample') {
+        // Sample QC: transition to SAMPLE_QC_UPLOADED
+        // This is valid from PAYMENT_CONFIRMED or SAMPLE_IN_PROGRESS
         updateData.order_state = 'SAMPLE_QC_UPLOADED';
         updateData.sample_status = 'qc_uploaded';
         updateData.sample_qc_uploaded_at = now;
         updateData.state_updated_at = now;
       } else {
+        // Bulk QC
         updateData.order_state = 'BULK_QC_UPLOADED';
         updateData.bulk_status = 'qc_uploaded';
         updateData.bulk_qc_uploaded_at = now;

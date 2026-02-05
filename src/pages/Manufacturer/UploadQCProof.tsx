@@ -30,18 +30,43 @@ const UploadQCProof = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Fetch orders eligible for sample QC upload:
+      // - PAYMENT_CONFIRMED: Can upload sample QC directly after payment
+      // - SAMPLE_IN_PROGRESS: Traditional flow (production started)
+      // - Also include legacy status checks for backward compatibility
       const { data, error } = await supabase
         .from('orders')
         .select('*')
         .eq('manufacturer_id', user.id)
-        .in('sample_status', ['in_production', 'not_started'])
-        .eq('status', 'accepted');
+        .or(
+          'order_state.in.(PAYMENT_CONFIRMED,SAMPLE_IN_PROGRESS,BULK_IN_PRODUCTION),' +
+          'and(sample_status.in.(in_production,not_started),status.eq.accepted)'
+        );
 
       if (error) throw error;
-      setOrders(data || []);
       
-      if (!data || data.length === 0) {
-        console.log('No orders found for QC upload. Make sure you have accepted orders first.');
+      // Filter out orders that already have sample QC uploaded
+      const eligibleOrders = (data || []).filter(order => {
+        const state = order.order_state;
+        // Allow if in states before QC upload
+        if (state === 'PAYMENT_CONFIRMED' || state === 'SAMPLE_IN_PROGRESS') {
+          return true;
+        }
+        // Allow bulk QC upload if in production
+        if (state === 'BULK_IN_PRODUCTION') {
+          return true;
+        }
+        // Legacy check
+        if (order.status === 'accepted' && !order.sample_qc_uploaded_at) {
+          return true;
+        }
+        return false;
+      });
+      
+      setOrders(eligibleOrders);
+      
+      if (eligibleOrders.length === 0) {
+        console.log('No orders found for QC upload. Orders must be in PAYMENT_CONFIRMED or later state.');
       }
     } catch (error) {
       console.error('Error fetching orders:', error);

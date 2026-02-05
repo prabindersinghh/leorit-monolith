@@ -159,20 +159,42 @@ export function shouldShowStartBulkButton(order: {
 /**
  * Get manufacturer QC upload type based on order mode and current status
  * Returns which type of QC upload is expected/allowed
+ * 
+ * UPDATED: Allow sample QC upload directly after PAYMENT_CONFIRMED
+ * (no production start required)
  */
 export function getManufacturerQCUploadType(order: {
   order_mode?: OrderMode | null;
   order_intent?: string | null;
   quantity?: number;
   detailed_status?: string;
+  order_state?: string | null;
   sample_approved_at?: string | null;
+  sample_qc_uploaded_at?: string | null;
 }): 'sample' | 'bulk' | 'none' {
   const mode = getOrderMode(order);
   const status = order.detailed_status || 'created';
+  const orderState = order.order_state || '';
   
+  // NEW: Check order_state first for staged QC workflow
+  // Allow sample QC upload directly after payment confirmation
+  if (orderState === 'PAYMENT_CONFIRMED') {
+    // After payment, manufacturer can upload sample QC
+    return 'sample';
+  }
+  
+  if (orderState === 'SAMPLE_IN_PROGRESS') {
+    return 'sample';
+  }
+  
+  if (orderState === 'BULK_IN_PRODUCTION') {
+    return 'bulk';
+  }
+  
+  // Legacy status-based checks for backward compatibility
   if (mode === 'sample_only') {
     // Sample-only: only upload sample QC
-    if (status === 'sample_in_production') {
+    if (status === 'sample_in_production' || orderState === 'PAYMENT_CONFIRMED') {
       return 'sample';
     }
     return 'none';
