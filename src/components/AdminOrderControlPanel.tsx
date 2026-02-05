@@ -102,14 +102,23 @@ const AdminOrderControlPanel = ({ order, onUpdate }: AdminOrderControlPanelProps
   }, []);
 
   const fetchManufacturers = async () => {
-    // Get all verified/soft-onboarded manufacturers that are NOT paused
-    const { data: verifications } = await supabase
-      .from('manufacturer_verifications')
-      .select('user_id, company_name, city, state, capacity, verified, soft_onboarded, paused')
-      .or('verified.eq.true,soft_onboarded.eq.true');
-    
-    // Filter out paused manufacturers client-side for proper logic
-    const activeManufacturers = (verifications || []).filter(m => !m.paused);
+    // Use approved_manufacturers as the source of truth
+    // Only fetch manufacturers that have linked their auth account (have auth_user_id)
+    const { data } = await supabase
+      .from('approved_manufacturers')
+      .select('id, linked_user_id, company_name, city, state, capacity, verified')
+      .eq('verified', true)
+      .not('linked_user_id', 'is', null);
+
+    // Map to expected format with user_id being the auth user id (linked_user_id)
+    const activeManufacturers = (data || []).map(m => ({
+      user_id: m.linked_user_id,
+      company_name: m.company_name,
+      city: m.city,
+      state: m.state,
+      capacity: m.capacity,
+      verified: m.verified,
+    }));
     setManufacturers(activeManufacturers);
   };
 

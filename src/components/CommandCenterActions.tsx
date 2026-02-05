@@ -71,13 +71,22 @@ const CommandCenterActions = ({ order, manufacturers, onUpdate }: CommandCenterA
   }, []);
 
   const fetchManufacturers = async () => {
+    // Use approved_manufacturers as the source of truth
+    // Only fetch manufacturers that have linked their auth account
     const { data } = await supabase
-      .from('manufacturer_verifications')
-      .select('user_id, company_name, city, state, verified, soft_onboarded, paused')
-      .or('verified.eq.true,soft_onboarded.eq.true');
+      .from('approved_manufacturers')
+      .select('id, linked_user_id, company_name, city, state, verified')
+      .eq('verified', true)
+      .not('linked_user_id', 'is', null);
 
-    // Filter out paused manufacturers
-    const active = (data || []).filter(m => !m.paused);
+    // Map to expected format with user_id being the auth user id
+    const active = (data || []).map(m => ({
+      user_id: m.linked_user_id,
+      company_name: m.company_name,
+      city: m.city,
+      state: m.state,
+      verified: m.verified,
+    }));
     setAvailableManufacturers(active);
   };
 
