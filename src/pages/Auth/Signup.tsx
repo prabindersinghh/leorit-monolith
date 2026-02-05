@@ -18,83 +18,85 @@ const Signup = () => {
   const [selectedRole, setSelectedRole] = useState<"buyer" | "manufacturer">("buyer");
 
   /**
-   * Validate manufacturer email against whitelist
-   * Returns: { valid: boolean, manufacturerId?: string, error?: string }
+   * Check if manufacturer email is approved and not yet linked
    */
-  const validateManufacturerEmail = async (email: string): Promise<{
-    valid: boolean;
-    manufacturerId?: string;
+  const checkManufacturerApproval = async (email: string): Promise<{
+    approved: boolean;
     error?: string;
   }> => {
     const { data: manufacturer, error } = await supabase
-      .from('manufacturer_verifications')
-      .select('id, user_id, email')
+      .from('approved_manufacturers')
+      .select('id, email, verified, linked_user_id')
       .eq('email', email)
       .maybeSingle();
 
     if (error) {
-      console.error('[Signup] Error checking manufacturer whitelist:', error);
-      return { valid: false, error: 'Error validating manufacturer access.' };
+      console.error('[Signup] Error checking manufacturer approval:', error);
+      return { approved: false, error: 'Error validating manufacturer access.' };
     }
 
-    // Email not in whitelist
+    // Email not in approved list
     if (!manufacturer) {
       return { 
-        valid: false, 
-        error: 'This email is not approved for manufacturer access.' 
+        approved: false, 
+        error: 'This email is not approved for manufacturer access. Contact admin.' 
       };
     }
 
-    // Already activated (user_id exists)
-    if (manufacturer.user_id) {
+    // Not verified by admin
+    if (!manufacturer.verified) {
       return { 
-        valid: false, 
-        error: 'Manufacturer account already activated. Please login.' 
+        approved: false, 
+        error: 'Your manufacturer account is pending verification.' 
       };
     }
 
-    // Valid: email found, not yet linked
-    return { valid: true, manufacturerId: manufacturer.id };
+    // Already linked to a user account
+    if (manufacturer.linked_user_id) {
+      return { 
+        approved: false, 
+        error: 'This manufacturer account is already activated. Please login.' 
+      };
+    }
+
+    return { approved: true };
   };
 
   /**
    * Link manufacturer record to newly created user
    */
-  const linkManufacturerAccount = async (manufacturerId: string, userId: string) => {
+  const linkManufacturerAccount = async (email: string, userId: string) => {
     const { error } = await supabase
-      .from('manufacturer_verifications')
-      .update({ user_id: userId, status: 'approved' })
-      .eq('id', manufacturerId);
+      .from('approved_manufacturers')
+      .update({ linked_user_id: userId })
+      .eq('email', email);
 
     if (error) {
       console.error('[Signup] Error linking manufacturer account:', error);
-    } else {
-      console.log('[Signup] Successfully linked manufacturer account');
+      return false;
     }
+    
+    console.log('[Signup] Successfully linked manufacturer account');
+    return true;
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    let manufacturerId: string | undefined;
-
     try {
-      // MANUFACTURER WHITELIST CHECK
-      // Only runs if manufacturer role is selected
+      // MANUFACTURER APPROVAL CHECK
       if (selectedRole === "manufacturer") {
-        const validation = await validateManufacturerEmail(email);
+        const approval = await checkManufacturerApproval(email);
         
-        if (!validation.valid) {
-          toast.error(validation.error);
+        if (!approval.approved) {
+          toast.error(approval.error);
           setLoading(false);
           return;
         }
-        
-        manufacturerId = validation.manufacturerId;
       }
 
-      // SIGNUP - works for both buyer and manufacturer
+      // CREATE AUTH USER
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -109,12 +111,15 @@ const Signup = () => {
 
       if (error) throw error;
 
-      // POST-SIGNUP: Link manufacturer account if applicable
-      if (data.user && selectedRole === "manufacturer" && manufacturerId) {
-        await linkManufacturerAccount(manufacturerId, data.user.id);
+      // POST-SIGNUP: Link manufacturer account
+      if (data.user && selectedRole === "manufacturer") {
+        const linked = await linkManufacturerAccount(email, data.user.id);
+        if (!linked) {
+          console.warn('[Signup] Failed to link manufacturer, will retry on login');
+        }
       }
 
-      // Log signup event for both roles
+      // Log signup event
       if (data.user) {
         await logAuthEvent('signup', data.user.id, selectedRole, { 
           email, 
