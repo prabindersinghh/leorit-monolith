@@ -10,13 +10,60 @@ import { logAuthEvent } from "@/lib/systemLogger";
 
 // Hardcoded allowed emails for privileged roles
 const ALLOWED_ADMIN_EMAIL = "prabhsingh@leorit.ai";
-const ALLOWED_MANUFACTURER_EMAIL = "singhprabindersingh@gmail.com";
 
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  /**
+   * Auto-link manufacturer account on first login if not yet linked
+   */
+  const autoLinkManufacturer = async (userId: string, email: string) => {
+    const { data: manufacturer, error } = await supabase
+      .from('approved_manufacturers')
+      .select('id, linked_user_id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Login] Error checking manufacturer:', error);
+      return;
+    }
+
+    // If manufacturer exists but not linked, link now
+    if (manufacturer && !manufacturer.linked_user_id) {
+      const { error: updateError } = await supabase
+        .from('approved_manufacturers')
+        .update({ linked_user_id: userId })
+        .eq('id', manufacturer.id);
+
+      if (updateError) {
+        console.error('[Login] Error auto-linking manufacturer:', updateError);
+      } else {
+        console.log('[Login] Auto-linked manufacturer account');
+      }
+    }
+  };
+
+  /**
+   * Check if manufacturer is properly linked
+   */
+  const isManufacturerActive = async (userId: string): Promise<boolean> => {
+    const { data: manufacturer, error } = await supabase
+      .from('approved_manufacturers')
+      .select('id, linked_user_id, verified')
+      .eq('linked_user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Login] Error checking manufacturer status:', error);
+      return false;
+    }
+
+    return manufacturer !== null && manufacturer.verified === true;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +88,7 @@ const Login = () => {
         const userRole = roleData?.role || 'buyer';
         const userEmail = data.user.email;
         
-        // SECURITY: Validate privileged role access by email
+        // SECURITY: Validate admin access by email
         if (userRole === "admin" && userEmail !== ALLOWED_ADMIN_EMAIL) {
           await supabase.auth.signOut();
           await logAuthEvent('login_blocked', data.user.id, 'admin', { 
@@ -53,15 +100,23 @@ const Login = () => {
           return;
         }
         
-        if (userRole === "manufacturer" && userEmail !== ALLOWED_MANUFACTURER_EMAIL) {
-          await supabase.auth.signOut();
-          await logAuthEvent('login_blocked', data.user.id, 'manufacturer', { 
-            email: userEmail, 
-            reason: 'Manufacturer onboarding is currently closed' 
-          });
-          toast.error("Manufacturer onboarding is currently closed");
-          setLoading(false);
-          return;
+        // MANUFACTURER: Auto-link on first login + verify active status
+        if (userRole === "manufacturer") {
+          // Try to auto-link if not linked yet
+          await autoLinkManufacturer(data.user.id, userEmail || '');
+          
+          // Verify manufacturer is active (linked_user_id matches)
+          const isActive = await isManufacturerActive(data.user.id);
+          if (!isActive) {
+            await supabase.auth.signOut();
+            await logAuthEvent('login_blocked', data.user.id, 'manufacturer', { 
+              email: userEmail, 
+              reason: 'Manufacturer account not linked or not verified' 
+            });
+            toast.error("Manufacturer account not active. Contact admin.");
+            setLoading(false);
+            return;
+          }
         }
         
         // Log successful login

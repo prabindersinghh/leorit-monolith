@@ -32,27 +32,25 @@ const AddManufacturerForm = ({ onSuccess }: AddManufacturerFormProps) => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("manufacturer_verifications").insert({
+      // Insert into approved_manufacturers table
+      // linked_user_id is NULL - manufacturer will link on signup
+      const { error } = await supabase.from("approved_manufacturers").insert({
         company_name: formData.company_name,
-        email: formData.email, // Store email for identity mapping
-        location: `${formData.city}, ${formData.state}`,
+        email: formData.email,
+        verified: formData.verified,
+        linked_user_id: null, // Will be set when manufacturer signs up
         city: formData.city,
         state: formData.state,
         country: formData.country,
-        capacity: formData.capacity || "Not specified",
-        notes: formData.notes,
-        verified: formData.verified,
-        soft_onboarded: true,
-        status: "approved",
-        submitted_at: new Date().toISOString(),
-        reviewed_at: new Date().toISOString(),
+        capacity: formData.capacity || null,
+        notes: formData.notes || null,
       });
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Manufacturer added successfully",
+        description: "Manufacturer added. They can now create their account using this email.",
       });
 
       // Reset form
@@ -84,7 +82,7 @@ const AddManufacturerForm = ({ onSuccess }: AddManufacturerFormProps) => {
       <CardHeader>
         <CardTitle>Add New Manufacturer</CardTitle>
         <CardDescription>
-          Soft onboard a manufacturer for future order assignments
+          Approve a manufacturer email. They will create their own password during signup.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -111,6 +109,9 @@ const AddManufacturerForm = ({ onSuccess }: AddManufacturerFormProps) => {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
+              <p className="text-xs text-muted-foreground">
+                Manufacturer will use this email to create their account
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -171,7 +172,7 @@ const AddManufacturerForm = ({ onSuccess }: AddManufacturerFormProps) => {
                 setFormData({ ...formData, verified: checked })
               }
             />
-            <Label htmlFor="verified">Mark as Verified</Label>
+            <Label htmlFor="verified">Pre-approve for signup</Label>
           </div>
 
           <Button type="submit" disabled={loading} className="w-full">

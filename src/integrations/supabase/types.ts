@@ -52,6 +52,51 @@ export type Database = {
           },
         ]
       }
+      approved_manufacturers: {
+        Row: {
+          capacity: string | null
+          city: string | null
+          company_name: string
+          country: string | null
+          created_at: string | null
+          email: string
+          id: string
+          linked_user_id: string | null
+          notes: string | null
+          state: string | null
+          updated_at: string | null
+          verified: boolean
+        }
+        Insert: {
+          capacity?: string | null
+          city?: string | null
+          company_name: string
+          country?: string | null
+          created_at?: string | null
+          email: string
+          id?: string
+          linked_user_id?: string | null
+          notes?: string | null
+          state?: string | null
+          updated_at?: string | null
+          verified?: boolean
+        }
+        Update: {
+          capacity?: string | null
+          city?: string | null
+          company_name?: string
+          country?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          linked_user_id?: string | null
+          notes?: string | null
+          state?: string | null
+          updated_at?: string | null
+          verified?: boolean
+        }
+        Relationships: []
+      }
       disputes: {
         Row: {
           created_at: string | null
