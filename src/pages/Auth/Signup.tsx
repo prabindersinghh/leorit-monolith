@@ -63,12 +63,11 @@ const Signup = () => {
   const linkManufacturerAccount = async (manufacturerId: string, userId: string) => {
     const { error } = await supabase
       .from('manufacturer_verifications')
-      .update({ user_id: userId })
+      .update({ user_id: userId, status: 'approved' })
       .eq('id', manufacturerId);
 
     if (error) {
       console.error('[Signup] Error linking manufacturer account:', error);
-      // Don't throw - account is created, linking can happen on first login
     } else {
       console.log('[Signup] Successfully linked manufacturer account');
     }
