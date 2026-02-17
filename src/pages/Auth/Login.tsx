@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import logo from "@/assets/leorit-logo.png";
 import { logAuthEvent } from "@/lib/systemLogger";
+import { resolveAndSyncUserRole, getRoleDashboard } from "@/lib/resolveUserRole";
 
 // Hardcoded allowed emails for privileged roles
 const ALLOWED_ADMIN_EMAIL = "prabhsingh@leorit.ai";
@@ -78,18 +79,13 @@ const Login = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Get user role
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .single();
-
-        const userRole = roleData?.role || 'buyer';
-        const userEmail = data.user.email;
+        const userEmail = data.user.email || '';
         
-        // SECURITY: Validate admin access by email
-        if (userRole === "admin" && userEmail !== ALLOWED_ADMIN_EMAIL) {
+        // Resolve role from database allow-lists (admin → manufacturer → buyer)
+        const resolvedRole = await resolveAndSyncUserRole(data.user.id, userEmail);
+        
+        // SECURITY: Validate admin access by email (existing check preserved)
+        if (resolvedRole === "admin" && userEmail !== ALLOWED_ADMIN_EMAIL) {
           await supabase.auth.signOut();
           await logAuthEvent('login_blocked', data.user.id, 'admin', { 
             email: userEmail, 
@@ -100,12 +96,10 @@ const Login = () => {
           return;
         }
         
-        // MANUFACTURER: Auto-link on first login + verify active status
-        if (userRole === "manufacturer") {
-          // Try to auto-link if not linked yet
-          await autoLinkManufacturer(data.user.id, userEmail || '');
+        // MANUFACTURER: Auto-link on first login + verify active status (existing logic preserved)
+        if (resolvedRole === "manufacturer") {
+          await autoLinkManufacturer(data.user.id, userEmail);
           
-          // Verify manufacturer is active (linked_user_id matches)
           const isActive = await isManufacturerActive(data.user.id);
           if (!isActive) {
             await supabase.auth.signOut();
@@ -120,16 +114,12 @@ const Login = () => {
         }
         
         // Log successful login
-        await logAuthEvent('login', data.user.id, userRole as 'buyer' | 'manufacturer' | 'admin', { 
-          email: userEmail 
-        });
+        await logAuthEvent('login', data.user.id, resolvedRole, { email: userEmail });
         
         toast.success("Login successful!");
         
-        // Navigate based on role
-        if (userRole === "buyer") navigate("/buyer/dashboard");
-        else if (userRole === "manufacturer") navigate("/manufacturer/dashboard");
-        else if (userRole === "admin") navigate("/admin/dashboard");
+        // Navigate based on resolved role
+        navigate(getRoleDashboard(resolvedRole));
       }
     } catch (error: any) {
       toast.error(error.message || "Login failed");

@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import { resolveAndSyncUserRole, getRoleDashboard } from "@/lib/resolveUserRole";
 
 // Hardcoded allowed emails for privileged roles
 const ALLOWED_ADMIN_EMAIL = "prabhsingh@leorit.ai";
@@ -11,15 +12,6 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: string[];
 }
-
-const getRoleDashboard = (role: string | null): string => {
-  switch (role) {
-    case "admin": return "/admin/dashboard";
-    case "manufacturer": return "/manufacturer/dashboard";
-    case "buyer": return "/buyer/dashboard";
-    default: return "/login";
-  }
-};
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -42,7 +34,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       if (session) {
         // Use setTimeout to prevent Supabase deadlock
         setTimeout(() => {
-          fetchUserRole(session.user.id, session.user.email);
+          resolveRoleFromAllowList(session.user.id, session.user.email);
         }, 0);
       } else {
         setUserRole(null);
@@ -54,7 +46,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
-        fetchUserRole(session.user.id, session.user.email);
+        resolveRoleFromAllowList(session.user.id, session.user.email);
       } else {
         setLoading(false);
       }
@@ -63,26 +55,41 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserRole = async (userId: string, email: string | undefined) => {
+  /**
+   * Resolves role from database allow-lists and syncs to user_roles.
+   * Works for both email/password and Google OAuth users.
+   */
+  const resolveRoleFromAllowList = async (userId: string, email: string | undefined) => {
     try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .single();
+      if (!email) {
+        setUserRole(null);
+        setLoading(false);
+        return;
+      }
+
+      // Use centralized role resolution (admin → manufacturer → buyer)
+      const resolvedRole = await resolveAndSyncUserRole(userId, email);
       
-      const role = data?.role || null;
-      
-      // SECURITY: Admin email restriction
-      if (role === "admin" && email !== ALLOWED_ADMIN_EMAIL) {
+      // SECURITY: Admin email restriction (existing check preserved)
+      if (resolvedRole === "admin" && email !== ALLOWED_ADMIN_EMAIL) {
         await forceLogout("Admin access restricted");
         return;
       }
       
-      setUserRole(role);
+      setUserRole(resolvedRole);
     } catch (error) {
-      console.error('Error fetching user role:', error);
-      setUserRole(null);
+      console.error('Error resolving user role:', error);
+      // Fallback: try reading existing role from user_roles
+      try {
+        const { data } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .single();
+        setUserRole(data?.role || null);
+      } catch {
+        setUserRole(null);
+      }
     } finally {
       setLoading(false);
     }
