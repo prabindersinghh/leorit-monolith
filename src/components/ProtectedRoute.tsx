@@ -1,24 +1,31 @@
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
 // Hardcoded allowed emails for privileged roles
 const ALLOWED_ADMIN_EMAIL = "prabhsingh@leorit.ai";
-const ALLOWED_MANUFACTURER_EMAIL = "singhprabindersingh@gmail.com";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: string[];
 }
 
+const getRoleDashboard = (role: string | null): string => {
+  switch (role) {
+    case "admin": return "/admin/dashboard";
+    case "manufacturer": return "/manufacturer/dashboard";
+    case "buyer": return "/buyer/dashboard";
+    default: return "/login";
+  }
+};
+
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
-  const navigate = useNavigate();
 
   const forceLogout = async (message: string) => {
     await supabase.auth.signOut();
@@ -26,44 +33,29 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     setAccessDenied(true);
   };
 
-  const validateRoleAccess = (role: string | null, email: string | undefined) => {
-    if (!role || !email) return true; // Will be handled by other checks
-
-    // Admin role - only allow specific email
-    if (role === "admin" && email !== ALLOWED_ADMIN_EMAIL) {
-      forceLogout("Admin access restricted");
-      return false;
-    }
-
-    // Manufacturer role - only allow specific email
-    if (role === "manufacturer" && email !== ALLOWED_MANUFACTURER_EMAIL) {
-      forceLogout("Manufacturer access restricted");
-      return false;
-    }
-
-    return true;
-  };
-
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        fetchUserRole(session.user.id, session.user.email);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
+    // Set up auth state listener FIRST
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        fetchUserRole(session.user.id, session.user.email);
+        // Use setTimeout to prevent Supabase deadlock
+        setTimeout(() => {
+          fetchUserRole(session.user.id, session.user.email);
+        }, 0);
       } else {
         setUserRole(null);
+        setLoading(false);
+      }
+    });
+
+    // Then get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        fetchUserRole(session.user.id, session.user.email);
+      } else {
         setLoading(false);
       }
     });
@@ -81,9 +73,10 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       
       const role = data?.role || null;
       
-      // Validate role access based on email
-      if (role && !validateRoleAccess(role, email)) {
-        return; // Access denied, forceLogout already called
+      // SECURITY: Admin email restriction
+      if (role === "admin" && email !== ALLOWED_ADMIN_EMAIL) {
+        await forceLogout("Admin access restricted");
+        return;
       }
       
       setUserRole(role);
@@ -103,38 +96,13 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     );
   }
 
-  if (accessDenied) {
+  if (accessDenied || !session) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!session) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // Double-check role + email for protected routes
-  if (allowedRoles) {
-    const userEmail = session.user.email;
-    
-    // Check if trying to access admin routes
-    if (allowedRoles.includes('admin') && userRole === 'admin') {
-      if (userEmail !== ALLOWED_ADMIN_EMAIL) {
-        forceLogout("Admin access restricted");
-        return <Navigate to="/login" replace />;
-      }
-    }
-    
-    // Check if trying to access manufacturer routes
-    if (allowedRoles.includes('manufacturer') && userRole === 'manufacturer') {
-      if (userEmail !== ALLOWED_MANUFACTURER_EMAIL) {
-        forceLogout("Manufacturer access restricted");
-        return <Navigate to="/login" replace />;
-      }
-    }
-    
-    // Standard role check
-    if (userRole && !allowedRoles.includes(userRole)) {
-      return <Navigate to="/unauthorized" replace />;
-    }
+  // Role-based route guard: redirect to correct dashboard if wrong role
+  if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
+    return <Navigate to={getRoleDashboard(userRole)} replace />;
   }
 
   return <>{children}</>;
