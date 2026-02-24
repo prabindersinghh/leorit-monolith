@@ -32,10 +32,10 @@ const Homepage = () => {
       <section className="py-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6">
-            End-to-end manufacturing execution, without factory chaos.
+            Programmable manufacturing execution. Without factory chaos.
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-10">
-            Leorit.ai takes full responsibility for custom manufacturing orders — from specification locking and quality control to delivery coordination and payment release.
+            Leorit.ai standardizes and executes custom manufacturing through structured workflows — from specification locking and quality verification to delivery confirmation and transaction control.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link to="/buyer/start-order" onClick={() => trackBuyerCTAClick()}>
